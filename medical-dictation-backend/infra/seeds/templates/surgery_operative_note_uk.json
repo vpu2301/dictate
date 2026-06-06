@@ -1,0 +1,73 @@
+{
+  "code": "surgery_operative_note_uk",
+  "name": "Операційний протокол",
+  "language": "uk",
+  "specialty": "surgery",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "preop_diagnosis",
+      "name": "Передопераційний діагноз",
+      "voice_aliases": ["передопераційний діагноз", "діагноз до операції"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Передопераційний діагноз. МКХ-10. Показання до операції.",
+      "min_chars": 10,
+      "order": 0
+    },
+    {
+      "id": "operation_name",
+      "name": "Назва операції",
+      "voice_aliases": ["назва операції", "операція"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Повна назва оперативного втручання. Доступ. Об'єм втручання.",
+      "min_chars": 10,
+      "order": 1
+    },
+    {
+      "id": "anesthesia",
+      "name": "Анестезія",
+      "voice_aliases": ["анестезія", "наркоз"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Вид анестезії: загальна, спинальна, епідуральна, місцева. Анестезіолог. Препарати.",
+      "min_chars": 10,
+      "order": 2
+    },
+    {
+      "id": "procedure",
+      "name": "Хід операції",
+      "voice_aliases": ["хід операції", "розділ операція"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Хід оперативного втручання. Положення хворого, обробка операційного поля. Розріз, доступ. Інтраопераційні знахідки. Етапи: ревізія, мобілізація, резекція, реконструкція. Гемостаз. Дренаж. Шви.",
+      "min_chars": 100,
+      "order": 3
+    },
+    {
+      "id": "postop_diagnosis",
+      "name": "Післяопераційний діагноз",
+      "voice_aliases": ["післяопераційний діагноз", "діагноз після операції"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Післяопераційний діагноз. Уточнення на основі інтраопераційних знахідок. МКХ-10.",
+      "min_chars": 10,
+      "order": 4
+    },
+    {
+      "id": "specimen",
+      "name": "Препарат",
+      "voice_aliases": ["препарат", "матеріал"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Видалений препарат. Опис, розміри. Направлено на гістологію.",
+      "min_chars": 0,
+      "order": 5
+    }
+  ],
+  "metadata": {
+    "moh_order_ref": "MoH-110-surgery",
+    "fhir_template": "Composition/operative-note"
+  }
+}

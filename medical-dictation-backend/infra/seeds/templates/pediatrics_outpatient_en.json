@@ -1,0 +1,62 @@
+{
+  "code": "pediatrics_outpatient_en",
+  "name": "Pediatric Visit (Outpatient)",
+  "language": "en",
+  "specialty": "pediatrics",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "History",
+      "voice_aliases": ["history", "section history"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Pediatric history. Chief complaint. Course of illness. Past medical: birth history, vaccinations, prior illnesses, allergies. Family history.",
+      "min_chars": 30,
+      "order": 0
+    },
+    {
+      "id": "growth",
+      "name": "Anthropometry",
+      "voice_aliases": ["growth", "anthropometry"],
+      "required": false,
+      "field_type": "numeric_with_unit",
+      "asr_prompt": "Weight, height, head circumference. Growth percentiles. Developmental milestones for age.",
+      "min_chars": 0,
+      "order": 1
+    },
+    {
+      "id": "examination",
+      "name": "Physical Examination",
+      "voice_aliases": ["examination", "exam", "physical exam"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Pediatric examination. General appearance, alertness. Temperature, HR, RR, SpO2. Skin, mucous membranes. Throat. Lymph nodes. Heart and lung auscultation. Abdomen. Meningeal signs.",
+      "min_chars": 30,
+      "order": 2
+    },
+    {
+      "id": "diagnosis",
+      "name": "Diagnosis",
+      "voice_aliases": ["diagnosis"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Pediatric diagnosis. Primary, complications, comorbidities. ICD-10.",
+      "min_chars": 10,
+      "order": 3
+    },
+    {
+      "id": "plan",
+      "name": "Plan",
+      "voice_aliases": ["plan", "treatment plan"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Treatment plan. Medications dosed by weight + age. Activity. Diet. Caregiver guidance. Follow-up.",
+      "min_chars": 20,
+      "order": 4
+    }
+  ],
+  "metadata": {
+    "fhir_template": "DiagnosticReport/pediatric-visit"
+  }
+}

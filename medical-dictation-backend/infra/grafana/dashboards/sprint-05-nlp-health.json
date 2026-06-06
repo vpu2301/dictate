@@ -1,0 +1,93 @@
+{
+  "title": "Sprint 05 — NLP Health",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["sprint-05", "nlp", "post-processing"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-3h", "to": "now"},
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Per-stage latency p95 (ms)",
+      "id": 1,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(mdx_nlp_request_duration_ms_bucket[5m])))",
+          "legendFormat": "{{stage}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "End-to-end pipeline p50/p95",
+      "id": 2,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum by (le) (rate(mdx_nlp_request_duration_ms_bucket[5m])))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_nlp_request_duration_ms_bucket[5m])))", "legendFormat": "p95"},
+        {"expr": "200", "legendFormat": "alert threshold"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Voice commands per minute (by intent)",
+      "id": 3,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "sum by (intent) (rate(mdx_nlp_voice_commands_detected_total[1m])) * 60",
+          "legendFormat": "{{intent}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Voice command undo rate (1 h)",
+      "id": 4,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{"expr": "max_over_time(mdx_nlp_voice_command_undo_rate[1h])"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.02},
+              {"color": "red", "value": 0.05}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Punctuation fallback rate",
+      "id": 5,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [{"expr": "sum(rate(mdx_nlp_punctuation_fallback_total[5m]))"}]
+    },
+    {
+      "type": "stat",
+      "title": "Cache hit ratio",
+      "id": 6,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [{"expr": "avg(mdx_nlp_cache_hit_ratio)"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Rate-limit hits by scope",
+      "id": 7,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "targets": [{"expr": "sum by (scope) (rate(mdx_nlp_rate_limit_total[5m]))", "legendFormat": "{{scope}}"}]
+    },
+    {
+      "type": "stat",
+      "title": "Idempotence violations (24 h)",
+      "id": 8,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "targets": [{"expr": "increase(mdx_nlp_idempotence_violations_total[24h])"}]
+    }
+  ]
+}

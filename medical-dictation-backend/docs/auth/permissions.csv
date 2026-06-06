@@ -1,0 +1,102 @@
+role,action,target_kind,allowed,notes
+tenant_admin,tenant.read,tenant,true,sees own tenant settings
+tenant_admin,tenant.update,tenant,true,changes tenant settings
+tenant_admin,user.invite,user,true,invites users into own tenant
+tenant_admin,user.deactivate,user,true,soft-deactivate users in own tenant
+tenant_admin,user.reset_mfa,user,true,clears MFA enrolment (sprint 16+)
+tenant_admin,audit.read,audit,true,read audit trail
+tenant_admin,audit.verify,audit,true,run chain verification
+clinician,tenant.read,tenant,true,sees own tenant context
+clinician,tenant.update,tenant,false,no tenant write capability
+clinician,user.invite,user,false,no admin authority
+clinician,user.deactivate,user,false,no admin authority
+clinician,user.reset_mfa,user,false,no admin authority
+clinician,audit.read,audit,false,not an auditor
+clinician,audit.verify,audit,false,not an auditor
+nurse,tenant.read,tenant,true,sees own tenant context
+nurse,tenant.update,tenant,false,no tenant write capability
+nurse,user.invite,user,false,no admin authority
+nurse,user.deactivate,user,false,no admin authority
+nurse,user.reset_mfa,user,false,no admin authority
+nurse,audit.read,audit,false,not an auditor
+nurse,audit.verify,audit,false,not an auditor
+auditor,tenant.read,tenant,true,sees own tenant context
+auditor,tenant.update,tenant,false,read-only
+auditor,user.invite,user,false,read-only
+auditor,user.deactivate,user,false,read-only
+auditor,user.reset_mfa,user,false,read-only
+auditor,audit.read,audit,true,primary purpose
+auditor,audit.verify,audit,true,primary purpose
+service,tenant.read,tenant,false,S2S today has no user-facing perms
+service,tenant.update,tenant,false,
+service,user.invite,user,false,
+service,user.deactivate,user,false,
+service,user.reset_mfa,user,false,
+service,audit.read,audit,false,
+service,audit.verify,audit,false,
+tenant_admin,asr.write,asr_job,true,sprint 03 — submit batch ASR jobs
+tenant_admin,asr.read,asr_job,true,sprint 03 — read tenant's jobs
+tenant_admin,asr.cancel,asr_job,true,sprint 03 — cancel running/queued jobs
+clinician,asr.write,asr_job,true,sprint 03 — submit own ASR jobs
+clinician,asr.read,asr_job,true,sprint 03 — read own jobs
+clinician,asr.cancel,asr_job,true,sprint 03 — cancel own jobs
+nurse,asr.write,asr_job,true,sprint 03 — nurses submit ASR jobs
+nurse,asr.read,asr_job,true,sprint 03 — nurses read own jobs
+nurse,asr.cancel,asr_job,false,cancellations go through clinician/admin
+auditor,asr.write,asr_job,false,
+auditor,asr.read,asr_job,false,sprint 03 leaves ASR job reads out of audit role
+auditor,asr.cancel,asr_job,false,
+service,asr.write,asr_job,true,sprint 03 — asr-worker needs S2S writes (status, retry enqueue)
+service,asr.read,asr_job,true,sprint 03 — asr-worker reads own jobs to process them
+service,asr.cancel,asr_job,false,
+tenant_admin,dictation.start,dictation_session,true,sprint 04 — start streaming session
+tenant_admin,dictation.read,dictation_session,true,sprint 04 — read tenant's sessions
+tenant_admin,dictation.finalize,dictation_session,true,sprint 04 — force-finalize stuck session
+clinician,dictation.start,dictation_session,true,sprint 04 — start own session
+clinician,dictation.read,dictation_session,true,sprint 04 — read own session
+clinician,dictation.finalize,dictation_session,true,sprint 04 — finalize own session
+nurse,dictation.start,dictation_session,true,sprint 04
+nurse,dictation.read,dictation_session,true,sprint 04
+nurse,dictation.finalize,dictation_session,true,sprint 04
+auditor,dictation.start,dictation_session,false,
+auditor,dictation.read,dictation_session,false,
+auditor,dictation.finalize,dictation_session,false,
+service,dictation.start,dictation_session,false,user-only
+service,dictation.read,dictation_session,true,sprint 05 — NLP S2S reads transcripts
+service,dictation.finalize,dictation_session,false,
+tenant_admin,nlp.process,nlp_text,true,sprint 05 — invoke NLP pipeline
+clinician,nlp.process,nlp_text,true,sprint 05 — invoke NLP pipeline
+nurse,nlp.process,nlp_text,true,sprint 05 — invoke NLP pipeline
+service,nlp.process,nlp_text,true,sprint 05 — dictation-service + asr-service S2S
+auditor,nlp.process,nlp_text,false,
+tenant_admin,nlp.read.abbreviations,abbreviation,true,sprint 05 — read merged dictionary
+tenant_admin,nlp.write.abbreviations,abbreviation,true,sprint 05 — upsert/delete tenant rules
+clinician,nlp.read.abbreviations,abbreviation,true,sprint 05 — read merged dictionary
+clinician,nlp.write.abbreviations,abbreviation,false,tenant_admin only
+nurse,nlp.read.abbreviations,abbreviation,true,sprint 05
+nurse,nlp.write.abbreviations,abbreviation,false,tenant_admin only
+auditor,nlp.read.abbreviations,abbreviation,true,sprint 05 — auditors see policy
+auditor,nlp.write.abbreviations,abbreviation,false,
+service,nlp.read.abbreviations,abbreviation,true,sprint 05 — NLP pipeline reads via snapshot
+service,nlp.write.abbreviations,abbreviation,false,user-only
+tenant_admin,template.read,template,true,sprint 06 — read tenant + system templates
+tenant_admin,template.clone,template,true,sprint 06 — clone system into tenant
+tenant_admin,template.update,template,true,sprint 06 — cosmetic or structural edit
+tenant_admin,template.deprecate,template,true,sprint 06 — soft-delete tenant template
+clinician,template.read,template,true,sprint 06 — clinicians read for dictation
+clinician,template.clone,template,false,tenant_admin only
+clinician,template.update,template,false,tenant_admin only
+clinician,template.deprecate,template,false,tenant_admin only
+nurse,template.read,template,true,sprint 06
+nurse,template.clone,template,false,
+nurse,template.update,template,false,
+nurse,template.deprecate,template,false,
+auditor,template.read,template,true,sprint 06 — auditors see catalogue
+auditor,template.clone,template,false,
+auditor,template.update,template,false,
+auditor,template.deprecate,template,false,
+service,template.read,template,true,sprint 06 — dictation-service loads on session start
+service,template.clone,template,false,
+service,template.update,template,false,
+service,template.deprecate,template,false,
+

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env.local
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Secrets — never commit real secrets
+.env.local
+*.pem
+*.key
+secrets/
+
+# uv
+# Note: uv.lock IS committed (deterministic dependency resolution).
+# Only the build-time virtualenv is ignored; that's covered by `.venv/` above.

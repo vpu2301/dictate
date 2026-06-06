@@ -1,0 +1,23 @@
+# Each path picks up the latest matching owner. Earlier rules are overridden
+# by later ones, so order from general → specific.
+
+*                              @backend-tech-lead
+
+# Build / CI / infra
+/.github/                      @backend-tech-lead @sre-devops
+/infra/                        @sre-devops
+/docker-compose.yml            @sre-devops
+/Makefile                      @sre-devops
+/.pre-commit-config.yaml       @backend-tech-lead
+
+# Security-critical libs — pair-review enforced
+/libs/secret/                  @backend-tech-lead @security-lead
+/libs/db/                      @backend-tech-lead @security-lead
+/libs/observability/           @backend-tech-lead
+
+# Architectural decisions
+/docs/adr/                     @backend-tech-lead
+
+# Sprint-1 onboarding surface
+/README.md                     @backend-tech-lead
+/docs/onboarding.md            @backend-tech-lead

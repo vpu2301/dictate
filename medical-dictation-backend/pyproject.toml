@@ -1,0 +1,198 @@
+[tool.uv.workspace]
+members = ["services/*", "libs/*"]
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".venv", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "template_service",
+    "auth_service",
+    "asr_service",
+    "asr_worker",
+    "dictation_service",
+    "nlp_service",
+    "report_service",
+    "observability",
+    "auth",
+    "db",
+    "audit",
+    "messaging",
+    "secret",
+    "crypto",
+    "storage",
+    "asr_models",
+    "template_models",
+    "report_models",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+exclude = ["dist/", ".venv/"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]
+
+# ── import-linter ────────────────────────────────────────────────────
+# Architectural contracts: enforced in CI. Adding a new contract is fine;
+# relaxing an existing one requires an ADR amendment.
+[tool.importlinter]
+root_packages = [
+    "template_service",
+    "asr_service",
+    "asr_worker",
+    "dictation_service",
+    "nlp_service",
+    "report_service",
+    "observability",
+    "secret",
+    "auth",
+    "db",
+    "audit",
+    "messaging",
+    "crypto",
+    "storage",
+    "asr_models",
+    "template_models",
+    "report_models",
+]
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture in services: routers → domain, never reverse"
+type = "layers"
+layers = [
+    "template_service.routers",
+    "template_service.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "asr-service: routers → domain → adapters; reverse forbidden"
+type = "layers"
+layers = [
+    "asr_service.routers",
+    "asr_service.domain",
+    "asr_service.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "dictation-service: routers / ws → session / inference / audio → adapters"
+type = "layers"
+layers = [
+    "dictation_service.routers",
+    "dictation_service.ws",
+    "dictation_service.session",
+    "dictation_service.inference",
+    "dictation_service.audio",
+    "dictation_service.protocol",
+    "dictation_service.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "nlp-service: api → pipeline → stages; reverse forbidden"
+type = "layers"
+layers = [
+    "nlp_service.api",
+    "nlp_service.routers",
+    "nlp_service.pipeline",
+    "nlp_service.stages",
+    "nlp_service.domain",
+    "nlp_service.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "report-service: routers → domain → adapters; reverse forbidden"
+type = "layers"
+layers = [
+    "report_service.routers",
+    "report_service.domain",
+    "report_service.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "template_models is a leaf — pure Pydantic types"
+type = "forbidden"
+source_modules = ["template_models"]
+forbidden_modules = [
+    "observability", "secret", "auth", "db", "audit", "messaging",
+    "crypto", "storage", "asr_models", "report_models",
+]
+
+[[tool.importlinter.contracts]]
+name = "report_models is a leaf — pure Pydantic types"
+type = "forbidden"
+source_modules = ["report_models"]
+forbidden_modules = [
+    "observability", "secret", "auth", "db", "audit", "messaging",
+    "crypto", "storage", "asr_models", "template_models",
+]
+
+[[tool.importlinter.contracts]]
+name = "Libs may not import services"
+type = "forbidden"
+source_modules = [
+    "observability",
+    "secret",
+    "auth",
+    "db",
+    "audit",
+    "messaging",
+    "crypto",
+    "storage",
+    "asr_models",
+    "template_models",
+    "report_models",
+]
+forbidden_modules = [
+    "template_service",
+    "asr_service",
+    "asr_worker",
+    "dictation_service",
+    "nlp_service",
+    "report_service",
+]
+
+[[tool.importlinter.contracts]]
+name = "observability is a leaf — it must not depend on other internal libs"
+type = "forbidden"
+source_modules = ["observability"]
+forbidden_modules = [
+    "secret", "auth", "db", "audit", "messaging", "crypto", "storage", "asr_models",
+]
+
+[[tool.importlinter.contracts]]
+name = "secret is a leaf — it must not depend on other internal libs"
+type = "forbidden"
+source_modules = ["secret"]
+forbidden_modules = [
+    "observability", "auth", "db", "audit", "messaging", "crypto", "storage", "asr_models",
+]
+
+[[tool.importlinter.contracts]]
+name = "asr_models is a leaf — pure Pydantic types"
+type = "forbidden"
+source_modules = ["asr_models"]
+forbidden_modules = [
+    "observability", "secret", "auth", "db", "audit", "messaging", "crypto", "storage",
+]
+
+[[tool.importlinter.contracts]]
+name = "crypto must not depend on storage or messaging"
+type = "forbidden"
+source_modules = ["crypto"]
+forbidden_modules = ["storage", "messaging", "audit", "auth", "db", "observability"]
+
+[[tool.importlinter.contracts]]
+name = "storage layers on crypto only — not auth/audit/db"
+type = "forbidden"
+source_modules = ["storage"]
+forbidden_modules = ["auth", "audit", "db", "messaging", "observability"]

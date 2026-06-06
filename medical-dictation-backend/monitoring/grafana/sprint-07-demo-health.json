@@ -1,0 +1,71 @@
+{
+  "title": "HF Space Demo Health (sprint-07)",
+  "uid": "sprint-07-demo-health",
+  "schemaVersion": 39,
+  "tags": ["sprint-07", "demo", "hf-space"],
+  "timezone": "utc",
+  "refresh": "1m",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Space health",
+      "targets": [{"expr": "mdx_hf_space_health"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}, "type": "value"}
+          ]
+        }
+      },
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Daily privacy test",
+      "targets": [{"expr": "mdx_demo_privacy_test_passed"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"options": {"0": {"text": "FAIL", "color": "red"}, "1": {"text": "PASS", "color": "green"}}, "type": "value"}
+          ]
+        }
+      },
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Privacy test last run",
+      "targets": [{"expr": "mdx_demo_privacy_test_last_run_unix_ts"}],
+      "fieldConfig": {"defaults": {"unit": "dateTimeFromNow"}},
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "Active demo sessions",
+      "targets": [{"expr": "mdx_demo_active_sessions"}],
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Rate-limit hits / s by axis",
+      "targets": [
+        {"expr": "rate(mdx_demo_rate_limit_hits_total[5m])", "legendFormat": "{{ axis }}"}
+      ],
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Audio files surviving finalize",
+      "targets": [{"expr": "mdx_demo_audio_residual_after_finalize"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "red", "value": 1}
+          ]}
+        }
+      },
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8}
+    }
+  ]
+}

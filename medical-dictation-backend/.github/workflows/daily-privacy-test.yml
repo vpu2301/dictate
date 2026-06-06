@@ -1,0 +1,53 @@
+name: Daily Privacy Test (HF Space)
+
+# The release gate. If this fails, the HF Space takes itself private
+# (manual revert is sprint-07 day-3 SRE runbook).
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-privacy-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install --upgrade httpx websockets
+
+      - name: Run privacy test
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_CLINICIAN_PASSWORD }}
+        run: |
+          python scripts/eval/run_daily_privacy_test.py \
+            --space-url https://medical-dictation-demo-clinical-dictation-uk-en.hf.space \
+            --metrics-file privacy_test.prom
+
+      - name: Upload metrics artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: privacy-test-result
+          path: privacy_test.prom
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PRIVACY_ALERTS_WEBHOOK }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"🚨 Daily privacy test FAILED for HF Space. Page DPO + security lead. Run: ${{ github.run_url }}"}' \
+            "$SLACK_WEBHOOK_URL" || true

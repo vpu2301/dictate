@@ -1,0 +1,52 @@
+{
+  "code": "radiology_ct_uk",
+  "name": "Комп'ютерна томографія",
+  "language": "uk",
+  "specialty": "radiology",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "indication",
+      "name": "Показання",
+      "voice_aliases": ["показання", "розділ показання"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Показання до КТ. Клінічна задача. Контраст: внутрішньовенний, пероральний. Зона сканування.",
+      "min_chars": 10,
+      "order": 0
+    },
+    {
+      "id": "technique",
+      "name": "Техніка",
+      "voice_aliases": ["техніка"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Параметри сканування. Товщина зрізу, крок, реконструкція. Контрастна речовина: тип, об'єм, фаза.",
+      "min_chars": 0,
+      "order": 1
+    },
+    {
+      "id": "findings",
+      "name": "Опис",
+      "voice_aliases": ["опис", "розділ опис"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Опис КТ. Послідовно за анатомічними областями. Розміри патологічних утворень в міліметрах. Денситометричні характеристики. Контрастування. Реґіонарні лімфовузли.",
+      "min_chars": 50,
+      "order": 2
+    },
+    {
+      "id": "impression",
+      "name": "Висновок",
+      "voice_aliases": ["висновок", "діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Висновок КТ-дослідження. Основна патологія. Рекомендації щодо додаткових обстежень. ICD-10.",
+      "min_chars": 10,
+      "order": 3
+    }
+  ],
+  "metadata": {
+    "fhir_template": "DiagnosticReport/radiology-ct"
+  }
+}

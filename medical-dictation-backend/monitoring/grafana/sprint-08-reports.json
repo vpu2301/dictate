@@ -1,0 +1,79 @@
+{
+  "title": "Reports (sprint-08)",
+  "uid": "sprint-08-reports",
+  "schemaVersion": 39,
+  "tags": ["sprint-08", "reports"],
+  "timezone": "utc",
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Active drafts per tenant",
+      "targets": [
+        {"expr": "mdx_reports_active_drafts", "legendFormat": "{{tenant_id}}"}
+      ],
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Create / Finalize / Amend rate (per minute)",
+      "targets": [
+        {"expr": "rate(mdx_reports_created_total[5m])", "legendFormat": "created"},
+        {"expr": "rate(mdx_reports_finalized_total[5m])", "legendFormat": "finalized"},
+        {"expr": "rate(mdx_reports_amended_total[5m])", "legendFormat": "amended {{amendment_type}}"}
+      ],
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Search latency (split by has_q)",
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(mdx_reports_search_latency_ms_histogram_bucket[5m])) by (le, has_q))", "legendFormat": "p50 has_q={{has_q}}"},
+        {"expr": "histogram_quantile(0.95, sum(rate(mdx_reports_search_latency_ms_histogram_bucket[5m])) by (le, has_q))", "legendFormat": "p95 has_q={{has_q}}"},
+        {"expr": "histogram_quantile(0.99, sum(rate(mdx_reports_search_latency_ms_histogram_bucket[5m])) by (le, has_q))", "legendFormat": "p99 has_q={{has_q}}"}
+      ],
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Autosave conflict rate (% of PUTs)",
+      "targets": [
+        {"expr": "100 * rate(mdx_reports_autosave_conflicts_total[10m]) / rate(mdx_reports_diff_cache_lookups_total[10m])"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 2},
+            {"color": "red", "value": 5}
+          ]}
+        }
+      },
+      "gridPos": {"x": 12, "y": 8, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Diff cache hit ratio",
+      "targets": [
+        {"expr": "sum(rate(mdx_reports_diff_cache_lookups_total{hit=\"true\"}[5m])) / sum(rate(mdx_reports_diff_cache_lookups_total[5m]))"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit"}},
+      "gridPos": {"x": 18, "y": 8, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Chain integrity check failures (24h)",
+      "targets": [{"expr": "increase(mdx_reports_chain_integrity_check_failures_total[24h])"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "red", "value": 1}
+          ]}
+        }
+      },
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 4}
+    }
+  ]
+}

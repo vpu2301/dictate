@@ -1,0 +1,52 @@
+{
+  "code": "radiology_mri_uk",
+  "name": "Магнітно-резонансна томографія",
+  "language": "uk",
+  "specialty": "radiology",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "indication",
+      "name": "Показання",
+      "voice_aliases": ["показання"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Показання до МРТ. Клінічна задача. Зона дослідження. Протипоказання перевірено.",
+      "min_chars": 10,
+      "order": 0
+    },
+    {
+      "id": "technique",
+      "name": "Техніка",
+      "voice_aliases": ["техніка"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Параметри МРТ. Імпульсні послідовності: T1, T2, FLAIR, DWI. Контраст: гадоліній, об'єм. Зрізи: аксіальні, сагітальні, корональні.",
+      "min_chars": 0,
+      "order": 1
+    },
+    {
+      "id": "findings",
+      "name": "Опис",
+      "voice_aliases": ["опис", "розділ опис"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Опис МРТ. Анатомія, сигнальні характеристики на T1 і T2. Патологічні утворення: розміри, контури, інтенсивність сигналу, контрастування. Перифокальний набряк. Мас-ефект.",
+      "min_chars": 50,
+      "order": 2
+    },
+    {
+      "id": "impression",
+      "name": "Висновок",
+      "voice_aliases": ["висновок"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Висновок МРТ. Основна знахідка. Диференційна діагностика. Рекомендації.",
+      "min_chars": 10,
+      "order": 3
+    }
+  ],
+  "metadata": {
+    "fhir_template": "DiagnosticReport/radiology-mri"
+  }
+}

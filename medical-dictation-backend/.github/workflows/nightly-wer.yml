@@ -1,0 +1,77 @@
+name: nightly-wer
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # 03:00 UTC daily — after privacy test (02:00) and well before working hours
+  workflow_dispatch:
+    inputs:
+      corpus_ref:
+        description: "git ref of corpus to use"
+        default: "main"
+
+permissions:
+  contents: read
+
+jobs:
+  wer:
+    runs-on: [self-hosted, gpu, a10g]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ inputs.corpus_ref || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pipx install uv
+
+      - name: PII corpus sweep
+        run: python scripts/eval/check_corpus_pii.py
+
+      - name: Install deps
+        run: uv sync --all-extras
+
+      - name: Run WER eval
+        env:
+          DSN: ${{ secrets.EVAL_DB_DSN }}
+          PROMETHEUS_TEXTFILE_DIR: /var/lib/node_exporter/textfile_collector
+        run: |
+          uv run python scripts/eval/run_wer.py \
+            --corpus eval/corpus \
+            --output eval/reports \
+            --metrics-file "$PROMETHEUS_TEXTFILE_DIR/mdx_wer.prom" \
+            --dsn "$DSN"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wer-report-${{ github.run_id }}
+          path: eval/reports/
+          retention-days: 90
+
+      - name: Compare against baseline
+        env:
+          DSN: ${{ secrets.EVAL_DB_DSN }}
+        run: |
+          uv run python scripts/eval/compare_to_baseline.py \
+            --dsn "$DSN" \
+            --threshold-wer-pp 1.0 \
+            --threshold-rtf 0.05 \
+            --threshold-number-norm 0.95
+
+      - name: Slack on regression
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: "#eval-regressions"
+          slack-message: |
+            :rotating_light: Nightly WER eval *regressed* (run ${{ github.run_id }})
+            Details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

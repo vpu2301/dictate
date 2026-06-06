@@ -1,0 +1,62 @@
+{
+  "code": "referral_letter_uk",
+  "name": "Скерування на консультацію",
+  "language": "uk",
+  "specialty": "internal_medicine",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "to_specialist",
+      "name": "Скеровується до",
+      "voice_aliases": ["скеровується", "до спеціаліста"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Спеціальність лікаря-консультанта. Заклад. Контакти за наявності.",
+      "min_chars": 10,
+      "order": 0
+    },
+    {
+      "id": "reason",
+      "name": "Підстава скерування",
+      "voice_aliases": ["підстава", "розділ підстава", "причина"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Причина скерування. Клінічна задача. Очікувана допомога від консультанта.",
+      "min_chars": 20,
+      "order": 1
+    },
+    {
+      "id": "anamnesis",
+      "name": "Короткий анамнез",
+      "voice_aliases": ["анамнез"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Короткий анамнез. Скарги. Тривалість захворювання. Проведене лікування і його ефективність.",
+      "min_chars": 30,
+      "order": 2
+    },
+    {
+      "id": "investigations",
+      "name": "Проведені обстеження",
+      "voice_aliases": ["обстеження"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Результати вже виконаних обстежень. ЗАК, ЗАС, біохімія, інструментальні дослідження.",
+      "min_chars": 0,
+      "order": 3
+    },
+    {
+      "id": "diagnosis",
+      "name": "Попередній діагноз",
+      "voice_aliases": ["діагноз", "попередній діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Попередній клінічний діагноз. МКХ-10.",
+      "min_chars": 10,
+      "order": 4
+    }
+  ],
+  "metadata": {
+    "fhir_template": "Composition/referral"
+  }
+}

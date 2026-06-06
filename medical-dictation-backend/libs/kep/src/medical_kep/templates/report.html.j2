@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="{{ language }}">
+<head>
+<meta charset="utf-8" />
+<title>{{ title }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 22mm 18mm; }
+  body { font-family: "DejaVu Sans", sans-serif; font-size: 11pt; line-height: 1.4; }
+  h1   { font-size: 18pt; margin: 0 0 4pt; }
+  h2   { font-size: 13pt; margin: 16pt 0 4pt; border-bottom: 1px solid #888; padding-bottom: 2pt; }
+  .meta { color: #555; font-size: 10pt; margin-bottom: 8pt; }
+  .header-block { margin-bottom: 12pt; }
+  .section-text { white-space: pre-wrap; }
+  .signature-block { margin-top: 24pt; padding-top: 10pt; border-top: 1px dashed #888; }
+  .label { color: #555; font-size: 9pt; }
+</style>
+</head>
+<body>
+  <div class="header-block">
+    <h1>{{ title }}</h1>
+    <div class="meta">
+      <div><span class="label">Код:</span> {{ code }}</div>
+      <div><span class="label">Заклад:</span> {{ issuer }}</div>
+      {% if encounter_date %}
+        <div><span class="label">Дата візиту:</span> {{ encounter_date }}</div>
+      {% endif %}
+      {% if patient %}
+        <div><span class="label">Пацієнт (анонімізовано):</span> {{ patient }}</div>
+      {% endif %}
+      {% if icd10 %}
+        <div><span class="label">МКХ-10:</span> {{ icd10 | join(", ") }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% for s in sections %}
+    {% if s.text %}
+      <h2>{{ s.key }}</h2>
+      <div class="section-text">{{ s.text }}</div>
+    {% endif %}
+  {% endfor %}
+
+  <div class="signature-block">
+    <div class="label">Автор:</div>
+    <div>{{ primary_author }}</div>
+    {% if co_authors %}
+      <div class="label" style="margin-top: 6pt;">Спів-автори:</div>
+      <div>{{ co_authors | join(", ") }}</div>
+    {% endif %}
+    <div class="label" style="margin-top: 6pt;">Фіналізовано:</div>
+    <div>{{ finalized_at }}</div>
+  </div>
+</body>
+</html>

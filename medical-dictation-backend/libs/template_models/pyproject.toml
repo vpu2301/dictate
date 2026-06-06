@@ -1,0 +1,26 @@
+[project]
+name = "template_models"
+version = "0.6.0"
+description = "Shared Pydantic models for the templates JSONB schema (sprint 06)."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/template_models"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"

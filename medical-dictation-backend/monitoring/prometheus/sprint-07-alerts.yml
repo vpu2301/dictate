@@ -1,0 +1,88 @@
+groups:
+  - name: sprint-07-wer
+    interval: 5m
+    rules:
+      - alert: WerOverallRegressionUK
+        expr: |
+          (mdx_wer_overall{language="uk"} -
+            on() group_left() mdx_wer_baseline{language="uk"}) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          team: ml-mlops
+        annotations:
+          summary: "Ukrainian WER regressed >1pp vs baseline"
+          runbook: "docs/runbooks/wer-regression.md"
+
+      - alert: WerOverallRegressionEN
+        expr: |
+          (mdx_wer_overall{language="en"} -
+            on() group_left() mdx_wer_baseline{language="en"}) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          team: ml-mlops
+        annotations:
+          summary: "English WER regressed >1pp vs baseline"
+          runbook: "docs/runbooks/wer-regression.md"
+
+      - alert: RTFp95Degraded
+        expr: mdx_rtf_p95 < 5.0
+        for: 30m
+        labels:
+          severity: warning
+          team: ml-mlops
+        annotations:
+          summary: "RTF p95 below 5×"
+          runbook: "docs/runbooks/asr-slowness.md"
+
+      - alert: NumberNormAccuracyLow
+        expr: mdx_number_norm_accuracy < 0.95
+        for: 30m
+        labels:
+          severity: warning
+          team: nlp
+        annotations:
+          summary: "Number-norm category {{ $labels.category }} below 95%"
+          runbook: "docs/runbooks/nlp-regression.md"
+
+  - name: sprint-07-demo-health
+    interval: 1m
+    rules:
+      - alert: HfSpaceDown
+        expr: mdx_hf_space_health == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Public HF Space demo is down"
+          runbook: "docs/runbooks/hf-space.md"
+
+      - alert: DemoPrivacyTestFailed
+        expr: mdx_demo_privacy_test_passed == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: dpo
+        annotations:
+          summary: "Daily privacy test FAILED — audio survived after finalize"
+          runbook: "docs/runbooks/hf-space.md#privacy-test-failure"
+
+      - alert: DemoPrivacyTestStale
+        expr: (time() - mdx_demo_privacy_test_last_run_unix_ts) > 86400
+        for: 1h
+        labels:
+          severity: warning
+          team: dpo
+        annotations:
+          summary: "Daily privacy test has not run in >24h"
+
+      - alert: DemoRateLimitFlood
+        expr: rate(mdx_demo_rate_limit_hits_total[5m]) > 1
+        for: 15m
+        labels:
+          severity: info
+          team: sre
+        annotations:
+          summary: "Sustained demo rate-limit hits (possible abuse)"

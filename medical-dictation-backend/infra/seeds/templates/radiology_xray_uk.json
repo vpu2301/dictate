@@ -1,0 +1,53 @@
+{
+  "code": "radiology_xray_uk",
+  "name": "Рентгенографія",
+  "language": "uk",
+  "specialty": "radiology",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "indication",
+      "name": "Показання",
+      "voice_aliases": ["показання", "розділ показання"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Показання до рентгенографії. Клінічна задача, диференційна діагностика. Зона дослідження, проекції.",
+      "min_chars": 10,
+      "order": 0
+    },
+    {
+      "id": "technique",
+      "name": "Техніка",
+      "voice_aliases": ["техніка", "розділ техніка"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Техніка дослідження. Проекції, експозиція, якість зображення. Особливості укладки пацієнта.",
+      "min_chars": 0,
+      "order": 1
+    },
+    {
+      "id": "findings",
+      "name": "Опис",
+      "voice_aliases": ["опис", "розділ опис", "знахідки"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Опис рентгенограми. Кісткова тканина: переломи, зміни структури. М'які тканини. Легеневі поля: прозорість, легеневий малюнок, корені легень. Серце і середостіння: контури, розміри. Купол діафрагми.",
+      "min_chars": 30,
+      "order": 2
+    },
+    {
+      "id": "impression",
+      "name": "Висновок",
+      "voice_aliases": ["висновок", "розділ висновок", "діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Радіологічний висновок. Основна знахідка. Диференційна діагностика. Рекомендації щодо додаткових обстежень.",
+      "min_chars": 10,
+      "order": 3
+    }
+  ],
+  "metadata": {
+    "moh_order_ref": "MoH-110-radiology",
+    "fhir_template": "DiagnosticReport/radiology-xray"
+  }
+}

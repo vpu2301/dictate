@@ -1,0 +1,65 @@
+name: HF Space Deploy
+
+# Deploys the bundled Dockerfile to the medical-dictation-demo HF Space.
+# Triggered by:
+#  - manual dispatch (sprint-07 day-1 testing)
+#  - push to the dedicated `demo` branch (sprint-07 day-9 onward)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - demo
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install huggingface_hub
+        run: pip install --upgrade huggingface_hub
+
+      - name: Push to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_REPO: medical-dictation-demo/clinical-dictation-uk-en
+        run: |
+          python -c "
+          from huggingface_hub import HfApi
+          import os
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          api.upload_folder(
+              folder_path='.',
+              repo_id=os.environ['HF_SPACE_REPO'],
+              repo_type='space',
+              ignore_patterns=[
+                  '.venv/**', 'node_modules/**', '.git/**',
+                  '*.pyc', '__pycache__/**', '.pytest_cache/**',
+                  'eval/corpus/**/audio.wav',  # corpus audio not for HF
+              ],
+              commit_message='Deploy from ${{ github.sha }}',
+          )
+          "
+
+      - name: Wait for Space to wake
+        env:
+          HF_SPACE_URL: https://medical-dictation-demo-clinical-dictation-uk-en.hf.space
+        run: |
+          for i in {1..30}; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$HF_SPACE_URL/_health" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "Space healthy after ${i}0s"; exit 0
+            fi
+            sleep 10
+          done
+          echo "Space did not become healthy"; exit 1

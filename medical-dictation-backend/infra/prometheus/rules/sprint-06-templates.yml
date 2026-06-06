@@ -1,0 +1,41 @@
+groups:
+  - name: sprint-06-templates
+    interval: 30s
+    rules:
+      - alert: TemplateCacheHitRatioLow
+        expr: |
+          (
+            sum(rate(mdx_template_cache_hits_total[10m]))
+              /
+            (sum(rate(mdx_template_cache_hits_total[10m]))
+              + sum(rate(mdx_template_cache_misses_total[10m])))
+          ) < 0.80
+        for: 10m
+        labels:
+          severity: warn
+          team: nlp
+        annotations:
+          summary: "Template cache hit ratio < 80% for 10m"
+          description: "Cache may be undersized; raise MDX_TEMPLATE_CACHE_MAXSIZE."
+
+      - alert: TemplateSectionSwitchLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(mdx_dictation_section_switch_latency_ms_bucket[5m]))
+          ) > 200
+        for: 5m
+        labels:
+          severity: page
+          team: dictation
+        annotations:
+          summary: "Section-switch p95 > 200 ms — dictation hot path degraded"
+
+      - alert: TemplatePromptLookupStorm
+        expr: |
+          sum(rate(mdx_template_section_prompt_lookups_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: warn
+          team: nlp
+        annotations:
+          summary: "Excessive prompt lookups — possible cache eviction storm"

@@ -1,0 +1,156 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ASR Service",
+    "description": "Sprint-03 batch ASR orchestrator (upload, queue, fetch).",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Liveness probe",
+        "operationId": "healthz_healthz_get",
+        "responses": {"200": {"description": "Successful Response"}}
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Readiness probe — verifies DB, Redis, MinIO reachable",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {"description": "ready"},
+          "503": {"description": "not ready"}
+        }
+      }
+    },
+    "/asr/jobs": {
+      "post": {
+        "tags": ["asr"],
+        "summary": "Submit a batch ASR job (multipart upload).",
+        "operationId": "submit_job_asr_jobs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {"$ref": "#/components/schemas/SubmitJobForm"}
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Job accepted and queued",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/TranscriptionJobView"}
+              }
+            }
+          },
+          "400": {"description": "Validation failure (RFC 9457)"},
+          "401": {"description": "Unauthenticated"},
+          "403": {"description": "Forbidden"},
+          "429": {"description": "Quota or rate-limit exceeded"}
+        }
+      },
+      "get": {
+        "tags": ["asr"],
+        "summary": "List tenant's recent jobs.",
+        "operationId": "list_jobs_asr_jobs_get",
+        "parameters": [
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}},
+          {"name": "status", "in": "query", "schema": {"$ref": "#/components/schemas/JobStatus"}},
+          {"name": "since", "in": "query", "schema": {"type": "string", "format": "date-time"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/TranscriptionJobView"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/asr/jobs/{job_id}": {
+      "get": {
+        "tags": ["asr"],
+        "summary": "Fetch a job's status (and a pre-signed result URL on complete).",
+        "operationId": "get_job_asr_jobs__job_id__get",
+        "parameters": [
+          {"name": "job_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/TranscriptionJobView"}
+              }
+            }
+          },
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "tags": ["asr"],
+        "summary": "Cancel a queued or running job.",
+        "operationId": "cancel_job_asr_jobs__job_id__delete",
+        "parameters": [
+          {"name": "job_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "responses": {
+          "202": {"description": "Cancel accepted"},
+          "409": {"description": "Job already terminal"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "JobStatus": {
+        "type": "string",
+        "enum": ["queued", "running", "complete", "failed", "cancelled"]
+      },
+      "SubmitJobForm": {
+        "type": "object",
+        "required": ["audio", "prompt_id", "language"],
+        "properties": {
+          "audio": {"type": "string", "format": "binary"},
+          "prompt_id": {"type": "string", "format": "uuid"},
+          "language": {"type": "string", "pattern": "^(uk|en)$"},
+          "encounter_id": {"type": "string", "format": "uuid"}
+        }
+      },
+      "TranscriptionJobView": {
+        "type": "object",
+        "required": [
+          "id", "tenant_id", "audio_id", "requester_sub", "prompt_id",
+          "language", "model", "status", "queued_at"
+        ],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "tenant_id": {"type": "string", "format": "uuid"},
+          "audio_id": {"type": "string", "format": "uuid"},
+          "requester_sub": {"type": "string", "format": "uuid"},
+          "prompt_id": {"type": "string", "format": "uuid"},
+          "language": {"type": "string"},
+          "model": {"type": "string"},
+          "status": {"$ref": "#/components/schemas/JobStatus"},
+          "error_kind": {"type": "string", "nullable": true},
+          "error_detail": {"type": "string", "nullable": true},
+          "result_url": {"type": "string", "nullable": true, "description": "Short-TTL pre-signed URL; populated only when status == 'complete'."},
+          "queued_at": {"type": "string", "format": "date-time"},
+          "started_at": {"type": "string", "format": "date-time", "nullable": true},
+          "finished_at": {"type": "string", "format": "date-time", "nullable": true},
+          "attempts": {"type": "integer", "default": 0}
+        }
+      }
+    }
+  }
+}

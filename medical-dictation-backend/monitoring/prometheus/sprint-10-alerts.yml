@@ -1,0 +1,56 @@
+groups:
+  - name: sprint-10-autocomplete
+    interval: 1m
+    rules:
+      - alert: AutocompleteSuggestLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket[5m])) by (le))
+          > 150
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Suggest p95 > 150ms — latency floor breached"
+          runbook: "docs/runbooks/autocomplete.md#suggest-p95-latency-spike"
+
+      - alert: AutocompleteCacheHitRatioLow
+        expr: |
+          sum(rate(mdx_autocomplete_cache_lookups_total{hit="true"}[10m]))
+          / clamp_min(sum(rate(mdx_autocomplete_cache_lookups_total[10m])), 1) < 0.80
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Cache hit ratio < 80% — possible eviction issue"
+          runbook: "docs/runbooks/autocomplete.md#cache-hit-ratio-drop"
+
+      - alert: AutocompleteScrubberRedactionSpike
+        expr: rate(mdx_autocomplete_telemetry_scrubber_redactions_total[5m]) > 1
+        for: 15m
+        labels:
+          severity: warning
+          team: dpo
+        annotations:
+          summary: "PII redactions in telemetry running hot — UX issue or misuse"
+
+      - alert: AutocompletePhraseWritePiiRejectionSpike
+        expr: increase(mdx_autocomplete_phrase_write_pii_rejections_total[1h]) > 20
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Phrase-write PII rejections spiking — possible misuse pattern"
+
+      - alert: AutocompleteRollupMissed
+        expr: |
+          (time() - max(mdx_autocomplete_rollup_last_run_unix_ts)) > 172800
+        for: 30m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Autocomplete roll-up has not run in > 48h"

@@ -1,0 +1,59 @@
+[project]
+name = "nlp-service"
+version = "0.5.0"
+description = "Sprint-05 NLP post-processing: 6-stage pipeline (voice commands → punctuation → numbers → dates → abbreviations → confidence)."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "asyncpg>=0.29.0",
+    "httpx>=0.27.0",
+    "redis>=5.0.4",
+    "opentelemetry-sdk>=1.24.0",
+    "opentelemetry-instrumentation-fastapi>=0.45b0",
+    "python-json-logger>=2.0.7",
+    # Punctuation model is heavy; only required at runtime on the service
+    # host. Pinned versions live in the Dockerfile, not here.
+    # Internal libs
+    "observability",
+    "auth",
+    "audit",
+    "db",
+    "asr_models",
+    "secret",
+]
+
+[tool.uv.sources]
+observability = { workspace = true }
+auth = { workspace = true }
+audit = { workspace = true }
+db = { workspace = true }
+asr_models = { workspace = true }
+secret = { workspace = true }
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nlp_service"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.mypy]
+strict = true
+python_version = "3.12"

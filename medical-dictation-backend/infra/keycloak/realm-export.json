@@ -1,0 +1,444 @@
+{
+  "realm": "medical-dictation",
+  "displayName": "Medical Dictation",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "verifyEmail": false,
+
+  "accessTokenLifespan": 900,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 43200,
+  "offlineSessionIdleTimeout": 2592000,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 60,
+  "minimumQuickLoginWaitSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+
+  "defaultSignatureAlgorithm": "RS256",
+
+  "attributes": {
+    "frontendUrl": "",
+    "acr.loa.map": "{}"
+  },
+
+  "roles": {
+    "realm": [
+      {"name": "tenant_admin", "description": "Tenant administrator — manages users and tenant config"},
+      {"name": "clinician",    "description": "Clinical staff who create and sign dictations"},
+      {"name": "nurse",        "description": "Nursing staff with limited create permissions"},
+      {"name": "auditor",      "description": "Read-only access to audit logs for compliance review"},
+      {"name": "service",      "description": "Service-to-service identity for backend daemons"}
+    ],
+    "client": {}
+  },
+
+  "clients": [
+    {
+      "clientId": "mdx-api",
+      "name": "MDX API (audience marker)",
+      "description": "Bearer-only client used solely as a stable audience target for access tokens. Backend services validate aud == 'mdx-api'.",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+
+    {
+      "clientId": "mdx-frontend",
+      "name": "MDX Frontend (browser SPA)",
+      "description": "Public client; auth code + PKCE flow only.",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:3000/*",
+        "http://localhost:8080/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8080"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+",
+        "access.token.signed.response.alg": "RS256",
+        "id.token.signed.response.alg": "RS256",
+        "use.refresh.tokens": "true",
+        "client_credentials.use_refresh_token": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "tid (tenant_id user attribute)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tid",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles (flat realm-roles array)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "audience-mdx-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "mdx-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+
+    {
+      "clientId": "mdx-backend",
+      "name": "MDX Backend (login proxy + S2S)",
+      "description": "Confidential. auth-service uses this for POST /auth/login (password grant, gated by client secret) and S2S tokens. mdx-frontend stays PKCE-only.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-secret-change-in-prod-mdx-backend",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "attributes": {
+        "access.token.signed.response.alg": "RS256",
+        "client_credentials.use_refresh_token": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "tid (tenant_id user attribute)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tid",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles (flat realm-roles array)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "audience-mdx-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "mdx-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+
+    {
+      "clientId": "mdx-admin",
+      "name": "MDX Admin (auth-service → Keycloak Admin API)",
+      "description": "Confidential. auth-service uses this for the Keycloak Admin REST API. Service account has scoped realm-management roles (see service-account-mdx-admin).",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-secret-change-in-prod-mdx-admin",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "attributes": {
+        "access.token.signed.response.alg": "RS256"
+      }
+    },
+
+    {
+      "clientId": "mdx-dev-cli",
+      "name": "MDX Dev CLI (password grant — DEV ONLY)",
+      "description": "Public client with direct access grants enabled. Used only by scripts/dev/keycloak-test.sh for smoke testing. MUST be disabled or removed in production realms.",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost/*"],
+      "attributes": {
+        "access.token.signed.response.alg": "RS256"
+      },
+      "protocolMappers": [
+        {
+          "name": "tid (tenant_id user attribute)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tid",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles (flat realm-roles array)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "audience-mdx-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "mdx-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+
+    {
+      "clientId": "mdx-dictation",
+      "name": "MDX Dictation (S2S — sprint 04)",
+      "description": "Confidential. dictation-service uses this for outbound calls (audit, NLP postprocess in sprint 05). User-side WS auth uses the same mdx-frontend tokens; this client is the service-account identity.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-secret-change-in-prod-mdx-dictation",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "attributes": {
+        "access.token.signed.response.alg": "RS256"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-mdx-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "mdx-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles (flat realm-roles array)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    },
+
+    {
+      "clientId": "mdx-asr-worker",
+      "name": "MDX ASR Worker (S2S)",
+      "description": "Confidential. Service-account-only client for the asr-worker process. Token is presented to internal services (audit endpoints, signed-URL fetches) and validated by libs/auth like any user token. Has the `service` realm role.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-secret-change-in-prod-mdx-asr-worker",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "attributes": {
+        "access.token.signed.response.alg": "RS256"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-mdx-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "mdx-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles (flat realm-roles array)",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+
+  "users": [
+    {
+      "username": "dev-admin",
+      "email": "admin@tenant-a.example",
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": ["0"]
+      },
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
+      "realmRoles": ["tenant_admin", "clinician"]
+    },
+    {
+      "username": "dev-clinician",
+      "email": "clinician@tenant-a.example",
+      "firstName": "Dev",
+      "lastName": "Clinician",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": ["0"]
+      },
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
+      "realmRoles": ["clinician"]
+    },
+    {
+      "username": "dev-nurse",
+      "email": "nurse@tenant-a.example",
+      "firstName": "Dev",
+      "lastName": "Nurse",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": ["0"]
+      },
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
+      "realmRoles": ["nurse"]
+    },
+    {
+      "username": "dev-auditor",
+      "email": "auditor@tenant-a.example",
+      "firstName": "Dev",
+      "lastName": "Auditor",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": ["0"]
+      },
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
+      "realmRoles": ["auditor"]
+    },
+    {
+      "username": "dev-clinician-b",
+      "email": "clinician@tenant-b.example",
+      "firstName": "Dev",
+      "lastName": "ClinicianB",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["00000000-0000-0000-0000-00000000000b"],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": ["0"]
+      },
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
+      "realmRoles": ["clinician"]
+    },
+    {
+      "username": "service-account-mdx-admin",
+      "serviceAccountClientId": "mdx-admin",
+      "enabled": true,
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
+    }
+  ]
+}

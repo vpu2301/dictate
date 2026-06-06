@@ -1,0 +1,98 @@
+{
+  "title": "Sprint 03 — ASR Health",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["sprint-03", "asr", "whisper"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Worker model loaded",
+      "id": 1,
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "avg(mdx_asr_model_loaded)"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Jobs per minute by status",
+      "id": 2,
+      "gridPos": {"h": 8, "w": 12, "x": 4, "y": 0},
+      "targets": [{
+        "expr": "sum by (status) (rate(mdx_asr_jobs_total[1m])) * 60",
+        "legendFormat": "{{status}}"
+      }]
+    },
+    {
+      "type": "stat",
+      "title": "Queue depth",
+      "id": 3,
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "targets": [{"expr": "max(mdx_asr_queue_depth)"}]
+    },
+    {
+      "type": "stat",
+      "title": "Warmup seconds",
+      "id": 4,
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "targets": [{"expr": "max(mdx_asr_warmup_seconds)"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Realtime factor distribution",
+      "id": 5,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum by (le) (rate(mdx_asr_realtime_factor_bucket[5m])))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_asr_realtime_factor_bucket[5m])))", "legendFormat": "p95"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Inference latency",
+      "id": 6,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum by (le) (rate(mdx_asr_inference_seconds_bucket[5m])))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_asr_inference_seconds_bucket[5m])))", "legendFormat": "p95"},
+        {"expr": "histogram_quantile(0.99, sum by (le) (rate(mdx_asr_inference_seconds_bucket[5m])))", "legendFormat": "p99"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU peak memory",
+      "id": 7,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_asr_gpu_memory_peak_mb_bucket[5m])))", "legendFormat": "p95"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "OOM rate",
+      "id": 8,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [{"expr": "rate(mdx_asr_oom_total[5m])"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Validation rejection rate by code",
+      "id": 9,
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+      "targets": [{
+        "expr": "sum by (code) (rate(mdx_asr_validation_failures_total[5m]))",
+        "legendFormat": "{{code}}"
+      }]
+    },
+    {
+      "type": "timeseries",
+      "title": "WER by language × specialty",
+      "id": 10,
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+      "targets": [{
+        "expr": "mdx_asr_wer",
+        "legendFormat": "{{language}}/{{specialty}}"
+      }]
+    }
+  ]
+}

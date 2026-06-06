@@ -1,0 +1,241 @@
+# ──────────────────────────────────────────────────────────────
+# Developer-workstation overlay — exposes ports and starts observability.
+# ──────────────────────────────────────────────────────────────
+name: medical-dictation
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  kafka:
+    ports:
+      - "9092:9092"
+
+  keycloak:
+    ports:
+      - "8088:8080"
+
+  # ── ASR services run in dev mode (CPU model unless gpu.yml overlays) ─
+  asr-service:
+    build:
+      context: ../..
+      dockerfile: services/asr-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+      AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+    volumes:
+      - ../../infra/dev/master.key:/etc/mdx/master.key:ro
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  asr-worker:
+    build:
+      context: ../..
+      dockerfile: services/asr-worker/Dockerfile.cpu
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      MD_ASR_DEVICE: cpu
+      MD_ASR_MODEL: tiny
+      MD_ASR_COMPUTE_TYPE: int8
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+    volumes:
+      - ../../infra/dev/master.key:/etc/mdx/master.key:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  dictation-service:
+    build:
+      context: ../..
+      dockerfile: services/dictation-service/Dockerfile.cpu
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      MD_ASR_DEVICE: cpu
+      MD_ASR_MODEL: tiny
+      MD_ASR_COMPUTE_TYPE: int8
+      MDX_WORKER_ID: dictation-dev-1
+      AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+      AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      MDX_TMPFS_ROOT: /run/dictation
+      MDX_WS_ALLOWED_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+    volumes:
+      - ../../infra/dev/master.key:/etc/mdx/master.key:ro
+    tmpfs:
+      - /run/dictation:size=2g,mode=1700
+    ports:
+      - "8002:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  nlp-service:
+    build:
+      context: ../..
+      dockerfile: services/nlp-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+      AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      MDX_NLP_PUNCTUATION_DISABLED: "true"  # dev default — skip the heavy model
+    ports:
+      - "8005:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  report-service:
+    build:
+      context: ../..
+      dockerfile: services/report-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+      AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    ports:
+      - "8006:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  # ── Observability ────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.99.0
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ../otel/otel-collector-config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    depends_on:
+      - jaeger
+      - loki
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "14250:14250"
+      - "14268:14268"
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+
+  loki:
+    image: grafana/loki:2.9.7
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ../loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  loki_data:

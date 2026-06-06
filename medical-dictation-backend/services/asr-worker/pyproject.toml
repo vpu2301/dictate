@@ -1,0 +1,67 @@
+[project]
+name = "asr-worker"
+version = "0.3.0"
+description = "Sprint-03 GPU worker. Consumes ASR jobs from Redis Streams, runs Whisper inference, stores encrypted transcripts."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "asyncpg>=0.29.0",
+    "httpx>=0.27.0",
+    "redis>=5.0.4",
+    "aioboto3>=12.4.0",
+    "numpy>=1.26.0",
+    # faster-whisper and silero-vad are optional at install time so the CPU
+    # fallback (no GPU available) can still smoke-test the framing code by
+    # mocking. Production worker images pin them via the Dockerfile.
+    "faster-whisper>=1.0.0 ; platform_system != 'Darwin'",
+    "silero-vad>=4.0.0 ; platform_system != 'Darwin'",
+    "opentelemetry-sdk>=1.24.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
+    "python-json-logger>=2.0.7",
+    # Internal libs (resolved via uv workspace)
+    "observability",
+    "auth",
+    "audit",
+    "db",
+    "messaging",
+    "crypto",
+    "storage",
+    "asr_models",
+    "secret",
+]
+
+[tool.uv.sources]
+observability = { workspace = true }
+auth = { workspace = true }
+audit = { workspace = true }
+db = { workspace = true }
+messaging = { workspace = true }
+crypto = { workspace = true }
+storage = { workspace = true }
+asr_models = { workspace = true }
+secret = { workspace = true }
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/asr_worker"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.mypy]
+strict = true
+python_version = "3.12"

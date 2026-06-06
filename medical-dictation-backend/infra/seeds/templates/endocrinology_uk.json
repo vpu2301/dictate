@@ -1,0 +1,62 @@
+{
+  "code": "endocrinology_uk",
+  "name": "Ендокринологічний прийом",
+  "language": "uk",
+  "specialty": "endocrinology",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "Анамнез",
+      "voice_aliases": ["анамнез"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Ендокринологічний анамнез. Скарги: спрага, поліурія, втрата ваги, набір ваги, втома, серцебиття. Тривалість ЦД. Терапія. Гіпоглікемії. Сімейний анамнез ЦД, патології щитоподібної залози.",
+      "min_chars": 30,
+      "order": 0
+    },
+    {
+      "id": "examination",
+      "name": "Огляд",
+      "voice_aliases": ["огляд"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Огляд. Зріст, вага, ІМТ. Артеріальний тиск, ЧСС. Шкіра. Щитоподібна залоза: розмір, консистенція, вузли. Ознаки гіпо- чи гіпертиреозу. Стопи: пульсація, чутливість.",
+      "min_chars": 30,
+      "order": 1
+    },
+    {
+      "id": "investigations",
+      "name": "Обстеження",
+      "voice_aliases": ["обстеження"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "HbA1c, глюкоза натще, ТТГ, вільний Т4, антитіла до ТПО. Ліпідограма, креатинін, мікроальбумінурія. УЗД щитоподібної залози.",
+      "min_chars": 0,
+      "order": 2
+    },
+    {
+      "id": "diagnosis",
+      "name": "Діагноз",
+      "voice_aliases": ["діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Ендокринологічний діагноз. Тип ЦД, ускладнення, компенсація. Стан щитоподібної залози. МКХ-10.",
+      "min_chars": 10,
+      "order": 3
+    },
+    {
+      "id": "plan",
+      "name": "План",
+      "voice_aliases": ["план", "рекомендації"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "План. Метформін, інсулін, левотироксин. Корекція дози. Дієта. Самоконтроль глікемії. Скрининг ускладнень.",
+      "min_chars": 20,
+      "order": 4
+    }
+  ],
+  "metadata": {
+    "fhir_template": "DiagnosticReport/endocrinology-visit"
+  }
+}

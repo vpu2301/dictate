@@ -1,0 +1,65 @@
+{
+  "title": "Autocomplete (sprint-10)",
+  "uid": "sprint-10-autocomplete",
+  "schemaVersion": 39,
+  "tags": ["sprint-10", "autocomplete"],
+  "timezone": "utc",
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Suggest latency split by cache_hit",
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket[5m])) by (le, cache_hit))", "legendFormat": "p50 hit={{cache_hit}}"},
+        {"expr": "histogram_quantile(0.95, sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket[5m])) by (le, cache_hit))", "legendFormat": "p95 hit={{cache_hit}}"},
+        {"expr": "histogram_quantile(0.99, sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket[5m])) by (le, cache_hit))", "legendFormat": "p99 hit={{cache_hit}}"}
+      ],
+      "gridPos": {"x": 0, "y": 0, "w": 16, "h": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Cache hit ratio",
+      "targets": [
+        {"expr": "sum(rate(mdx_autocomplete_cache_lookups_total{hit=\"true\"}[5m])) / clamp_min(sum(rate(mdx_autocomplete_cache_lookups_total[5m])), 1)"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null},
+            {"color": "orange", "value": 0.80},
+            {"color": "green", "value": 0.95}
+          ]}
+        }
+      },
+      "gridPos": {"x": 16, "y": 0, "w": 8, "h": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "Telemetry events/sec by type",
+      "targets": [{"expr": "rate(mdx_autocomplete_telemetry_events_total[1m])", "legendFormat": "{{event}}"}],
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Scrubber redactions/sec",
+      "targets": [{"expr": "rate(mdx_autocomplete_telemetry_scrubber_redactions_total[5m])", "legendFormat": "{{patterns}}"}],
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Phrase write PII rejections (24h)",
+      "targets": [{"expr": "increase(mdx_autocomplete_phrase_write_pii_rejections_total[24h])"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 5},
+            {"color": "red", "value": 50}
+          ]}
+        }
+      },
+      "gridPos": {"x": 16, "y": 4, "w": 8, "h": 4}
+    }
+  ]
+}

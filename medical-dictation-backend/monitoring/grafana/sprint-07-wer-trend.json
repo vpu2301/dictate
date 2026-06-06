@@ -1,0 +1,65 @@
+{
+  "title": "WER Trend (sprint-07)",
+  "uid": "sprint-07-wer-trend",
+  "schemaVersion": 39,
+  "tags": ["sprint-07", "asr", "nlp"],
+  "timezone": "utc",
+  "refresh": "5m",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "WER overall by language",
+      "datasource": {"type": "prometheus", "uid": "prom"},
+      "targets": [
+        {"expr": "mdx_wer_overall{language=\"uk\"}", "legendFormat": "uk"},
+        {"expr": "mdx_wer_overall{language=\"en\"}", "legendFormat": "en"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.12},
+              {"color": "red", "value": 0.16}
+            ]
+          }
+        }
+      },
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "RTF p95",
+      "targets": [{"expr": "mdx_rtf_p95"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "bargauge",
+      "title": "Per-specialty WER (UK, latest)",
+      "targets": [
+        {"expr": "mdx_wer_specialty{language=\"uk\"}", "legendFormat": "{{ specialty }}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 0.3}},
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "bargauge",
+      "title": "Number-norm accuracy by category",
+      "targets": [
+        {"expr": "mdx_number_norm_accuracy", "legendFormat": "{{ category }}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0.85, "max": 1.0}},
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Last eval (UTC)",
+      "targets": [{"expr": "mdx_wer_last_run_unix_ts"}],
+      "fieldConfig": {"defaults": {"unit": "dateTimeFromNow"}},
+      "gridPos": {"x": 0, "y": 16, "w": 6, "h": 4}
+    }
+  ]
+}

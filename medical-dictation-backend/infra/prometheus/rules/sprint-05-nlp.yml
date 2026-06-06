@@ -1,0 +1,60 @@
+groups:
+  - name: sprint-05-nlp
+    interval: 30s
+    rules:
+      - alert: NlpLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(mdx_nlp_request_duration_ms_bucket[5m]))
+          ) > 200
+        for: 5m
+        labels:
+          severity: page
+          team: nlp
+        annotations:
+          summary: "NLP pipeline p95 latency > 200 ms for 5 m"
+          description: "Target is 80 ms p95 on a 50-word final. Investigate per-stage histograms."
+
+      - alert: NlpPunctuationFallbackHigh
+        expr: |
+          sum(rate(mdx_nlp_punctuation_fallback_total[5m]))
+            /
+          sum(rate(mdx_nlp_request_duration_ms_count{stage="punctuation"}[5m])) > 0.10
+        for: 5m
+        labels:
+          severity: page
+          team: ml
+        annotations:
+          summary: "Punctuation fallback rate > 10% for 5 m"
+          description: "Model health degraded. Check container disk + model checksum."
+
+      - alert: NlpVoiceCommandUndoRateHigh
+        expr: |
+          max_over_time(mdx_nlp_voice_command_undo_rate[1h]) > 0.05
+        for: 5m
+        labels:
+          severity: page
+          team: clinical
+        annotations:
+          summary: "Voice command undo rate > 5% over 1 h"
+          description: "Likely a false-positive regression. Review pause / probability thresholds with clinical content lead."
+
+      - alert: NlpRateLimitHits
+        expr: |
+          sum(rate(mdx_nlp_rate_limit_total[5m])) > 0.001
+        for: 5m
+        labels:
+          severity: warn
+          team: sre
+        annotations:
+          summary: "NLP rate-limiter firing — capacity or abusive client"
+
+      - alert: NlpIdempotenceViolation
+        expr: increase(mdx_nlp_idempotence_violations_total[1h]) > 0
+        for: 0m
+        labels:
+          severity: page
+          team: nlp
+        annotations:
+          summary: "Idempotence violation detected — correctness bug"
+          description: "Same input produced different output on replay. Capture inputs immediately."

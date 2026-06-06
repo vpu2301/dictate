@@ -1,0 +1,300 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "NLP Service",
+    "description": "Sprint-05 NLP post-processing pipeline (voice commands → punctuation → numbers → dates → abbreviations → confidence).",
+    "version": "0.5.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Liveness probe",
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Readiness probe — DB, Redis, punctuation model",
+        "responses": {
+          "200": {"description": "ready"},
+          "503": {"description": "not ready"}
+        }
+      }
+    },
+    "/nlp/process": {
+      "post": {
+        "tags": ["nlp"],
+        "summary": "Run the 6-stage pipeline on a single segment.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/ProcessRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ProcessResponse"}
+              }
+            }
+          },
+          "401": {"description": "Unauthenticated"},
+          "403": {"description": "Forbidden"},
+          "413": {"description": "Input too large"},
+          "429": {"description": "Rate limit exceeded"}
+        }
+      }
+    },
+    "/nlp/process/batch": {
+      "post": {
+        "tags": ["nlp"],
+        "summary": "Run the pipeline on a list of segments (batch path).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/BatchProcessRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/BatchProcessResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/nlp/abbreviations": {
+      "get": {
+        "tags": ["nlp-admin"],
+        "summary": "List the merged abbreviation dictionary.",
+        "parameters": [
+          {"name": "language", "in": "query", "schema": {"type": "string", "enum": ["uk", "en"]}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 200}}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/AbbreviationOut"}
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["nlp-admin"],
+        "summary": "Upsert one tenant-scoped abbreviation rule.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/AbbreviationUpsertIn"}
+            }
+          }
+        },
+        "responses": {
+          "204": {"description": "Upserted"},
+          "401": {"description": "Unauthenticated"},
+          "403": {"description": "Requires tenant_admin role"}
+        }
+      }
+    },
+    "/nlp/abbreviations/{abbreviation_id}": {
+      "delete": {
+        "tags": ["nlp-admin"],
+        "summary": "Delete one tenant-scoped rule (global rules untouched).",
+        "parameters": [
+          {"name": "abbreviation_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "responses": {
+          "204": {"description": "Deleted"},
+          "404": {"description": "Not found / not owned by tenant"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "WordIn": {
+        "type": "object",
+        "required": ["text", "start_s", "end_s", "probability"],
+        "properties": {
+          "text": {"type": "string"},
+          "start_s": {"type": "number", "minimum": 0},
+          "end_s": {"type": "number", "minimum": 0},
+          "probability": {"type": "number", "minimum": 0, "maximum": 1},
+          "is_voice_command_token": {"type": "boolean", "default": false}
+        }
+      },
+      "TemplateSectionIn": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "name": {"type": "string"},
+          "aliases": {"type": "array", "items": {"type": "string"}}
+        }
+      },
+      "ProcessRequest": {
+        "type": "object",
+        "required": ["text", "language"],
+        "properties": {
+          "text": {"type": "string"},
+          "words": {"type": "array", "items": {"$ref": "#/components/schemas/WordIn"}},
+          "language": {"type": "string", "enum": ["uk", "en"]},
+          "specialty": {"type": "string", "nullable": true},
+          "reference_date": {"type": "string", "format": "date", "nullable": true},
+          "is_partial": {"type": "boolean", "default": false},
+          "template_sections": {"type": "array", "items": {"$ref": "#/components/schemas/TemplateSectionIn"}},
+          "decimal_separator": {"type": "string", "nullable": true},
+          "bp_separator": {"type": "string", "nullable": true},
+          "date_format": {"type": "string", "enum": ["DD.MM.YYYY", "YYYY-MM-DD", "WORD"], "nullable": true}
+        }
+      },
+      "ConfidenceSpanOut": {
+        "type": "object",
+        "required": ["start_char", "end_char", "level"],
+        "properties": {
+          "start_char": {"type": "integer"},
+          "end_char": {"type": "integer"},
+          "level": {"type": "string", "enum": ["high_concern", "moderate"]}
+        }
+      },
+      "WordOut": {
+        "type": "object",
+        "required": ["text", "start_s", "end_s", "probability", "is_voice_command_token"],
+        "properties": {
+          "text": {"type": "string"},
+          "start_s": {"type": "number"},
+          "end_s": {"type": "number"},
+          "probability": {"type": "number"},
+          "is_voice_command_token": {"type": "boolean"}
+        }
+      },
+      "CommandSlotOut": {
+        "type": "object",
+        "required": ["intent", "span_start_s", "span_end_s", "confidence"],
+        "properties": {
+          "intent": {"type": "string"},
+          "span_start_s": {"type": "number"},
+          "span_end_s": {"type": "number"},
+          "confidence": {"type": "number"},
+          "arg": {"type": "object", "additionalProperties": {"type": "string"}, "nullable": true}
+        }
+      },
+      "OperationOut": {
+        "type": "object",
+        "required": ["op"],
+        "properties": {
+          "op": {"type": "string"},
+          "arg": {"type": "object", "additionalProperties": {"type": "string"}, "nullable": true}
+        }
+      },
+      "WarningOut": {
+        "type": "object",
+        "required": ["code"],
+        "properties": {
+          "code": {"type": "string"},
+          "detail": {"type": "string"},
+          "stage": {"type": "string"}
+        }
+      },
+      "ProcessResponse": {
+        "type": "object",
+        "required": ["text", "pipeline_version"],
+        "properties": {
+          "text": {"type": "string"},
+          "words": {"type": "array", "items": {"$ref": "#/components/schemas/WordOut"}},
+          "confidence_spans": {"type": "array", "items": {"$ref": "#/components/schemas/ConfidenceSpanOut"}},
+          "voice_commands": {"type": "array", "items": {"$ref": "#/components/schemas/CommandSlotOut"}},
+          "operations": {"type": "array", "items": {"$ref": "#/components/schemas/OperationOut"}},
+          "warnings": {"type": "array", "items": {"$ref": "#/components/schemas/WarningOut"}},
+          "pipeline_version": {"type": "string"},
+          "metadata": {"type": "object", "additionalProperties": true}
+        }
+      },
+      "BatchSegmentIn": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {"type": "string"},
+          "words": {"type": "array", "items": {"$ref": "#/components/schemas/WordIn"}}
+        }
+      },
+      "BatchProcessRequest": {
+        "type": "object",
+        "required": ["segments", "language"],
+        "properties": {
+          "segments": {"type": "array", "items": {"$ref": "#/components/schemas/BatchSegmentIn"}},
+          "language": {"type": "string", "enum": ["uk", "en"]},
+          "specialty": {"type": "string", "nullable": true},
+          "reference_date": {"type": "string", "format": "date", "nullable": true},
+          "template_sections": {"type": "array", "items": {"$ref": "#/components/schemas/TemplateSectionIn"}}
+        }
+      },
+      "BatchSegmentOut": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {"type": "string"},
+          "words": {"type": "array", "items": {"$ref": "#/components/schemas/WordOut"}},
+          "confidence_spans": {"type": "array", "items": {"$ref": "#/components/schemas/ConfidenceSpanOut"}},
+          "voice_commands": {"type": "array", "items": {"$ref": "#/components/schemas/CommandSlotOut"}},
+          "operations": {"type": "array", "items": {"$ref": "#/components/schemas/OperationOut"}},
+          "warnings": {"type": "array", "items": {"$ref": "#/components/schemas/WarningOut"}}
+        }
+      },
+      "BatchProcessResponse": {
+        "type": "object",
+        "required": ["segments", "pipeline_version"],
+        "properties": {
+          "segments": {"type": "array", "items": {"$ref": "#/components/schemas/BatchSegmentOut"}},
+          "pipeline_version": {"type": "string"}
+        }
+      },
+      "AbbreviationOut": {
+        "type": "object",
+        "required": ["language", "expanded", "abbreviated", "direction", "case_sensitive", "is_tenant_override"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid", "nullable": true},
+          "tenant_id": {"type": "string", "format": "uuid", "nullable": true},
+          "language": {"type": "string"},
+          "expanded": {"type": "string"},
+          "abbreviated": {"type": "string"},
+          "direction": {"type": "string", "enum": ["expand", "compact", "either"]},
+          "domain": {"type": "string", "nullable": true},
+          "case_sensitive": {"type": "boolean"},
+          "is_tenant_override": {"type": "boolean"}
+        }
+      },
+      "AbbreviationUpsertIn": {
+        "type": "object",
+        "required": ["language", "expanded", "abbreviated", "direction"],
+        "properties": {
+          "language": {"type": "string", "enum": ["uk", "en"]},
+          "expanded": {"type": "string", "minLength": 1, "maxLength": 200},
+          "abbreviated": {"type": "string", "minLength": 1, "maxLength": 50},
+          "direction": {"type": "string", "enum": ["expand", "compact", "either"]},
+          "domain": {"type": "string", "nullable": true},
+          "case_sensitive": {"type": "boolean", "default": true}
+        }
+      }
+    }
+  }
+}

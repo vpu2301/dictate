@@ -1,0 +1,63 @@
+{
+  "code": "pediatrics_outpatient_uk",
+  "name": "Педіатричний прийом",
+  "language": "uk",
+  "specialty": "pediatrics",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "Анамнез",
+      "voice_aliases": ["анамнез", "розділ анамнез"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Педіатричний анамнез. Скарги. Перебіг захворювання. Анамнез життя: пологи, вакцинація, перенесені захворювання, алергії. Сімейний анамнез.",
+      "min_chars": 30,
+      "order": 0
+    },
+    {
+      "id": "growth",
+      "name": "Антропометрія",
+      "voice_aliases": ["антропометрія", "вага зріст"],
+      "required": false,
+      "field_type": "numeric_with_unit",
+      "asr_prompt": "Вага, зріст, окружність голови. Центильні коридори. Психомоторний розвиток за віком.",
+      "min_chars": 0,
+      "order": 1
+    },
+    {
+      "id": "examination",
+      "name": "Об'єктивний огляд",
+      "voice_aliases": ["огляд", "розділ огляд"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Огляд дитини. Загальний стан, свідомість, активність. Температура, ЧСС, ЧД, SpO2. Шкіра, слизові. Зів. Лімфовузли. Аускультація серця і легень. Живіт. Менінгеальні знаки.",
+      "min_chars": 30,
+      "order": 2
+    },
+    {
+      "id": "diagnosis",
+      "name": "Діагноз",
+      "voice_aliases": ["діагноз", "розділ діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Педіатричний діагноз. Основне захворювання, ускладнення, супутні. МКХ-10.",
+      "min_chars": 10,
+      "order": 3
+    },
+    {
+      "id": "plan",
+      "name": "План",
+      "voice_aliases": ["план", "розділ план"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "План лікування. Препарати з урахуванням маси тіла і віку. Режим. Дієта. Рекомендації батькам. Повторний візит.",
+      "min_chars": 20,
+      "order": 4
+    }
+  ],
+  "metadata": {
+    "moh_order_ref": "MoH-110-pediatrics",
+    "fhir_template": "DiagnosticReport/pediatric-visit"
+  }
+}

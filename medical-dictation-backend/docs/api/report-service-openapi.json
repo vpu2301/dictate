@@ -1,0 +1,268 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Report Service",
+    "description": "Sprint-06 templates slice. Sprint-08 will add reports.",
+    "version": "0.6.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Liveness probe",
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Readiness probe — DB",
+        "responses": {
+          "200": {"description": "ready"},
+          "503": {"description": "not ready"}
+        }
+      }
+    },
+    "/templates": {
+      "get": {
+        "tags": ["templates"],
+        "summary": "List visible templates (own-tenant + system).",
+        "parameters": [
+          {"name": "specialty", "in": "query", "schema": {"type": "string", "maxLength": 64}},
+          {"name": "language", "in": "query", "schema": {"type": "string", "enum": ["uk", "en"]}},
+          {"name": "tenant_only", "in": "query", "schema": {"type": "boolean", "default": false}},
+          {"name": "include_deprecated", "in": "query", "schema": {"type": "boolean", "default": false}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/TemplateSummary"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/templates/{template_id}": {
+      "get": {
+        "tags": ["templates"],
+        "summary": "Fetch full template definition (cached).",
+        "parameters": [
+          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/TemplateDetail"}
+              }
+            }
+          },
+          "404": {"description": "Not visible / not found"}
+        }
+      },
+      "put": {
+        "tags": ["templates"],
+        "summary": "Update a tenant template. Structural edits create a new version.",
+        "parameters": [
+          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/TemplateDefinition"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/UpdateResponse"}
+              }
+            }
+          },
+          "404": {"description": "Not visible / not found"}
+        }
+      },
+      "delete": {
+        "tags": ["templates"],
+        "summary": "Soft-delete (deprecate) a tenant template.",
+        "parameters": [
+          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "responses": {
+          "200": {"description": "deprecated"},
+          "404": {"description": "Not visible / not found"},
+          "409": {"description": "In use by reports — re-bind via sprint-17 admin"}
+        }
+      }
+    },
+    "/templates/{template_id}/sections/{section_id}/prompt": {
+      "get": {
+        "tags": ["templates"],
+        "summary": "Fetch a section's ASR prompt (cached; dictation hot path).",
+        "parameters": [
+          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+          {"name": "section_id", "in": "path", "required": true, "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/SectionPromptResponse"}
+              }
+            }
+          },
+          "404": {"description": "Template or section not found"}
+        }
+      }
+    },
+    "/templates/clone": {
+      "post": {
+        "tags": ["templates"],
+        "summary": "Clone a visible template into the caller's tenant.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CloneRequest"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/CloneResponse"}
+              }
+            }
+          },
+          "404": {"description": "Source template not visible"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TemplateSummary": {
+        "type": "object",
+        "required": ["id", "code", "name", "language", "specialty", "schema_version", "is_system", "status", "created_at", "updated_at"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "tenant_id": {"type": "string", "format": "uuid", "nullable": true},
+          "parent_template_id": {"type": "string", "format": "uuid", "nullable": true},
+          "code": {"type": "string"},
+          "name": {"type": "string"},
+          "language": {"type": "string"},
+          "specialty": {"type": "string"},
+          "schema_version": {"type": "integer"},
+          "is_system": {"type": "boolean"},
+          "status": {"type": "string", "enum": ["draft", "active", "deprecated"]},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "TemplateDetail": {
+        "allOf": [
+          {"$ref": "#/components/schemas/TemplateSummary"},
+          {
+            "type": "object",
+            "required": ["schema_jsonb"],
+            "properties": {
+              "schema_jsonb": {"$ref": "#/components/schemas/TemplateDefinition"}
+            }
+          }
+        ]
+      },
+      "TemplateDefinition": {
+        "type": "object",
+        "required": ["code", "name", "language", "specialty", "sections"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {"type": "string", "minLength": 1, "maxLength": 64},
+          "name": {"type": "string", "minLength": 1, "maxLength": 256},
+          "language": {"type": "string", "enum": ["uk", "en"]},
+          "specialty": {"type": "string", "minLength": 1, "maxLength": 64},
+          "schema_version": {"type": "integer", "minimum": 1, "default": 1},
+          "sections": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {"$ref": "#/components/schemas/TemplateSection"}
+          },
+          "metadata": {"$ref": "#/components/schemas/TemplateMetadata"}
+        }
+      },
+      "TemplateSection": {
+        "type": "object",
+        "required": ["id", "name", "asr_prompt"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z][a-z0-9_]*$"},
+          "name": {"type": "string", "minLength": 1, "maxLength": 128},
+          "voice_aliases": {"type": "array", "items": {"type": "string"}},
+          "required": {"type": "boolean", "default": true},
+          "field_type": {"type": "string", "enum": ["free_text", "structured_diagnosis", "date", "date_with_note", "numeric_with_unit"], "default": "free_text"},
+          "asr_prompt": {"type": "string", "minLength": 1, "maxLength": 896},
+          "min_chars": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 0},
+          "order": {"type": "integer", "minimum": 0, "default": 0},
+          "default_content": {"type": "string", "maxLength": 4000, "default": ""}
+        }
+      },
+      "TemplateMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "moh_order_ref": {"type": "string", "nullable": true, "maxLength": 64},
+          "billing_code": {"type": "string", "nullable": true, "maxLength": 32},
+          "fhir_template": {"type": "string", "nullable": true, "maxLength": 128},
+          "notes": {"type": "string", "maxLength": 2000, "default": ""}
+        }
+      },
+      "CloneRequest": {
+        "type": "object",
+        "required": ["system_template_id"],
+        "additionalProperties": false,
+        "properties": {
+          "system_template_id": {"type": "string", "format": "uuid"},
+          "new_name": {"type": "string", "minLength": 1, "maxLength": 256, "nullable": true},
+          "new_code": {"type": "string", "minLength": 1, "maxLength": 64, "nullable": true}
+        }
+      },
+      "CloneResponse": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {"id": {"type": "string", "format": "uuid"}}
+      },
+      "UpdateResponse": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "kind": {"type": "string", "enum": ["cosmetic", "structural", "no_change"]}
+        }
+      },
+      "SectionPromptResponse": {
+        "type": "object",
+        "required": ["prompt", "language", "section_name"],
+        "properties": {
+          "prompt": {"type": "string"},
+          "language": {"type": "string"},
+          "section_name": {"type": "string"}
+        }
+      }
+    }
+  }
+}

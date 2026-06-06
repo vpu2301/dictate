@@ -1,0 +1,63 @@
+{
+  "code": "internal_medicine_uk",
+  "name": "Терапевтичний прийом",
+  "language": "uk",
+  "specialty": "internal_medicine",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "Анамнез",
+      "voice_aliases": ["анамнез", "розділ анамнез"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Терапевтичний анамнез. Скарги, тривалість, динаміка. Анамнез життя: хронічні захворювання, операції, алергії. Соціальний анамнез. Сімейний анамнез.",
+      "min_chars": 30,
+      "order": 0
+    },
+    {
+      "id": "examination",
+      "name": "Об'єктивний огляд",
+      "voice_aliases": ["огляд", "розділ огляд"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Об'єктивний огляд. Загальний стан, температура, пульс, артеріальний тиск, ЧД, SpO2. Шкіра, лімфовузли. Серцево-судинна, дихальна, травна, сечовидільна системи. Нервова система.",
+      "min_chars": 30,
+      "order": 1
+    },
+    {
+      "id": "investigations",
+      "name": "Обстеження",
+      "voice_aliases": ["обстеження"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Призначені обстеження: ЗАК, ЗАС, біохімія крові, ЕКГ, рентген, УЗД за показами. Консультації спеціалістів.",
+      "min_chars": 0,
+      "order": 2
+    },
+    {
+      "id": "diagnosis",
+      "name": "Діагноз",
+      "voice_aliases": ["діагноз", "розділ діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Клінічний діагноз. Основне захворювання, ускладнення, супутні. МКХ-10.",
+      "min_chars": 10,
+      "order": 3
+    },
+    {
+      "id": "plan",
+      "name": "План",
+      "voice_aliases": ["план", "розділ план", "рекомендації"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "План лікування. Медикаментозна терапія, дозування, тривалість. Дієта, режим. Повторний візит.",
+      "min_chars": 20,
+      "order": 4
+    }
+  ],
+  "metadata": {
+    "moh_order_ref": "MoH-110-internal",
+    "fhir_template": "DiagnosticReport/internal-medicine"
+  }
+}

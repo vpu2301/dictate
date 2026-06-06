@@ -1,0 +1,63 @@
+{
+  "code": "cardiology_outpatient_en",
+  "name": "Cardiology Consultation (Outpatient)",
+  "language": "en",
+  "specialty": "cardiology",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "History",
+      "voice_aliases": ["history", "anamnesis", "section history", "go to history"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Cardiology history. Chief complaint: chest pain, dyspnea, palpitations, edema. Duration, provoking factors. Risk factors: hypertension, diabetes, smoking, dyslipidemia. Family history of CAD.",
+      "min_chars": 30,
+      "order": 0
+    },
+    {
+      "id": "examination",
+      "name": "Physical Examination",
+      "voice_aliases": ["examination", "exam", "physical exam", "section exam"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Physical examination. General appearance, consciousness. Heart rate, blood pressure, respiratory rate, SpO2. Heart sounds, murmurs, cardiac borders. Pulmonary auscultation. Peripheral edema, peripheral pulses. Carotid auscultation.",
+      "min_chars": 30,
+      "order": 1
+    },
+    {
+      "id": "investigations",
+      "name": "Investigations",
+      "voice_aliases": ["investigations", "studies", "tests"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Results. ECG: rhythm, rate, conduction, ischemia signs. Echocardiography: LVEF, chamber sizes, valves. Troponin, NT-proBNP, lipid panel, creatinine, potassium, sodium. Holter if applicable.",
+      "min_chars": 0,
+      "order": 2
+    },
+    {
+      "id": "diagnosis",
+      "name": "Diagnosis",
+      "voice_aliases": ["diagnosis", "section diagnosis", "go to diagnosis"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Clinical diagnosis. Primary: CAD, stable angina, CCS class. Complications: CHF with reduced LVEF. Comorbidities: hypertension stage, type 2 diabetes mellitus. ICD-10 code.",
+      "min_chars": 10,
+      "order": 3
+    },
+    {
+      "id": "plan",
+      "name": "Plan",
+      "voice_aliases": ["plan", "treatment plan", "section plan"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Treatment plan. Medications: beta-blockers, ACE inhibitors, statins, antiplatelets. Dose adjustments. Non-pharmacologic: diet, physical activity. Follow-up timing. Referrals for further workup.",
+      "min_chars": 30,
+      "order": 4
+    }
+  ],
+  "metadata": {
+    "billing_code": "CARD-OUT-001-EN",
+    "fhir_template": "DiagnosticReport/cardiology-consultation"
+  }
+}

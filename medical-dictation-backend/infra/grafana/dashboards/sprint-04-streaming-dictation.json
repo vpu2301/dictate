@@ -1,0 +1,100 @@
+{
+  "title": "Sprint 04 — Streaming Dictation",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["sprint-04", "dictation", "streaming"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-3h", "to": "now"},
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active sessions (total)",
+      "id": 1,
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(mdx_dictation_active_sessions)"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Active sessions by worker",
+      "id": 2,
+      "gridPos": {"h": 8, "w": 12, "x": 4, "y": 0},
+      "targets": [{
+        "expr": "mdx_dictation_active_sessions",
+        "legendFormat": "{{worker_id}}"
+      }]
+    },
+    {
+      "type": "stat",
+      "title": "Models loaded",
+      "id": 3,
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "targets": [{"expr": "sum(mdx_dictation_model_loaded)"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Partial latency (target: p95 ≤ 1100 ms)",
+      "id": 4,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum by (le) (rate(mdx_dictation_partial_latency_ms_bucket[5m])))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_dictation_partial_latency_ms_bucket[5m])))", "legendFormat": "p95"},
+        {"expr": "1100", "legendFormat": "target"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Final latency (target: p95 ≤ 2500 ms)",
+      "id": 5,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum by (le) (rate(mdx_dictation_final_latency_ms_bucket[5m])))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_dictation_final_latency_ms_bucket[5m])))", "legendFormat": "p95"},
+        {"expr": "2500", "legendFormat": "target"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Reconnects per minute",
+      "id": 6,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [{"expr": "sum(rate(mdx_dictation_reconnects_total[1m])) * 60"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-session bandwidth p95 (bps)",
+      "id": 7,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_dictation_bandwidth_bps_bucket[5m])))", "legendFormat": "p95"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Audio decode error rate",
+      "id": 8,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "targets": [{"expr": "sum(rate(mdx_dictation_audio_decode_errors_total[5m]))"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "WS upgrade rejections by reason",
+      "id": 9,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "targets": [{
+        "expr": "sum by (reason) (rate(mdx_dictation_ws_upgrade_rejections_total[5m]))",
+        "legendFormat": "{{reason}}"
+      }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Session drops by reason",
+      "id": 10,
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+      "targets": [{
+        "expr": "sum by (reason) (rate(mdx_dictation_session_drops_total[5m]))",
+        "legendFormat": "{{reason}}"
+      }]
+    }
+  ]
+}

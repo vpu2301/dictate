@@ -1,0 +1,79 @@
+groups:
+  - name: sprint-04-streaming-dictation
+    interval: 30s
+    rules:
+      - alert: DictationPartialLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(mdx_dictation_partial_latency_ms_bucket[5m]))
+          ) > 1500
+        for: 5m
+        labels:
+          severity: page
+          team: dictation
+        annotations:
+          summary: "Partial latency p95 > 1500 ms for 5m"
+          description: |
+            Target is 1100 ms. Investigate: GPU utilization, inference-queue
+            depth, recent model bump, noisy-neighbor process. See
+            docs/runbooks/dictation.md § high-partial-latency.
+
+      - alert: DictationFinalLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(mdx_dictation_final_latency_ms_bucket[5m]))
+          ) > 4000
+        for: 5m
+        labels:
+          severity: page
+          team: dictation
+        annotations:
+          summary: "Final latency p95 > 4000 ms for 5m"
+          description: "Target is 2500 ms. Likely commitment-policy or windowing regression."
+
+      - alert: DictationWorkerFailureRate
+        expr: |
+          sum(rate(mdx_dictation_session_drops_total{reason="worker_failed"}[1h]))
+            /
+          sum(rate(mdx_dictation_session_drops_total[1h])) > 0.005
+        for: 10m
+        labels:
+          severity: page
+          team: sre
+        annotations:
+          summary: "Worker failure rate > 0.5% of sessions over 1h"
+
+      - alert: DictationReconnectRateHigh
+        expr: |
+          sum(rate(mdx_dictation_reconnects_total[1h]))
+            /
+          sum(rate(mdx_dictation_session_drops_total[1h])) > 0.10
+        for: 10m
+        labels:
+          severity: page
+          team: sre
+        annotations:
+          summary: "Reconnect rate > 10% over 1h"
+          description: "Likely a network or proxy issue. Check LB logs."
+
+      - alert: DictationWorkerSaturated
+        expr: max by (worker_id) (mdx_dictation_active_sessions) >= 4
+        for: 5m
+        labels:
+          severity: warn
+          team: capacity
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} at capacity (4 sessions)"
+          description: |
+            Sprint 16 will wire HPA on this metric. Today it pages capacity
+            engineer to scale manually.
+
+      - alert: DictationUpgradeRejectionRate
+        expr: |
+          sum(rate(mdx_dictation_ws_upgrade_rejections_total[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: page
+          team: security
+        annotations:
+          summary: "WS upgrade rejection rate sustained — possible abuse"

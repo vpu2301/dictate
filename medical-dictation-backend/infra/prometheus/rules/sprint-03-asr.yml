@@ -1,0 +1,87 @@
+groups:
+  - name: sprint-03-asr-health
+    interval: 30s
+    rules:
+      - alert: AsrQueueDepthHigh
+        expr: max_over_time(mdx_asr_queue_depth[5m]) > 100
+        for: 5m
+        labels:
+          severity: page
+          team: asr
+        annotations:
+          summary: "ASR job queue depth has exceeded 100 for 5m"
+          description: |
+            The Redis Streams stream {{ $labels.stream }} has more than 100 pending
+            jobs sustained for 5 minutes. Capacity may need scaling. Check
+            worker liveness + scale `asr-worker` replicas.
+
+      - alert: AsrWorkerErrorRate
+        expr: |
+          sum(rate(mdx_asr_jobs_total{status="failed"}[10m]))
+            /
+          sum(rate(mdx_asr_jobs_total[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: page
+          team: asr
+        annotations:
+          summary: "ASR worker failure rate > 5% over 10m"
+          description: "Investigate via traces; check GPU + ffmpeg + OOM rates."
+
+      - alert: AsrRealtimeFactorLow
+        expr: avg_over_time(mdx_asr_realtime_factor[5m]) < 0.5
+        for: 5m
+        labels:
+          severity: warn
+          team: asr
+        annotations:
+          summary: "ASR worker is running slower than 0.5x realtime"
+          description: |
+            audio_duration / infer_seconds < 0.5 sustained 5m. Likely causes:
+            CPU fallback, GPU contention, or model loaded with the wrong
+            compute_type (fp32 instead of fp16).
+
+      - alert: AsrOomBurst
+        expr: increase(mdx_asr_oom_total[10m]) >= 3
+        for: 0m
+        labels:
+          severity: page
+          team: asr
+        annotations:
+          summary: "Three or more CUDA OOMs in the last 10m"
+
+      - alert: AsrMasterKeyMissing
+        # Either the worker isn't started (model_loaded=0) for > 5m while
+        # the queue has work, or a structured log line indicates a missing
+        # master key. Loki alerts handle the latter; this is the metric one.
+        expr: mdx_asr_model_loaded == 0
+        for: 5m
+        labels:
+          severity: page
+          team: security
+        annotations:
+          summary: "asr-worker model is not loaded"
+          description: |
+            Check: is the worker running? Is /etc/mdx/master.key mounted with
+            mode 0400? See docs/runbooks/asr-worker.md § master-key-missing.
+
+      - alert: AsrGpuMemoryHigh
+        expr: max_over_time(mdx_asr_gpu_memory_peak_mb[15m]) > 0.9 * 24576
+        for: 5m
+        labels:
+          severity: warn
+          team: asr
+        annotations:
+          summary: "GPU peak memory > 90% of 24 GB card for 3 jobs in a row"
+          description: "Consider reducing beam size or chunk length."
+
+      - alert: AsrWerRegression
+        expr: |
+          max_over_time(mdx_asr_wer{language="uk",specialty="general"}[1d]) > 0.20
+        for: 1h
+        labels:
+          severity: warn
+          team: ml
+        annotations:
+          summary: "UK general WER drifted above 20% (target ≤ 18%)"
+          description: "Run scripts/eval/run_wer.py manually; compare to last green."

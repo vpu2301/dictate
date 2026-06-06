@@ -1,0 +1,73 @@
+{
+  "code": "discharge_summary_uk",
+  "name": "Виписний епікриз",
+  "language": "uk",
+  "specialty": "internal_medicine",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "admission",
+      "name": "Госпіталізація",
+      "voice_aliases": ["госпіталізація", "поступлення"],
+      "required": true,
+      "field_type": "date_with_note",
+      "asr_prompt": "Дата і причина госпіталізації. Скерування. Стан при поступленні.",
+      "min_chars": 10,
+      "order": 0
+    },
+    {
+      "id": "course",
+      "name": "Перебіг захворювання",
+      "voice_aliases": ["перебіг", "розділ перебіг"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Перебіг захворювання в стаціонарі. Динаміка симптомів. Обстеження, які проводились. Призначене лікування. Реакція на терапію.",
+      "min_chars": 50,
+      "order": 1
+    },
+    {
+      "id": "investigations",
+      "name": "Результати обстежень",
+      "voice_aliases": ["обстеження", "результати"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Результати обстежень: ЗАК, ЗАС, біохімія, ЕКГ, рентген, УЗД. Динаміка показників.",
+      "min_chars": 20,
+      "order": 2
+    },
+    {
+      "id": "diagnosis",
+      "name": "Заключний діагноз",
+      "voice_aliases": ["діагноз", "заключний діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Заключний клінічний діагноз. МКХ-10. Основне захворювання, ускладнення, супутні.",
+      "min_chars": 10,
+      "order": 3
+    },
+    {
+      "id": "discharge",
+      "name": "Виписка",
+      "voice_aliases": ["виписка"],
+      "required": true,
+      "field_type": "date_with_note",
+      "asr_prompt": "Дата виписки. Стан при виписці. Працездатність.",
+      "min_chars": 10,
+      "order": 4
+    },
+    {
+      "id": "recommendations",
+      "name": "Рекомендації",
+      "voice_aliases": ["рекомендації", "розділ рекомендації"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Рекомендації після виписки. Медикаментозна терапія. Режим. Дієта. Спостереження у дільничного терапевта. Контрольні обстеження.",
+      "min_chars": 30,
+      "order": 5
+    }
+  ],
+  "metadata": {
+    "moh_order_ref": "MoH-110-discharge",
+    "fhir_template": "Composition/discharge-summary"
+  }
+}

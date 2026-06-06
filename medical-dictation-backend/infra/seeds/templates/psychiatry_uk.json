@@ -1,0 +1,52 @@
+{
+  "code": "psychiatry_uk",
+  "name": "Психіатричний прийом",
+  "language": "uk",
+  "specialty": "psychiatry",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "Анамнез",
+      "voice_aliases": ["анамнез", "розділ анамнез"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Психіатричний анамнез. Скарги. Початок і динаміка симптомів. Преморбід. Психіатричний анамнез у родині. Соціальний анамнез. Шкідливі звички.",
+      "min_chars": 30,
+      "order": 0
+    },
+    {
+      "id": "mental_status",
+      "name": "Психічний статус",
+      "voice_aliases": ["психічний статус", "статус"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Психічний статус. Зовнішній вигляд. Свідомість, орієнтація. Емоційний фон, афект. Мислення: темп, продуктивність, маячення. Сприйняття: галюцинації. Пам'ять, увага, інтелект. Критика.",
+      "min_chars": 30,
+      "order": 1
+    },
+    {
+      "id": "diagnosis",
+      "name": "Діагноз",
+      "voice_aliases": ["діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Психіатричний діагноз. МКХ-10. Тип епізоду, ступінь тяжкості.",
+      "min_chars": 10,
+      "order": 2
+    },
+    {
+      "id": "plan",
+      "name": "План",
+      "voice_aliases": ["план", "рекомендації"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "План лікування. Психофармакотерапія. Дозування, титрування. Психотерапія. Реабілітація. Контроль стану.",
+      "min_chars": 20,
+      "order": 3
+    }
+  ],
+  "metadata": {
+    "fhir_template": "DiagnosticReport/psychiatry-visit"
+  }
+}

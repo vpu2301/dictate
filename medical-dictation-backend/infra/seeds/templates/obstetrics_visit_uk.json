@@ -1,0 +1,62 @@
+{
+  "code": "obstetrics_visit_uk",
+  "name": "Акушерський прийом",
+  "language": "uk",
+  "specialty": "obstetrics",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "Анамнез",
+      "voice_aliases": ["анамнез", "розділ анамнез"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Акушерський анамнез. Скарги. Перебіг вагітності. Термін гестації. Дата останньої менструації. Очікувана дата пологів. Кількість попередніх вагітностей.",
+      "min_chars": 30,
+      "order": 0
+    },
+    {
+      "id": "examination",
+      "name": "Огляд",
+      "voice_aliases": ["огляд", "розділ огляд"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Огляд вагітної. Артеріальний тиск, набряки, вага. Висота стояння дна матки. Окружність живота. Положення плода. Серцебиття плода. Тонус матки.",
+      "min_chars": 30,
+      "order": 1
+    },
+    {
+      "id": "investigations",
+      "name": "Обстеження",
+      "voice_aliases": ["обстеження"],
+      "required": false,
+      "field_type": "free_text",
+      "asr_prompt": "Обстеження. УЗД плода: біометрія, серцебиття, кровотік. ЗАК, ЗАС, скринінг. КТГ.",
+      "min_chars": 0,
+      "order": 2
+    },
+    {
+      "id": "diagnosis",
+      "name": "Діагноз",
+      "voice_aliases": ["діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Акушерський діагноз. Термін гестації. Стан вагітної і плода. Ускладнення.",
+      "min_chars": 10,
+      "order": 3
+    },
+    {
+      "id": "plan",
+      "name": "План",
+      "voice_aliases": ["план", "рекомендації"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "План ведення. Рекомендації. Препарати. Наступний візит. Скерування за показами.",
+      "min_chars": 20,
+      "order": 4
+    }
+  ],
+  "metadata": {
+    "fhir_template": "DiagnosticReport/obstetric-visit"
+  }
+}

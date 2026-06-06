@@ -1,0 +1,96 @@
+[
+  {
+    "intent": "newparagraph",
+    "phrases": [["новий", "абзац"], ["абзац"], ["новий", "параграф"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "newline",
+    "phrases": [["новий", "рядок"], ["перенос", "рядка"]],
+    "requires_pause_before_ms": 200,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "period",
+    "phrases": [["крапка"], ["крапку"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "comma",
+    "phrases": [["кома"], ["кому"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "question_mark",
+    "phrases": [["знак", "питання"], ["питальний", "знак"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "section.diagnosis",
+    "phrases": [["розділ", "діагноз"], ["перейти", "до", "діагнозу"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.history",
+    "phrases": [["розділ", "анамнез"], ["перейти", "до", "анамнезу"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.exam",
+    "phrases": [["розділ", "огляд"], ["об'єктивний", "огляд"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.plan",
+    "phrases": [["розділ", "план"], ["план", "лікування"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "insert_template",
+    "phrases": [["вставити", "шаблон"], ["шаблон"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "save_draft",
+    "phrases": [["зберегти", "чернетку"], ["зберегти", "як", "чернетку"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "undo_last",
+    "phrases": [["відмінити", "останнє"], ["скасувати", "останнє"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "stop_dictation",
+    "phrases": [["стоп", "диктування"], ["зупинити", "диктування"], ["закінчити", "диктування"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "begin_quote",
+    "phrases": [["відкрити", "лапки"], ["цитата", "початок"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "end_quote",
+    "phrases": [["закрити", "лапки"], ["цитата", "кінець"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  }
+]

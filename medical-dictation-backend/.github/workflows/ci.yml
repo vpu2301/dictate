@@ -1,0 +1,212 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.4.29"
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv==${{ env.UV_VERSION }}
+
+      - name: Install dev tools
+        working-directory: services/_template
+        run: uv pip install --system -e ".[dev]"
+
+      - name: ruff lint
+        run: uv run ruff check .
+
+      - name: ruff format check
+        run: uv run ruff format --check .
+
+      - name: mypy strict
+        run: |
+          uv run mypy --strict \
+            services/_template/src/ \
+            libs/observability/src/ \
+            libs/secret/src/ \
+            libs/auth/src/ \
+            libs/db/src/ \
+            libs/audit/src/ \
+            libs/messaging/src/
+
+  # ──────────────────────────────────────────────────────────────
+  import-linter:
+    name: Architectural contracts (import-linter)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv
+        run: pip install uv==${{ env.UV_VERSION }}
+      - name: Install import-linter and project libs
+        run: |
+          uv pip install --system import-linter>=2.0
+          for d in libs/*/ services/*/; do
+            uv pip install --system -e "$d"
+          done
+      - name: lint-imports
+        run: uv run lint-imports --config pyproject.toml
+
+  # ──────────────────────────────────────────────────────────────
+  test:
+    name: Tests (coverage ≥ 80%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv==${{ env.UV_VERSION }}
+
+      - name: Install template service + dev deps
+        working-directory: services/_template
+        run: uv pip install --system -e ".[dev]"
+
+      - name: pytest with coverage
+        working-directory: services/_template
+        env:
+          TESTING: "true"
+          OTEL_SDK_DISABLED: "true"
+        run: |
+          uv run pytest tests/ \
+            --cov=template_service \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: services/_template/coverage.xml
+          flags: template-service
+
+  # ──────────────────────────────────────────────────────────────
+  security:
+    name: Security scans (bandit + semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv==${{ env.UV_VERSION }}
+
+      - name: Install bandit
+        run: uv pip install --system "bandit[toml]>=1.7.8"
+
+      - name: bandit SAST
+        run: |
+          uv run bandit -r services/ libs/ \
+            --severity-level medium \
+            --confidence-level medium \
+            -f json \
+            -o bandit-report.json || true
+          uv run bandit -r services/ libs/ --severity-level high --exit-zero
+
+      - name: semgrep SAST
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/security-audit
+            p/owasp-top-ten
+            p/secrets
+
+  # ──────────────────────────────────────────────────────────────
+  container-scan:
+    name: Build & scan container (trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t template-service:ci \
+            services/_template/
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: template-service:ci
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ──────────────────────────────────────────────────────────────
+  publish:
+    name: Build & push to GHCR
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [lint, test, security, container-scan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta (semver tags)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/template-service
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: services/_template
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

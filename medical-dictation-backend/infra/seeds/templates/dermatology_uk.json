@@ -1,0 +1,52 @@
+{
+  "code": "dermatology_uk",
+  "name": "Дерматологічний прийом",
+  "language": "uk",
+  "specialty": "dermatology",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "anamnesis",
+      "name": "Анамнез",
+      "voice_aliases": ["анамнез"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Дерматологічний анамнез. Скарги. Тривалість висипу. Локалізація. Провокуючі фактори. Сімейний анамнез шкірних хвороб. Атопія, алергії.",
+      "min_chars": 20,
+      "order": 0
+    },
+    {
+      "id": "examination",
+      "name": "Дерматологічний статус",
+      "voice_aliases": ["огляд", "статус локаліс"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Дерматологічний статус. Локалізація, розповсюдженість висипу. Морфологічні елементи: плями, папули, везикули, пустули, ерозії, кірки. Колір, межі, симетричність. Слизові, нігті, волосся.",
+      "min_chars": 30,
+      "order": 1
+    },
+    {
+      "id": "diagnosis",
+      "name": "Діагноз",
+      "voice_aliases": ["діагноз"],
+      "required": true,
+      "field_type": "structured_diagnosis",
+      "asr_prompt": "Дерматологічний діагноз. Основне захворювання, форма, стадія. МКХ-10.",
+      "min_chars": 10,
+      "order": 2
+    },
+    {
+      "id": "plan",
+      "name": "План",
+      "voice_aliases": ["план", "рекомендації"],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "План. Місцева терапія: мазі, креми, концентрація, частота. Системна терапія за показами. Догляд за шкірою. Уникати тригерів.",
+      "min_chars": 20,
+      "order": 3
+    }
+  ],
+  "metadata": {
+    "fhir_template": "DiagnosticReport/dermatology-visit"
+  }
+}

@@ -1,0 +1,96 @@
+[
+  {
+    "intent": "newparagraph",
+    "phrases": [["new", "paragraph"], ["paragraph", "break"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "newline",
+    "phrases": [["new", "line"], ["line", "break"]],
+    "requires_pause_before_ms": 200,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "period",
+    "phrases": [["period"], ["full", "stop"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "comma",
+    "phrases": [["comma"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "question_mark",
+    "phrases": [["question", "mark"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "section.diagnosis",
+    "phrases": [["section", "diagnosis"], ["go", "to", "diagnosis"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.history",
+    "phrases": [["section", "history"], ["go", "to", "history"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.exam",
+    "phrases": [["section", "exam"], ["physical", "exam"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.plan",
+    "phrases": [["section", "plan"], ["treatment", "plan"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "insert_template",
+    "phrases": [["insert", "template"], ["template"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "save_draft",
+    "phrases": [["save", "draft"], ["save", "as", "draft"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "undo_last",
+    "phrases": [["undo", "last"], ["undo", "that"]],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "stop_dictation",
+    "phrases": [["stop", "dictation"], ["end", "dictation"]],
+    "requires_pause_before_ms": 350,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "begin_quote",
+    "phrases": [["open", "quote"], ["quote", "begin"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "end_quote",
+    "phrases": [["close", "quote"], ["quote", "end"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "corpus_version": "v1",
+  "schema_version": 1,
+  "description": "Sprint-07 WER eval reference set. 60 UK + 60 EN utterances when fully authored.",
+  "license": "internal-use-only; consent statements per utterance",
+  "utterances": []
+}

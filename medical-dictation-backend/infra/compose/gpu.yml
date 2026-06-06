@@ -1,0 +1,54 @@
+# ──────────────────────────────────────────────────────────────
+# GPU overlay — replaces the CPU-only asr-worker with a CUDA variant.
+#
+# Prerequisites on the host:
+#   - NVIDIA driver ≥ 535
+#   - CUDA toolkit 12.x
+#   - NVIDIA Container Toolkit (nvidia-container-runtime) configured as a
+#     Docker runtime.  Run `docker info | grep -i runtime` to verify.
+#
+# Run:
+#   docker compose -f infra/compose/base.yml \
+#                  -f infra/compose/dev.yml  \
+#                  -f infra/compose/gpu.yml  up -d
+# ──────────────────────────────────────────────────────────────
+name: medical-dictation
+
+services:
+  asr-worker:
+    build:
+      context: ../..
+      dockerfile: services/asr-worker/Dockerfile
+    runtime: nvidia
+    environment:
+      MD_ASR_DEVICE: cuda
+      MD_ASR_MODEL: large-v3
+      MD_ASR_COMPUTE_TYPE: float16
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  dictation-service:
+    build:
+      context: ../..
+      dockerfile: services/dictation-service/Dockerfile
+    runtime: nvidia
+    environment:
+      MD_ASR_DEVICE: cuda
+      MD_ASR_MODEL: large-v3
+      MD_ASR_COMPUTE_TYPE: float16
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
