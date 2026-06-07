@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Annotated, Literal
@@ -43,8 +42,13 @@ async def receive_telemetry(
         {"patterns": ",".join(scrubbed.redactions.keys()) or "none"},
     )
     row = (
-        claims.tid, claims.sub, body.request_id, body.event,
-        body.phrase_id, body.snippet_id, scrubbed.text,
+        claims.tid,
+        claims.sub,
+        body.request_id,
+        body.event,
+        body.phrase_id,
+        body.snippet_id,
+        scrubbed.text,
         json.dumps(scrub_context(body.context)),
     )
     state.telemetry_buffer.append(row)

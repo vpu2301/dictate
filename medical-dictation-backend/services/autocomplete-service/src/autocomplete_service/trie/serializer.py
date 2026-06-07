@@ -6,7 +6,7 @@ Format header:
     byte  5      algo    = 0 (msgpack-ish JSON in sprint-10)
     bytes 6..    payload (gzip(json))
 
-Mismatch on magic / version raises ``SerializerVersionMismatch`` and
+Mismatch on magic / version raises ``SerializerVersionMismatchError`` and
 the caller treats the cache entry as missing.
 """
 
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import gzip
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 from autocomplete_service.trie.builder import PhraseTrieEntry, TenantTrie
 
@@ -23,7 +23,7 @@ VERSION = 1
 ALGO_JSONGZ = 0
 
 
-class SerializerVersionMismatch(Exception):
+class SerializerVersionMismatchError(Exception):
     pass
 
 
@@ -56,13 +56,13 @@ def serialize_trie(trie: TenantTrie) -> bytes:
 
 def deserialize_trie(blob: bytes) -> TenantTrie:
     if len(blob) < 6 or blob[:4] != MAGIC:
-        raise SerializerVersionMismatch("bad magic")
+        raise SerializerVersionMismatchError("bad magic")
     version = blob[4]
     algo = blob[5]
     if version != VERSION:
-        raise SerializerVersionMismatch(f"version {version}, expected {VERSION}")
+        raise SerializerVersionMismatchError(f"version {version}, expected {VERSION}")
     if algo != ALGO_JSONGZ:
-        raise SerializerVersionMismatch(f"algo {algo}, expected {ALGO_JSONGZ}")
+        raise SerializerVersionMismatchError(f"algo {algo}, expected {ALGO_JSONGZ}")
     raw = gzip.decompress(blob[6:])
     obj = json.loads(raw.decode("utf-8"))
     entries: dict[str, PhraseTrieEntry] = {}

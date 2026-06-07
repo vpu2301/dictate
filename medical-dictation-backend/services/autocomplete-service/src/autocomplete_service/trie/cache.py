@@ -22,12 +22,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from autocomplete_service.trie.builder import TenantTrie
 from autocomplete_service.trie.serializer import (
-    SerializerVersionMismatch,
+    SerializerVersionMismatchError,
     deserialize_trie,
     serialize_trie,
 )
@@ -48,7 +49,7 @@ LOCK_POLL_INTERVAL_S = 0.02
 
 
 class TrieCache:
-    def __init__(self, redis: "Redis", *, ttl_seconds: int = 3600) -> None:
+    def __init__(self, redis: Redis, *, ttl_seconds: int = 3600) -> None:
         self._r = redis
         self._ttl = ttl_seconds
 
@@ -73,11 +74,13 @@ class TrieCache:
         current_tag = await self._r.get(tag_key)
         if cached and current_tag:
             try:
-                trie = deserialize_trie(cached if isinstance(cached, bytes) else cached.encode("latin-1"))
+                trie = deserialize_trie(
+                    cached if isinstance(cached, bytes) else cached.encode("latin-1")
+                )
                 stored_tag = await self._r.get(key + ":tag")
                 if stored_tag == current_tag:
                     return trie, True
-            except SerializerVersionMismatch:
+            except SerializerVersionMismatchError:
                 # Stale format → fall through to rebuild.
                 pass
 
@@ -107,12 +110,13 @@ class TrieCache:
                     return deserialize_trie(
                         cached if isinstance(cached, bytes) else cached.encode("latin-1")
                     ), True
-                except SerializerVersionMismatch:
+                except SerializerVersionMismatchError:
                     pass
 
         # Degraded: build directly without populating cache (next call retries).
-        logger.warning("trie_cache.lock_lost_degraded_fallback",
-                       extra={"tenant_id": str(tenant_id)})
+        logger.warning(
+            "trie_cache.lock_lost_degraded_fallback", extra={"tenant_id": str(tenant_id)}
+        )
         trie = await build_fn()
         return trie, False
 

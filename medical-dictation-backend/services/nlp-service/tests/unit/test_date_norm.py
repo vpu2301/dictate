@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 from datetime import date
-
-import pytest
 
 from nlp_service.pipeline.base import (
     AbbreviationSnapshot,

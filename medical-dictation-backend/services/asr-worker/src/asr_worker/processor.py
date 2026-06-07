@@ -27,12 +27,12 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from opentelemetry import metrics
 
-from asr_models import JobEnqueuePayload, JobStatus, TranscriptionOutput
+from asr_models import JobEnqueuePayload, TranscriptionOutput
 from audit import Severity
 from db import tenant_connection
 from messaging import Message
@@ -176,9 +176,7 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
                 timeout_seconds=settings.ffmpeg_timeout_seconds,
             )
         except AudioDecodeError as exc:
-            await _mark_failed(
-                state, tenant_id, job_id, kind="corrupt_audio", detail=str(exc)
-            )
+            await _mark_failed(state, tenant_id, job_id, kind="corrupt_audio", detail=str(exc))
             raise _NonRetryableError("corrupt_audio", str(exc)) from exc
 
         audio_seconds = pcm.shape[0] / 16_000.0
@@ -205,13 +203,16 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
                 ),
                 timeout=max_infer,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await _mark_failed(
-                state, tenant_id, job_id, kind="timeout",
+                state,
+                tenant_id,
+                job_id,
+                kind="timeout",
                 detail=f"inference exceeded {max_infer:.1f}s",
             )
-            raise _NonRetryableError("timeout", "inference timeout")
-        except _CudaOOM as exc:
+            raise _NonRetryableError("timeout", "inference timeout") from None
+        except _CudaOOMError as exc:
             _oom_counter.add(1)
             await _mark_failed(state, tenant_id, job_id, kind="gpu_oom", detail=str(exc))
             _release_cuda_cache()
@@ -273,9 +274,7 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
         # becomes a non-retryable error to avoid hammering the GPU.
         if _looks_like_oom(exc):
             _oom_counter.add(1)
-            await _mark_failed(
-                state, tenant_id, job_id, kind="gpu_oom", detail=str(exc)
-            )
+            await _mark_failed(state, tenant_id, job_id, kind="gpu_oom", detail=str(exc))
             _release_cuda_cache()
             raise _NonRetryableError("gpu_oom", str(exc)) from exc
         raise
@@ -348,7 +347,7 @@ async def _fetch_prompt(state: WorkerState, prompt_id: UUID) -> str | None:
     return str(row["prompt_text"]) if row is not None else None
 
 
-class _CudaOOM(RuntimeError):
+class _CudaOOMError(RuntimeError):
     pass
 
 
@@ -376,4 +375,4 @@ def _release_cuda_cache() -> None:
 
 # Re-export the timestamp helper for the worker tests.
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()

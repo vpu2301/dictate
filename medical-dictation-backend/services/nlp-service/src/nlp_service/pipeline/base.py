@@ -101,8 +101,8 @@ class AbbreviationSnapshot:
     def for_language(self, language: str) -> list[AbbreviationEntry]:
         # Tenant overrides FIRST, so the matcher's first-match wins.
         return sorted(
-            [e for e in self.entries],
-            key=lambda e: (0 if e.is_tenant_override else 1),
+            self.entries,
+            key=lambda e: 0 if e.is_tenant_override else 1,
         )
 
 
@@ -172,9 +172,7 @@ class Stage(Protocol):
 
     name: str
 
-    async def process(
-        self, ctx: ProcessingContext, input: StageInput
-    ) -> StageOutput: ...
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput: ...
 
     @property
     def runs_on_partials(self) -> bool:

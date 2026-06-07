@@ -42,7 +42,5 @@ async def readyz(response: Response) -> ReadyResponse:
     except Exception as exc:  # noqa: BLE001
         db_ok = f"fail: {type(exc).__name__}"
     ok = db_ok == "ok"
-    response.status_code = (
-        status.HTTP_200_OK if ok else status.HTTP_503_SERVICE_UNAVAILABLE
-    )
+    response.status_code = status.HTTP_200_OK if ok else status.HTTP_503_SERVICE_UNAVAILABLE
     return ReadyResponse(status="ready" if ok else "not_ready", db=db_ok)

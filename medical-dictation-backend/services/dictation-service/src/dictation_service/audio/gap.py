@@ -24,15 +24,18 @@ SAMPLES_PER_FRAME: Final = 320  # 20 ms @ 16 kHz
 
 
 class GapDecision(StrEnum):
-    ACCEPT = "accept"           # in order
-    DUPLICATE = "duplicate"     # drop silently
-    PAD_SILENCE = "pad_silence" # small gap, fill
+    ACCEPT = "accept"  # in order
+    DUPLICATE = "duplicate"  # drop silently
+    PAD_SILENCE = "pad_silence"  # small gap, fill
     REQUEST_RETRANSMIT = "request_retransmit"  # big gap
 
 
 @dataclass(frozen=True, slots=True)
 class GapPolicy:
     small_gap_max_frames: int = 50  # 1 s at 50 fps
+
+
+_DEFAULT_GAP_POLICY = GapPolicy()
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +50,7 @@ def gap_decision(
     expected_seq: int,
     incoming_seq: int,
     *,
-    policy: GapPolicy = GapPolicy(),
+    policy: GapPolicy = _DEFAULT_GAP_POLICY,
 ) -> GapResult:
     if incoming_seq < expected_seq:
         return GapResult(

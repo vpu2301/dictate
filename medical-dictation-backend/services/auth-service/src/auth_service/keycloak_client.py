@@ -225,9 +225,7 @@ class KeycloakClient:
 
         # Assign.
         assign_url = f"{self._admin_users_url(str(sub))}/role-mappings/realm"
-        ar = await self._client.post(
-            assign_url, json=[role], headers=await self._admin_headers()
-        )
+        ar = await self._client.post(assign_url, json=[role], headers=await self._admin_headers())
         if ar.status_code not in (200, 204):
             raise KeycloakError(status=ar.status_code, body=_body(ar))
 

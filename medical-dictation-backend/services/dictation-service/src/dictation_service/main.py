@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -59,11 +59,9 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     extra={"error": str(exc), "error_class": type(exc).__name__},
                 )
             try:
-                await asyncio.wait_for(
-                    hb_stop.wait(), timeout=settings.worker_heartbeat_interval_s
-                )
+                await asyncio.wait_for(hb_stop.wait(), timeout=settings.worker_heartbeat_interval_s)
                 return
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
     hb_task = asyncio.create_task(_hb_loop())
@@ -82,10 +80,8 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     finally:
         hb_stop.set()
         hb_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError, Exception):
             await hb_task
-        except (asyncio.CancelledError, Exception):
-            pass
         await state.inference_queue.__aexit__(None, None, None)
         await teardown_state(state)
         logger.info("dictation-service.stopped")

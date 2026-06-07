@@ -70,7 +70,7 @@ class StreamingWindower:
     min_partial_s: float = settings.window_min_for_partial_seconds
 
     # Bookkeeping
-    cursor_ms: int = 0                          # session-absolute end of last window
+    cursor_ms: int = 0  # session-absolute end of last window
     finalized_words: list[WordTiming] = field(default_factory=list)
     last_overlap_words: list[WordTiming] = field(default_factory=list)
     committer: Committer = field(default_factory=Committer)
@@ -119,12 +119,10 @@ class StreamingWindower:
         overlap_start_ms = window_start_ms
         overlap_end_ms = min(window_end_ms, overlap_start_ms + int(self.overlap_s * 1000))
         prev_overlap_subset = [
-            w for w in self.last_overlap_words
-            if overlap_start_ms <= w.start_ms < overlap_end_ms
+            w for w in self.last_overlap_words if overlap_start_ms <= w.start_ms < overlap_end_ms
         ]
         curr_overlap_subset = [
-            w for w in abs_words
-            if overlap_start_ms <= w.start_ms < overlap_end_ms
+            w for w in abs_words if overlap_start_ms <= w.start_ms < overlap_end_ms
         ]
         non_overlap = [w for w in abs_words if w.start_ms >= overlap_end_ms]
 
@@ -134,9 +132,7 @@ class StreamingWindower:
         # VAD silence-boundary on the window's own PCM.
         silence_boundary_ms: int | None = None
         if pcm_for_vad is not None and pcm_for_vad.size:
-            silence_boundary_ms = last_silence_boundary_ms(
-                pcm_for_vad, end_ms=window_end_ms
-            )
+            silence_boundary_ms = last_silence_boundary_ms(pcm_for_vad, end_ms=window_end_ms)
 
         # Run committer on all candidates.
         decisions: list[CommitDecision] = self.committer.evaluate(
@@ -164,8 +160,7 @@ class StreamingWindower:
                 end_ms=provisional_words[-1].end_ms,
                 words=provisional_words,
                 avg_confidence=(
-                    sum(w.probability for w in provisional_words)
-                    / len(provisional_words)
+                    sum(w.probability for w in provisional_words) / len(provisional_words)
                 ),
             )
         new_final_segments = words_to_final_segments(new_finals_words)

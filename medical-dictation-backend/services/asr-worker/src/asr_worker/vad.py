@@ -35,7 +35,7 @@ def _ensure_loaded() -> None:
         return
     try:
         import torch
-        from silero_vad import load_silero_vad, get_speech_timestamps
+        from silero_vad import get_speech_timestamps, load_silero_vad
 
         _model = load_silero_vad()
         _get_speech_timestamps = get_speech_timestamps

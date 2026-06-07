@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from autocomplete_service.scrubber import REDACTED, contains_pii, scrub_prefix
 
 

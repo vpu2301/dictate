@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dictation_service.audio.gap import (
+    SAMPLES_PER_FRAME,
     GapDecision,
     GapPolicy,
-    SAMPLES_PER_FRAME,
     gap_decision,
 )
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import sys
 
-from pythonjsonlogger import json as jsonlogger  # type: ignore[attr-defined]
+from pythonjsonlogger import json as jsonlogger
 
 from .correlation import CorrelationIdFilter
 from .pii_filter import PIISafeFilter

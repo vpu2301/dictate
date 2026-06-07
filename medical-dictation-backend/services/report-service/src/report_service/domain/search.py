@@ -80,9 +80,7 @@ async def search_reports(
     if filters.q:
         args.append(filters.q)
         fts_arg_idx = len(args)
-        where.append(
-            f"v.search_vector @@ plainto_tsquery('simple', ${fts_arg_idx})"
-        )
+        where.append(f"v.search_vector @@ plainto_tsquery('simple', ${fts_arg_idx})")
 
     if filters.patient_id is not None:
         args.append(filters.patient_id)
@@ -90,9 +88,7 @@ async def search_reports(
 
     if filters.author_id is not None:
         args.append(filters.author_id)
-        where.append(
-            f"(r.primary_author_id = ${len(args)} OR ${len(args)} = ANY(r.co_author_ids))"
-        )
+        where.append(f"(r.primary_author_id = ${len(args)} OR ${len(args)} = ANY(r.co_author_ids))")
 
     if filters.statuses:
         args.append(filters.statuses)
@@ -169,9 +165,7 @@ async def search_reports(
     next_cursor: str | None = None
     if has_more and hits:
         last = hits[-1]
-        next_cursor = encode_cursor(
-            encounter_date=last.encounter_date, report_id=last.report_id
-        )
+        next_cursor = encode_cursor(encounter_date=last.encounter_date, report_id=last.report_id)
     total_estimated = await _estimate_total(conn)
     return hits, next_cursor, total_estimated
 
@@ -179,9 +173,7 @@ async def search_reports(
 async def _estimate_total(conn: asyncpg.Connection) -> int:
     """Cheap reltuples-based estimate. Caller can opt into ``total=exact``
     via the router; that path bypasses this helper."""
-    val = await conn.fetchval(
-        "SELECT reltuples::bigint FROM pg_class WHERE relname = 'reports'"
-    )
+    val = await conn.fetchval("SELECT reltuples::bigint FROM pg_class WHERE relname = 'reports'")
     return int(val or 0)
 
 
@@ -191,9 +183,7 @@ async def exact_total(conn: asyncpg.Connection, filters: SearchFilters) -> int:
     args: list[Any] = []
     if filters.q:
         args.append(filters.q)
-        where.append(
-            f"v.search_vector @@ plainto_tsquery('simple', ${len(args)})"
-        )
+        where.append(f"v.search_vector @@ plainto_tsquery('simple', ${len(args)})")
     if filters.statuses:
         args.append(filters.statuses)
         where.append(f"r.status = ANY(${len(args)}::report_status[])")

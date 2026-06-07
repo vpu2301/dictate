@@ -20,7 +20,7 @@ CREATE TABLE report_versions (
     parent_version_id   UUID REFERENCES report_versions(id) ON DELETE RESTRICT,
 
     -- Who created this version + when.
-    created_by          UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    created_by          UUID NOT NULL REFERENCES users(sub) ON DELETE RESTRICT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     -- Content body. Strict shape enforced by ReportContent Pydantic
@@ -45,7 +45,7 @@ CREATE TABLE report_versions (
 
     -- Signing fields (sprint-09 fills these in via KEP).
     signed_at           TIMESTAMPTZ,
-    signed_by           UUID REFERENCES users(id) ON DELETE RESTRICT,
+    signed_by           UUID REFERENCES users(sub) ON DELETE RESTRICT,
     signing_record_id   UUID,           -- FK to signing_records (sprint-09)
     signed_data         BYTEA,          -- canonical bytes that were signed
     signed_data_hash    BYTEA,          -- sha256(signed_data) for quick check

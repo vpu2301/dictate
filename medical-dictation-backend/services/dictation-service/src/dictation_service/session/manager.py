@@ -19,8 +19,6 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-import numpy as np
-
 from auth import Claims
 
 from .state import SessionState
@@ -56,7 +54,7 @@ class SessionContext:
     ws: Any | None = None  # WebSocket — typed Any so we don't import starlette here
     expected_seq: int = 0
     received_seqs_hwm: int = -1  # high-water mark for dedup
-    out_seq: int = 0             # server-emitted message seq
+    out_seq: int = 0  # server-emitted message seq
 
     # Audio buffer + decoder
     buffer: Any | None = None  # SessionAudioBuffer
@@ -113,9 +111,7 @@ class SessionManager:
     async def register(self, ctx: SessionContext) -> None:
         async with self._lock:
             if self.total_count >= self._max_sessions:
-                raise CapacityError(
-                    f"worker at capacity ({self._max_sessions} sessions)"
-                )
+                raise CapacityError(f"worker at capacity ({self._max_sessions} sessions)")
             if ctx.session_id in self._sessions:
                 raise DuplicateSessionError(f"session_id {ctx.session_id} already attached")
             self._sessions[ctx.session_id] = ctx

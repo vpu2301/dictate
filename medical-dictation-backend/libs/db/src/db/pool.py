@@ -42,4 +42,4 @@ async def create_pool(
 
 
 def _typed_pool(pool: Any) -> asyncpg.Pool:
-    return pool  # type: ignore[no-any-return]
+    return pool

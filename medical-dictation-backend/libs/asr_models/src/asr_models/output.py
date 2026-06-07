@@ -8,8 +8,9 @@ need a wire-version bump and a migration story.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt
 from uuid import UUID
+
+from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt
 
 
 class WordTiming(BaseModel):

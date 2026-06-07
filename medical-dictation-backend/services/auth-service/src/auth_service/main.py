@@ -12,10 +12,11 @@ problem-detail handling established here are unchanged in later days.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from observability import bootstrap, register_exception_handlers
@@ -69,6 +70,18 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
     register_exception_handlers(app)
+    # CORS for the SPA (sprint A3). allow_credentials=True is required so the
+    # browser sends/stores the HttpOnly `mdx_rt` cookie on cross-origin XHR;
+    # that forbids a wildcard origin, so origins are an explicit allow-list.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["WWW-Authenticate"],
+        max_age=600,
+    )
     app.include_router(health.router)
     app.include_router(login.router)
     app.include_router(me.router)

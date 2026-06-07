@@ -14,15 +14,14 @@ suffix strings are within Levenshtein 3.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Iterable
+from datetime import UTC, datetime
 
 from rapidfuzz.distance import Levenshtein
 
-
 SOURCE_PRIORITY: dict[str, float] = {
-    "user":   1.0,
+    "user": 1.0,
     "tenant": 0.6,
     "system": 0.3,
 }
@@ -35,7 +34,7 @@ BETA = 9
 class PhraseRecord:
     id: str
     phrase: str
-    source: str           # 'user' | 'tenant' | 'system'
+    source: str  # 'user' | 'tenant' | 'system'
     impression_count: int
     acceptance_count: int
     last_accepted_at: datetime | None
@@ -48,7 +47,7 @@ def bayesian_acceptance(impressions: int, accepts: int) -> float:
 def recency_boost(last_accepted_at: datetime | None, *, now: datetime | None = None) -> float:
     if last_accepted_at is None:
         return 1.0
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     days_ago = (now - last_accepted_at).total_seconds() / 86400.0
     if days_ago < 0 or days_ago > 30:
         return 1.0
@@ -82,10 +81,7 @@ def diversity_filter(
     kept: list[tuple[PhraseRecord, float, str]] = []
     for cand in ranked:
         _, _, suf = cand
-        if any(
-            Levenshtein.distance(suf, ks) <= levenshtein_threshold
-            for _, _, ks in kept
-        ):
+        if any(Levenshtein.distance(suf, ks) <= levenshtein_threshold for _, _, ks in kept):
             continue
         kept.append(cand)
     return kept

@@ -9,9 +9,9 @@ cost; production at larger scale will swap in marisa-trie's
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 MAX_PREFIX_LEN = 6
 TOP_K_PER_PREFIX = 20
@@ -78,7 +78,8 @@ def build_trie_from_phrases(
         # refines later. This keeps the trie itself language-agnostic.
         coarse = (
             {"user": 1.0, "tenant": 0.6, "system": 0.3}.get(e.source, 0.3)
-            * (e.acceptance_count + 1) / (e.impression_count + 10)
+            * (e.acceptance_count + 1)
+            / (e.impression_count + 10)
         )
         phrase_lower = e.phrase.lower()
         for length in range(1, min(MAX_PREFIX_LEN, len(phrase_lower)) + 1):
@@ -96,5 +97,5 @@ def build_trie_from_phrases(
         user_id=user_id,
         prefix_to_ids=prefix_to_ids,
         entries=entries,
-        built_at_unix=datetime.now(timezone.utc).timestamp(),
+        built_at_unix=datetime.now(UTC).timestamp(),
     )

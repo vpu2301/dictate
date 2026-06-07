@@ -173,8 +173,7 @@ class Envelope:
                 )
             except InvalidTag as exc:
                 raise DecryptError(
-                    "ciphertext decrypt failed: tag mismatch (tampered or "
-                    "AAD did not match)."
+                    "ciphertext decrypt failed: tag mismatch (tampered or AAD did not match)."
                 ) from exc
         finally:
             dek = b"\x00" * DEK_SIZE_BYTES  # noqa: F841

@@ -22,7 +22,6 @@ from uuid import UUID
 import asyncpg
 
 from report_models import (
-    Icd10Code,
     ReportAmendmentType,
     ReportContent,
     ReportStatus,
@@ -89,9 +88,7 @@ class VersionRow:
 # ── Read ────────────────────────────────────────────────────────────
 
 
-async def fetch_report(
-    conn: asyncpg.Connection, *, report_id: UUID
-) -> ReportRow | None:
+async def fetch_report(conn: asyncpg.Connection, *, report_id: UUID) -> ReportRow | None:
     row = await conn.fetchrow(
         """
         SELECT r.id, r.tenant_id, r.code, r.status,
@@ -128,9 +125,7 @@ async def fetch_report(
     )
 
 
-async def fetch_version(
-    conn: asyncpg.Connection, *, version_id: UUID
-) -> VersionRow | None:
+async def fetch_version(conn: asyncpg.Connection, *, version_id: UUID) -> VersionRow | None:
     row = await conn.fetchrow(
         """
         SELECT id, report_id, version_number, parent_version_id,
@@ -163,8 +158,9 @@ async def fetch_version(
         rendered_text=row["rendered_text"],
         body_hash=body_hash,
         is_amendment=bool(row["is_amendment"]),
-        amendment_type=(ReportAmendmentType(row["amendment_type"])
-                        if row["amendment_type"] else None),
+        amendment_type=(
+            ReportAmendmentType(row["amendment_type"]) if row["amendment_type"] else None
+        ),
         amendment_reason=row["amendment_reason"],
         signed_at=row["signed_at"],
         signed_by=row["signed_by"],
@@ -300,9 +296,9 @@ async def append_version(
     if head is None:
         raise RuntimeError("report has no current_version; corrupt state")
     if int(head["version_number"]) != expected_version:
-        from .conflicts import OptimisticLockMismatch
+        from .conflicts import OptimisticLockMismatchError
 
-        raise OptimisticLockMismatch(
+        raise OptimisticLockMismatchError(
             current_version=int(head["version_number"]),
             expected_version=expected_version,
         )
@@ -358,9 +354,7 @@ async def append_version(
 # ── Helpers used by routers ─────────────────────────────────────────
 
 
-async def lock_report_for_update(
-    conn: asyncpg.Connection, *, report_id: UUID
-) -> ReportRow | None:
+async def lock_report_for_update(conn: asyncpg.Connection, *, report_id: UUID) -> ReportRow | None:
     """Acquire a row lock on the report (used by autosave / amend).
 
     Combined with the optimistic ``expected_version`` check, this
@@ -395,9 +389,7 @@ async def find_existing_version_by_body_hash(
     return await fetch_version(conn, version_id=row_id)
 
 
-async def list_amendment_chain(
-    conn: asyncpg.Connection, *, report_id: UUID
-) -> list[VersionRow]:
+async def list_amendment_chain(conn: asyncpg.Connection, *, report_id: UUID) -> list[VersionRow]:
     """Returns all versions for ``report_id`` ordered by version_number ASC.
 
     Used by the chain reconciler + the diff endpoint when resolving

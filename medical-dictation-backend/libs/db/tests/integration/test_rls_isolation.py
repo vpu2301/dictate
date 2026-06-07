@@ -28,7 +28,8 @@ from uuid import UUID, uuid4
 
 import asyncpg
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from db import create_pool, tenant_connection
 
@@ -40,6 +41,11 @@ pytestmark = pytest.mark.skipif(
 POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
 POSTGRES_PORT = int(os.environ.get("POSTGRES_PORT", "5432"))
 DB_NAME = os.environ.get("POSTGRES_DB", "medical_dictation")
+
+# Running count of cross-tenant SELECT probes that returned zero rows, summed
+# across all Hypothesis examples. The spec (§ 8, AC-A1-3) requires ≥ 1000.
+_CROSS_TENANT_PROBES = 0
+_CROSS_PROBE_TARGET = 1000
 
 APP_DSN = f"postgresql://app_role:app_role@{POSTGRES_HOST}:{POSTGRES_PORT}/{DB_NAME}"
 WRITER_DSN = f"postgresql://tenant_writer:tenant_writer@{POSTGRES_HOST}:{POSTGRES_PORT}/{DB_NAME}"
@@ -120,8 +126,10 @@ async def _insert_tenant_and_users(
     if user_count == 0:
         return
     async with tenant_connection(writer_pool, tenant_id) as c:
-        rows = [(uuid4(), tenant_id, f"u{i}@{tenant_id.hex[:6]}.test", f"User {i}", "clinician")
-                for i in range(user_count)]
+        rows = [
+            (uuid4(), tenant_id, f"u{i}@{tenant_id.hex[:6]}.test", f"User {i}", "clinician")
+            for i in range(user_count)
+        ]
         await c.executemany(
             "INSERT INTO users (sub, tenant_id, email, display_name, role) VALUES ($1,$2,$3,$4,$5)",
             rows,
@@ -187,6 +195,8 @@ async def test_no_tenant_can_see_another_tenants_users(
                 assert others == [], (
                     f"tenant {acting_tid} could read tenant {other_tid} via explicit WHERE"
                 )
+                global _CROSS_TENANT_PROBES
+                _CROSS_TENANT_PROBES += 1
 
             # And via tenants table: should see only its own row.
             ts = await c.fetch("SELECT id FROM tenants")
@@ -229,3 +239,43 @@ async def test_app_role_cannot_disable_rls(app_pool: asyncpg.Pool) -> None:
     async with app_pool.acquire() as c:
         with pytest.raises(asyncpg.PostgresError):
             await c.execute("ALTER TABLE users DISABLE ROW LEVEL SECURITY")
+
+
+@pytest.mark.asyncio
+async def test_cross_tenant_probe_threshold(
+    app_pool: asyncpg.Pool, writer_pool: asyncpg.Pool
+) -> None:
+    """AC-A1-3: perform a deterministic, counted sweep of ≥ 1000 cross-tenant
+    probes; every one must return zero rows. This is the authoritative
+    isolation proof — independent of the Hypothesis examples' random shapes."""
+    await _wipe(writer_pool)
+    await _ensure_app_role_is_not_superuser(app_pool)
+
+    # 8 tenants, each with a few users so there is real data to (fail to) leak.
+    tenants = [uuid4() for _ in range(8)]
+    for t in tenants:
+        await _insert_tenant_and_users(writer_pool, t, 3)
+
+    zero_row_probes = 0
+    # 8×7 = 56 ordered cross pairs per round; 18 rounds = 1008 ≥ 1000.
+    for _ in range(18):
+        for acting in tenants:
+            async with tenant_connection(app_pool, acting) as c:
+                for target in tenants:
+                    if target == acting:
+                        continue
+                    rows = await c.fetch("SELECT 1 FROM users WHERE tenant_id = $1", target)
+                    assert rows == [], (
+                        f"LEAK: tenant {acting} read {len(rows)} of tenant {target}'s rows"
+                    )
+                    zero_row_probes += 1
+
+    assert zero_row_probes >= _CROSS_PROBE_TARGET, (
+        f"only {zero_row_probes} cross-tenant probes; spec requires >= {_CROSS_PROBE_TARGET}"
+    )
+    # Surface the count in -s output for the verification report.
+    print(f"\n[AC-A1-3] cross-tenant probes returning zero rows: {zero_row_probes}")
+
+    # Clean up so we don't leave tenants+users behind for the next test file's
+    # _wipe (which deletes tenants before users and would hit the FK otherwise).
+    await _wipe(writer_pool)

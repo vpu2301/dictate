@@ -20,7 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class PublicVerifyRateLimiter:
-    def __init__(self, redis: "Redis", *, per_minute: int = 60) -> None:
+    def __init__(self, redis: Redis, *, per_minute: int = 60) -> None:
         self._redis = redis
         self._per_minute = per_minute
 

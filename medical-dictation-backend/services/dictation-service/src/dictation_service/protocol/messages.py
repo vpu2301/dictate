@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt
 
 from .error_catalogue import ErrorCode
 
@@ -94,7 +94,7 @@ class VoiceCommand(_StrictModel):
     args: dict[str, str] = Field(default_factory=dict)
 
 
-class Warning_(_StrictModel):
+class WarningMessage(_StrictModel):
     """Non-fatal warning. Frontend may surface to the clinician."""
 
     type: Literal["warning"] = "warning"
@@ -134,7 +134,7 @@ ServerMessage = Annotated[
     | Partial
     | Final
     | VoiceCommand
-    | Warning_
+    | WarningMessage
     | Heartbeat
     | TokenExpiring
     | SessionTerminated

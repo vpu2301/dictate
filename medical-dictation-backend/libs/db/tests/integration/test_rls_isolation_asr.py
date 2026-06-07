@@ -13,7 +13,8 @@ from uuid import UUID, uuid4
 
 import asyncpg
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from db import create_pool, tenant_connection
 
@@ -74,9 +75,7 @@ async def _make_tenant(writer_pool: asyncpg.Pool, tid: UUID) -> None:
         )
 
 
-async def _insert_audio(
-    app_pool: asyncpg.Pool, tid: UUID, count: int
-) -> list[UUID]:
+async def _insert_audio(app_pool: asyncpg.Pool, tid: UUID, count: int) -> list[UUID]:
     ids: list[UUID] = []
     if count == 0:
         return ids
@@ -153,8 +152,7 @@ async def test_audio_files_rls_isolation(
                     other_tid,
                 )
                 assert others == [], (
-                    f"explicit cross-tenant SELECT leaked rows: "
-                    f"{acting_tid} → {other_tid}"
+                    f"explicit cross-tenant SELECT leaked rows: {acting_tid} → {other_tid}"
                 )
 
 

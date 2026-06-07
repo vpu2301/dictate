@@ -20,7 +20,7 @@ import asyncio
 import json
 import logging
 import sys
-from typing import Iterable
+from collections.abc import Iterable
 from uuid import UUID
 
 import asyncpg
@@ -100,20 +100,19 @@ async def _persist_anomalies(
     report_id: UUID,
     anomalies: Iterable,
 ) -> None:
-    async with audit_pool.acquire() as conn:
-        async with conn.transaction():
-            for a in anomalies:
-                await conn.execute(
-                    """
+    async with audit_pool.acquire() as conn, conn.transaction():
+        for a in anomalies:
+            await conn.execute(
+                """
                     INSERT INTO audit.report_chain_failures
                         (tenant_id, report_id, anomaly_kind, detail_jsonb)
                     VALUES ($1, $2, $3, $4::jsonb)
                     """,
-                    tenant_id,
-                    report_id,
-                    a.kind,
-                    json.dumps(a.detail),
-                )
+                tenant_id,
+                report_id,
+                a.kind,
+                json.dumps(a.detail),
+            )
 
     for a in anomalies:
         await audit_writer.write_event(
@@ -154,8 +153,10 @@ async def reconcile_all() -> int:
                     audit_pool=audit_pool,
                     tenant_id=t["id"],
                 )
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("chain_reconciler.tenant_failed", extra={"tenant_id": str(t["id"])})
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "chain_reconciler.tenant_failed", extra={"tenant_id": str(t["id"])}
+                )
     finally:
         await app_pool.close()
         await audit_pool.close()
@@ -165,7 +166,7 @@ async def reconcile_all() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tenant-id", help="Run for a single tenant only")
-    args = parser.parse_args()
+    parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     total = asyncio.run(reconcile_all())
     print(f"chain reconciler completed; anomalies={total}")

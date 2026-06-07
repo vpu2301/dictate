@@ -16,7 +16,7 @@ from typing import Final
 from pydantic import TypeAdapter, ValidationError
 
 from .error_catalogue import ErrorCode
-from .messages import AudioFrame, ClientMessage, PROTOCOL_VERSION_V1, ServerMessage
+from .messages import PROTOCOL_VERSION_V1, AudioFrame, ClientMessage, ServerMessage
 
 SUBPROTOCOL: Final = "medical-dictation.v1"
 PROTOCOL_VERSION: Final = PROTOCOL_VERSION_V1

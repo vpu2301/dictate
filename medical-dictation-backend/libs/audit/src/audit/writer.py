@@ -34,7 +34,7 @@ import hashlib
 import logging
 import time
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -122,9 +122,7 @@ class AuditWriter:
                     severity=severity,
                 )
                 # Success path metrics.
-                _writes_counter.add(
-                    1, {"tenant_id": str(tenant_id), "severity": severity.value}
-                )
+                _writes_counter.add(1, {"tenant_id": str(tenant_id), "severity": severity.value})
                 _write_latency.record(time.perf_counter() - start)
                 return receipt
             except (
@@ -176,86 +174,86 @@ class AuditWriter:
         # benign mutual blocking between two tenants (correctness preserved).
         lock_key = _tenant_lock_key(tenant_id)
 
-        async with self._pool.acquire() as conn:
-            async with conn.transaction(isolation="read_committed"):
-                # Scope RLS to this tenant for the duration of the txn.
-                await conn.execute(
-                    "SELECT set_config('app.tenant_id', $1, true)", str(tenant_id)
-                )
+        async with (
+            self._pool.acquire() as conn,
+            conn.transaction(isolation="read_committed"),
+        ):
+            # Scope RLS to this tenant for the duration of the txn.
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
 
-                # Serialise *all* writers for this tenant. The advisory lock
-                # is held until COMMIT/ROLLBACK; the FOR UPDATE below adds
-                # row-level locking once a row exists. With an empty table,
-                # FOR UPDATE LIMIT 1 has nothing to lock — without this
-                # advisory lock, two concurrent first-writes would collide
-                # on seq=1.
-                await conn.execute("SELECT pg_advisory_xact_lock($1)", lock_key)
+            # Serialise *all* writers for this tenant. The advisory lock
+            # is held until COMMIT/ROLLBACK; the FOR UPDATE below adds
+            # row-level locking once a row exists. With an empty table,
+            # FOR UPDATE LIMIT 1 has nothing to lock — without this
+            # advisory lock, two concurrent first-writes would collide
+            # on seq=1.
+            await conn.execute("SELECT pg_advisory_xact_lock($1)", lock_key)
 
-                last = await conn.fetchrow(
-                    """
-                    SELECT seq, payload_hash
-                    FROM audit.events
-                    WHERE tenant_id = $1
-                    ORDER BY seq DESC
-                    LIMIT 1
-                    FOR UPDATE
-                    """,
-                    tenant_id,
-                )
+            last = await conn.fetchrow(
+                """
+                SELECT seq, payload_hash
+                FROM audit.events
+                WHERE tenant_id = $1
+                ORDER BY seq DESC
+                LIMIT 1
+                FOR UPDATE
+                """,
+                tenant_id,
+            )
 
-                if last is None:
-                    next_seq = 1
-                    prev_hash = GENESIS_PREV_HASH
-                else:
-                    next_seq = int(last["seq"]) + 1
-                    prev_hash = bytes(last["payload_hash"])
+            if last is None:
+                next_seq = 1
+                prev_hash = GENESIS_PREV_HASH
+            else:
+                next_seq = int(last["seq"]) + 1
+                prev_hash = bytes(last["payload_hash"])
 
-                created_at = datetime.now(timezone.utc)
+            created_at = datetime.now(UTC)
 
-                event_record: dict[str, Any] = {
-                    "tenant_id": str(tenant_id),
-                    "seq": next_seq,
-                    "created_at": created_at.isoformat(),
-                    "actor_sub": str(actor_sub) if actor_sub is not None else None,
-                    "actor_role": actor_role,
-                    "kind": kind,
-                    "target_kind": target_kind,
-                    "target_id": target_id,
-                    "payload": dict(payload),
-                    "severity": severity.value,
-                }
+            event_record: dict[str, Any] = {
+                "tenant_id": str(tenant_id),
+                "seq": next_seq,
+                "created_at": created_at.isoformat(),
+                "actor_sub": str(actor_sub) if actor_sub is not None else None,
+                "actor_role": actor_role,
+                "kind": kind,
+                "target_kind": target_kind,
+                "target_id": target_id,
+                "payload": dict(payload),
+                "severity": severity.value,
+            }
 
-                event_jcs = canonicalize(event_record)
-                payload_hash = hashlib.sha256(prev_hash + event_jcs).digest()
+            event_jcs = canonicalize(event_record)
+            payload_hash = hashlib.sha256(prev_hash + event_jcs).digest()
 
-                await conn.execute(
-                    """
-                    INSERT INTO audit.events (
-                        tenant_id, seq, created_at,
-                        actor_sub, actor_role,
-                        kind, target_kind, target_id,
-                        payload_jcs, prev_hash, payload_hash, severity
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12)
-                    """,
-                    tenant_id,
-                    next_seq,
-                    created_at,
-                    actor_sub,
-                    actor_role,
-                    kind,
-                    target_kind,
-                    target_id,
-                    event_jcs.decode("utf-8"),
-                    prev_hash,
-                    payload_hash,
-                    severity.value,
-                )
+            await conn.execute(
+                """
+                INSERT INTO audit.events (
+                    tenant_id, seq, created_at,
+                    actor_sub, actor_role,
+                    kind, target_kind, target_id,
+                    payload_jcs, prev_hash, payload_hash, severity
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12)
+                """,
+                tenant_id,
+                next_seq,
+                created_at,
+                actor_sub,
+                actor_role,
+                kind,
+                target_kind,
+                target_id,
+                event_jcs.decode("utf-8"),
+                prev_hash,
+                payload_hash,
+                severity.value,
+            )
 
-                return AuditEventReceipt(
-                    tenant_id=tenant_id,
-                    seq=next_seq,
-                    payload_hash=payload_hash,
-                )
+            return AuditEventReceipt(
+                tenant_id=tenant_id,
+                seq=next_seq,
+                payload_hash=payload_hash,
+            )
 
 
 def _tenant_lock_key(tenant_id: UUID) -> int:

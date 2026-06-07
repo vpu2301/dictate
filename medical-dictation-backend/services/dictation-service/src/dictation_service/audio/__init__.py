@@ -13,7 +13,7 @@ __all__ = [
     "gap_decision",
     "OpusDecodeError",
     "OpusDecoder",
-    "RingFull",
+    "RingFullError",
     "SessionAudioBuffer",
     "decode_pcm_view",
 ]
@@ -24,11 +24,11 @@ def __getattr__(name: str):
         from .decoder import OpusDecodeError, OpusDecoder
 
         return {"OpusDecodeError": OpusDecodeError, "OpusDecoder": OpusDecoder}[name]
-    if name in {"RingFull", "SessionAudioBuffer", "decode_pcm_view"}:
-        from .buffer import RingFull, SessionAudioBuffer, decode_pcm_view
+    if name in {"RingFullError", "SessionAudioBuffer", "decode_pcm_view"}:
+        from .buffer import RingFullError, SessionAudioBuffer, decode_pcm_view
 
         return {
-            "RingFull": RingFull,
+            "RingFullError": RingFullError,
             "SessionAudioBuffer": SessionAudioBuffer,
             "decode_pcm_view": decode_pcm_view,
         }[name]

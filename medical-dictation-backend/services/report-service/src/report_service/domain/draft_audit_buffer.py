@@ -12,10 +12,12 @@ flushed by a background task that the service spawns at startup.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Awaitable, Callable, Final
+from datetime import UTC, datetime, timedelta
+from typing import Final
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -26,8 +28,8 @@ _FLUSH_INTERVAL: Final = timedelta(minutes=10)
 @dataclass(slots=True)
 class _BufferedEntry:
     autosave_count: int = 0
-    start_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    end_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    start_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    end_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     final_version_number: int = 0
     actor_user_id: UUID | None = None
 
@@ -39,7 +41,9 @@ FlushFn = Callable[
 
 
 class DraftAuditBuffer:
-    def __init__(self, *, flush_fn: FlushFn, max_flush_interval: timedelta = _FLUSH_INTERVAL) -> None:
+    def __init__(
+        self, *, flush_fn: FlushFn, max_flush_interval: timedelta = _FLUSH_INTERVAL
+    ) -> None:
         self._flush_fn = flush_fn
         self._max_flush_interval = max_flush_interval
         self._lock = asyncio.Lock()
@@ -56,7 +60,7 @@ class DraftAuditBuffer:
         version_number: int,
     ) -> None:
         key = (tenant_id, report_id, dictation_session_id)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with self._lock:
             entry = self._buf.get(key)
             if entry is None:
@@ -102,10 +106,8 @@ class DraftAuditBuffer:
     async def stop(self) -> None:
         if self._task is not None:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):  # noqa: BLE001
                 await self._task
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                pass
             self._task = None
         await self.flush_all()
 

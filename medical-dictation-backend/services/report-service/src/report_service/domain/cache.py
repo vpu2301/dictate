@@ -54,9 +54,7 @@ class TemplateCache:
         self._hits = 0
         self._calls = 0
 
-    def get(
-        self, *, tenant_id: UUID, template_id: UUID
-    ) -> CachedTemplate | None:
+    def get(self, *, tenant_id: UUID, template_id: UUID) -> CachedTemplate | None:
         self._calls += 1
         result = self._cache.get(_CacheKey(tenant_id, template_id))
         if result is not None:

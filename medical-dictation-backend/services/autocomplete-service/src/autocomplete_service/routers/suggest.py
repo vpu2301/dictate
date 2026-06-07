@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
 
 from auth import Action, Claims, TargetKind
@@ -28,8 +28,7 @@ class SuggestRequest(BaseModel):
 
     prefix: str = Field(min_length=1, max_length=80)
     language: Literal["uk", "en"]
-    limit: int = Field(default=settings.suggest_default_limit, ge=1,
-                       le=settings.suggest_max_limit)
+    limit: int = Field(default=settings.suggest_default_limit, ge=1, le=settings.suggest_max_limit)
     context: dict | None = None
 
 
@@ -81,15 +80,19 @@ async def suggest(
             request_id=request_id,
             suggestions=[
                 SuggestionDTO(
-                    id=s.id, kind=s.kind, text=s.text, completion=s.completion,
-                    source=s.source, confidence=s.confidence,
+                    id=s.id,
+                    kind=s.kind,
+                    text=s.text,
+                    completion=s.completion,
+                    source=s.source,
+                    confidence=s.confidence,
                     cursor_offset=s.cursor_offset,
                 )
             ],
         )
 
     # Trie path.
-    async def _build() -> "sug.TenantTrie":  # noqa: F821
+    async def _build() -> sug.TenantTrie:  # noqa: F821
         from autocomplete_service.trie.builder import build_trie_from_phrases
 
         async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -115,8 +118,13 @@ async def suggest(
         request_id=request_id,
         suggestions=[
             SuggestionDTO(
-                id=s.id, kind=s.kind, text=s.text, completion=s.completion,
-                source=s.source, confidence=s.confidence, cursor_offset=s.cursor_offset,
+                id=s.id,
+                kind=s.kind,
+                text=s.text,
+                completion=s.completion,
+                source=s.source,
+                confidence=s.confidence,
+                cursor_offset=s.cursor_offset,
             )
             for s in suggestions
         ],

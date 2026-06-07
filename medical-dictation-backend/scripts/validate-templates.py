@@ -37,7 +37,9 @@ ASR_PROMPT_MAX_TOKENS = 224
 
 
 def main() -> int:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "libs" / "template_models" / "src"))
+    sys.path.insert(
+        0, str(Path(__file__).resolve().parents[1] / "libs" / "template_models" / "src")
+    )
     from template_models import TemplateDefinition
 
     failures: list[str] = []
@@ -69,8 +71,7 @@ def main() -> int:
         expected_filename = f"{tpl.code}.json"
         if path.name != expected_filename:
             failures.append(
-                f"{path.name}: file name does not match code "
-                f"({expected_filename} expected)"
+                f"{path.name}: file name does not match code ({expected_filename} expected)"
             )
 
         # Duplicate code+language pair.
@@ -88,10 +89,7 @@ def main() -> int:
                     f"{n} tokens (max {ASR_PROMPT_MAX_TOKENS})"
                 )
 
-        print(
-            f"ok: {path.name} — {tpl.specialty}/{tpl.language} "
-            f"({len(tpl.sections)} sections)"
-        )
+        print(f"ok: {path.name} — {tpl.specialty}/{tpl.language} ({len(tpl.sections)} sections)")
 
     if failures:
         print("\n=== FAILURES ===", file=sys.stderr)

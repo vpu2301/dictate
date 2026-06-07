@@ -47,9 +47,7 @@ async def insert_session(
     )
 
 
-async def get_session(
-    conn: asyncpg.Connection, *, session_id: UUID
-) -> asyncpg.Record | None:
+async def get_session(conn: asyncpg.Connection, *, session_id: UUID) -> asyncpg.Record | None:
     return await conn.fetchrow(
         "SELECT * FROM dictation_sessions WHERE id = $1",
         session_id,
@@ -181,9 +179,7 @@ async def write_finalized(
     )
 
 
-async def count_active_for_tenant(
-    conn: asyncpg.Connection, *, tenant_id: UUID
-) -> int:
+async def count_active_for_tenant(conn: asyncpg.Connection, *, tenant_id: UUID) -> int:
     row = await conn.fetchrow(
         """
         SELECT COUNT(*) AS n

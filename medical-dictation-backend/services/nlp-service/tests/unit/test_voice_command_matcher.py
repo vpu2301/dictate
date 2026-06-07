@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-import pytest
-
 from nlp_service.pipeline.base import TemplateSection, Word
 from nlp_service.stages.voice_command_matcher import (
     CommandSpec,
@@ -122,9 +120,7 @@ def test_section_command_resolves_against_template() -> None:
     m = VoiceCommandMatcher(
         [spec],
         language="uk",
-        template_sections=(
-            TemplateSection(id=section_id, name="діагноз", aliases=("dx",)),
-        ),
+        template_sections=(TemplateSection(id=section_id, name="діагноз", aliases=("dx",)),),
     )
     words = [
         _w("note", 0.0, 0.3),

@@ -23,7 +23,8 @@ problem-details handler renders it as RFC 9457 ``application/problem+json``.
 
 from __future__ import annotations
 
-from typing import Annotated, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Annotated
 
 from fastapi import Header, HTTPException, Request, status
 
@@ -41,8 +42,7 @@ from .exceptions import (
 from .jwks import JwksCache
 from .verifier import verify_token
 
-
-_WWW_AUTHENTICATE = "Bearer realm=\"medical-dictation\""
+_WWW_AUTHENTICATE = 'Bearer realm="medical-dictation"'
 
 
 def _unauthorized(detail: str, *, extra_challenge: str | None = None) -> HTTPException:
@@ -127,6 +127,6 @@ def requires_mfa(claims: Claims) -> Claims:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="MFA required for this endpoint",
-            headers={"WWW-Authenticate": "MFA realm=\"medical-dictation\""},
+            headers={"WWW-Authenticate": 'MFA realm="medical-dictation"'},
         )
     return claims

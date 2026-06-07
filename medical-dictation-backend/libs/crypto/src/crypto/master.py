@@ -101,8 +101,7 @@ class FileMasterKeyProvider:
             st = self._path.stat()
         except OSError as exc:
             raise MasterKeyError(
-                f"master key file at {self._path!s} cannot be stat()'d: "
-                f"{type(exc).__name__}"
+                f"master key file at {self._path!s} cannot be stat()'d: {type(exc).__name__}"
             ) from exc
 
         # Accept any mode whose permission bits are a SUBSET of 0400.
@@ -144,16 +143,12 @@ class FileMasterKeyProvider:
 
     def _aead_or_raise(self) -> AESGCM:
         if self._aead is None:
-            raise MasterKeyError(
-                "master key not loaded. Call startup_self_check() before use."
-            )
+            raise MasterKeyError("master key not loaded. Call startup_self_check() before use.")
         return self._aead
 
     async def wrap(self, kek_plaintext: bytes) -> tuple[str, bytes]:
         if len(kek_plaintext) != 32:
-            raise MasterKeyError(
-                f"tenant KEK must be 32 bytes, got {len(kek_plaintext)}"
-            )
+            raise MasterKeyError(f"tenant KEK must be 32 bytes, got {len(kek_plaintext)}")
         iv = os.urandom(GCM_IV_SIZE_BYTES)
         ct = self._aead_or_raise().encrypt(iv, kek_plaintext, MASTER_WRAP_AAD)
         # cryptography's AESGCM returns ciphertext || tag concatenated;
@@ -196,7 +191,5 @@ class KmsMasterKeyProvider:
     async def wrap(self, kek_plaintext: bytes) -> tuple[str, bytes]:  # pragma: no cover
         raise NotImplementedError
 
-    async def unwrap(
-        self, master_key_id: str, wrapped_kek: bytes
-    ) -> bytes:  # pragma: no cover
+    async def unwrap(self, master_key_id: str, wrapped_kek: bytes) -> bytes:  # pragma: no cover
         raise NotImplementedError

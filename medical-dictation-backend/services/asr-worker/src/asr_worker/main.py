@@ -8,6 +8,7 @@ to OTel — there is no listening HTTP server in the worker.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 
@@ -43,10 +44,8 @@ async def _main() -> None:
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
+        with contextlib.suppress(NotImplementedError):  # pragma: no cover  — Windows dev
             loop.add_signal_handler(sig, stop.set)
-        except NotImplementedError:  # pragma: no cover  — Windows dev
-            pass
 
     runner_task = asyncio.create_task(run_forever(state))
     stop_task = asyncio.create_task(stop.wait())
@@ -60,10 +59,8 @@ async def _main() -> None:
             logger.error("asr-worker.task_error", exc_info=exc)
 
     runner_task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError, Exception):
         await runner_task
-    except (asyncio.CancelledError, Exception):
-        pass
 
     await teardown_state(state)
     logger.info("asr-worker.stopped")

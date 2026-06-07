@@ -8,12 +8,12 @@ every allowed/disallowed transition is exercised here, with concurrent
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
+
 import pytest
-from datetime import datetime, timedelta, timezone
-from uuid import UUID, uuid4
 
 from report_models import ReportStatus
-
 from report_service.domain.report_lifecycle import (
     ConcurrentTransitionError,
     IllegalTransitionError,
@@ -22,7 +22,6 @@ from report_service.domain.report_lifecycle import (
     RevertWindowExceededError,
     TransitionAction,
 )
-
 
 # Async tests get the marker explicitly so the module works under
 # pytest-asyncio modes other than auto. Sync tests at the bottom are
@@ -90,9 +89,7 @@ async def test_cancel_from_draft_allowed():
     sm = ReportStateMachine()
     conn = StubConn()
     conn.push_fetchrow(_row(id=uuid4()))
-    result = await sm.cancel(
-        conn, report_id=uuid4(), from_status=ReportStatus.DRAFT, reason="dup"
-    )
+    result = await sm.cancel(conn, report_id=uuid4(), from_status=ReportStatus.DRAFT, reason="dup")
     assert result.to_status == ReportStatus.CANCELLED
 
 
@@ -114,7 +111,7 @@ async def test_revert_happy_path_inside_window():
     sm = ReportStateMachine()
     conn = StubConn()
     actor = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     conn.push_fetchrow(
         _row(
             status="finalized",
@@ -123,9 +120,7 @@ async def test_revert_happy_path_inside_window():
         ),
         _row(id=uuid4()),
     )
-    result = await sm.revert_to_draft(
-        conn, report_id=uuid4(), actor_user_id=actor, now=now
-    )
+    result = await sm.revert_to_draft(conn, report_id=uuid4(), actor_user_id=actor, now=now)
     assert result.to_status == ReportStatus.DRAFT
 
 
@@ -134,7 +129,7 @@ async def test_revert_outside_window_rejected():
     sm = ReportStateMachine()
     conn = StubConn()
     actor = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     conn.push_fetchrow(
         _row(
             status="finalized",
@@ -143,9 +138,7 @@ async def test_revert_outside_window_rejected():
         ),
     )
     with pytest.raises(RevertWindowExceededError):
-        await sm.revert_to_draft(
-            conn, report_id=uuid4(), actor_user_id=actor, now=now
-        )
+        await sm.revert_to_draft(conn, report_id=uuid4(), actor_user_id=actor, now=now)
 
 
 @_aio
@@ -154,7 +147,7 @@ async def test_revert_non_primary_author_rejected():
     conn = StubConn()
     actor = uuid4()
     other = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     conn.push_fetchrow(
         _row(
             status="finalized",
@@ -163,9 +156,7 @@ async def test_revert_non_primary_author_rejected():
         ),
     )
     with pytest.raises(NotPrimaryAuthorError):
-        await sm.revert_to_draft(
-            conn, report_id=uuid4(), actor_user_id=actor, now=now
-        )
+        await sm.revert_to_draft(conn, report_id=uuid4(), actor_user_id=actor, now=now)
 
 
 @_aio
@@ -177,9 +168,7 @@ async def test_revert_from_draft_disallowed():
         _row(status="draft", primary_author_id=actor, finalized_at=None),
     )
     with pytest.raises(IllegalTransitionError):
-        await sm.revert_to_draft(
-            conn, report_id=uuid4(), actor_user_id=actor
-        )
+        await sm.revert_to_draft(conn, report_id=uuid4(), actor_user_id=actor)
 
 
 @_aio
@@ -187,7 +176,7 @@ async def test_revert_from_signed_disallowed():
     sm = ReportStateMachine()
     conn = StubConn()
     actor = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     conn.push_fetchrow(
         _row(
             status="signed",
@@ -196,9 +185,7 @@ async def test_revert_from_signed_disallowed():
         ),
     )
     with pytest.raises(IllegalTransitionError):
-        await sm.revert_to_draft(
-            conn, report_id=uuid4(), actor_user_id=actor, now=now
-        )
+        await sm.revert_to_draft(conn, report_id=uuid4(), actor_user_id=actor, now=now)
 
 
 # ── Allowed-action table coverage (sync tests) ─────────────────────
@@ -207,16 +194,15 @@ async def test_revert_from_signed_disallowed():
 def test_allowed_actions_match_spec_table():
     sm = ReportStateMachine()
     assert set(sm.allowed_actions(ReportStatus.DRAFT)) == {
-        TransitionAction.FINALIZE, TransitionAction.CANCEL
+        TransitionAction.FINALIZE,
+        TransitionAction.CANCEL,
     }
     assert set(sm.allowed_actions(ReportStatus.FINALIZED)) == {
         TransitionAction.REVERT_TO_DRAFT,
         TransitionAction.SIGN,
         TransitionAction.CANCEL,
     }
-    assert set(sm.allowed_actions(ReportStatus.SIGNED)) == {
-        TransitionAction.AMEND
-    }
+    assert set(sm.allowed_actions(ReportStatus.SIGNED)) == {TransitionAction.AMEND}
     assert sm.allowed_actions(ReportStatus.AMENDED) == []
     assert sm.allowed_actions(ReportStatus.CANCELLED) == []
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from typing import Any
 
 import pytest
 
@@ -136,9 +135,7 @@ async def test_missing_kid_raises_kid_not_found(
         )
 
 
-async def test_alg_none_fails_closed(
-    jwks_cache: JwksCache, rsa_key_1: RSATestKey
-) -> None:
+async def test_alg_none_fails_closed(jwks_cache: JwksCache, rsa_key_1: RSATestKey) -> None:
     """Algorithm-confusion class attack: token signed with alg=none must be rejected.
 
     python-jose deliberately refuses to *encode* an ``alg=none`` JWT, so we
@@ -174,9 +171,7 @@ async def test_alg_none_fails_closed(
         )
 
 
-async def test_alg_hs256_fails_closed(
-    jwks_cache: JwksCache, rsa_key_1: RSATestKey
-) -> None:
+async def test_alg_hs256_fails_closed(jwks_cache: JwksCache, rsa_key_1: RSATestKey) -> None:
     """HS256 with a guessed shared-secret must be rejected: only RS256 is accepted."""
     from jose import jwt as jose_jwt
 

@@ -10,6 +10,7 @@ level. The runner runs steps 2–7 which are pure file-shape checks.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import tempfile
 from dataclasses import replace
@@ -68,10 +69,8 @@ async def run_all(
             timeout_seconds=settings.ffprobe_timeout_seconds,
         )
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
 
     r = validate_duration(probe, max_seconds=settings.max_duration_seconds)
     if not r.ok or probe is None:

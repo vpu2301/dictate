@@ -84,9 +84,7 @@ def test_csv_uses_only_known_roles_and_targets():
     rows = _csv_rows()
     for r in rows:
         assert r["role"] in KNOWN_ROLES, f"unknown role {r['role']!r} in CSV"
-        assert r["target_kind"] in KNOWN_TARGET_KINDS, (
-            f"unknown target {r['target_kind']!r} in CSV"
-        )
+        assert r["target_kind"] in KNOWN_TARGET_KINDS, f"unknown target {r['target_kind']!r} in CSV"
 
 
 def test_every_csv_row_matches_can():
@@ -98,8 +96,7 @@ def test_every_csv_row_matches_can():
         got = can(r["role"], r["action"], r["target_kind"])
         if got != expected:
             failures.append(
-                f"{r['role']}/{r['action']}/{r['target_kind']}: "
-                f"CSV={expected} can()={got}"
+                f"{r['role']}/{r['action']}/{r['target_kind']}: CSV={expected} can()={got}"
             )
     assert not failures, "CSV ↔ code drift:\n" + "\n".join(failures)
 

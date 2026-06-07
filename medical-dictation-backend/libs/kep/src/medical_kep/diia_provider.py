@@ -25,21 +25,19 @@ into our public surface — only fixed error codes.
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from medical_kep.envelope import Envelope, EnvelopeFormat, ParsedEnvelope
+from medical_kep.envelope import Envelope, EnvelopeFormat
 from medical_kep.provider import (
     DocumentDisplayMetadata,
     InvalidCallbackError,
@@ -94,7 +92,9 @@ class DiiaProvider(SigningProvider):
             },
             "callback_url": callback_url,
             "signer_hint": (
-                {"full_name": signer_hint.full_name} if signer_hint and signer_hint.full_name else None
+                {"full_name": signer_hint.full_name}
+                if signer_hint and signer_hint.full_name
+                else None
             ),
         }
         try:
@@ -106,8 +106,10 @@ class DiiaProvider(SigningProvider):
         if r.status_code >= 400:
             raise InvalidCallbackError(f"Дія init rejected: {r.status_code}")
         data = r.json()
-        expires_at = datetime.fromisoformat(data["expires_at"]) if "expires_at" in data else (
-            datetime.now(timezone.utc) + timedelta(minutes=10)
+        expires_at = (
+            datetime.fromisoformat(data["expires_at"])
+            if "expires_at" in data
+            else (datetime.now(UTC) + timedelta(minutes=10))
         )
         return SigningSessionInit(
             provider=ProviderName.DIIA,

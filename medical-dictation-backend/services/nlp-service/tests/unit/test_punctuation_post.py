@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from nlp_service.stages.punctuation_post import (
     capitalize_first_letter,
     capitalize_post_punctuation,

@@ -11,17 +11,17 @@ from __future__ import annotations
 from ..pipeline.base import CommandSlot, Operation
 
 _TABLE: dict[str, tuple[str, dict[str, str] | None]] = {
-    "newparagraph":   ("insert_paragraph_break", None),
-    "newline":        ("insert_line_break", None),
-    "period":         ("insert_punctuation", {"value": "."}),
-    "comma":          ("insert_punctuation", {"value": ","}),
-    "question_mark":  ("insert_punctuation", {"value": "?"}),
-    "save_draft":     ("save_draft", None),
-    "undo_last":      ("undo_last", None),
+    "newparagraph": ("insert_paragraph_break", None),
+    "newline": ("insert_line_break", None),
+    "period": ("insert_punctuation", {"value": "."}),
+    "comma": ("insert_punctuation", {"value": ","}),
+    "question_mark": ("insert_punctuation", {"value": "?"}),
+    "save_draft": ("save_draft", None),
+    "undo_last": ("undo_last", None),
     "stop_dictation": ("stop_dictation", None),
-    "begin_quote":    ("insert_quote_marker", {"value": "open"}),
-    "end_quote":      ("insert_quote_marker", {"value": "close"}),
-    "insert_template":("insert_template", None),
+    "begin_quote": ("insert_quote_marker", {"value": "open"}),
+    "end_quote": ("insert_quote_marker", {"value": "close"}),
+    "insert_template": ("insert_template", None),
 }
 
 

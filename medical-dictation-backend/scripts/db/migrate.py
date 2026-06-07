@@ -58,9 +58,7 @@ def _discover() -> list[Migration]:
         version, name = m.group(1), m.group(2)
         down = entry.with_name(f"{version}_{name}.down.sql")
         if not down.exists():
-            raise RuntimeError(
-                f"missing rollback for {entry.name}: expected {down.name}"
-            )
+            raise RuntimeError(f"missing rollback for {entry.name}: expected {down.name}")
         out.append(Migration(version=version, name=name, up_path=entry, down_path=down))
     return out
 
@@ -145,9 +143,7 @@ async def cmd_up(conn: asyncpg.Connection) -> int:
 async def cmd_down(conn: asyncpg.Connection) -> int:
     """Rollback the single most-recently-applied migration."""
     await _ensure_tracking_table(conn)
-    row = await conn.fetchrow(
-        "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1"
-    )
+    row = await conn.fetchrow("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1")
     if row is None:
         print("Nothing to roll back.")
         return 0

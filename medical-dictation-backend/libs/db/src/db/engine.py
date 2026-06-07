@@ -20,4 +20,4 @@ def make_engine(database_url: str, **kwargs: object) -> AsyncEngine:
     ``database_url`` must be asyncpg-compatible, e.g.
     ``postgresql+asyncpg://user:pass@host/db``.
     """
-    return create_async_engine(database_url, **kwargs)  # type: ignore[arg-type]
+    return create_async_engine(database_url, **kwargs)

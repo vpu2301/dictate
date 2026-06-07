@@ -2,30 +2,30 @@
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import hmac
 import json
 from pathlib import Path
 
 import pytest
-from cryptography.hazmat.primitives import serialization
-
 from medical_kep import MockProvider
 from medical_kep.envelope import Envelope
 from medical_kep.provider import DocumentDisplayMetadata
 from medical_kep.trust_store import TrustStore
 from medical_kep.verify import verify_envelope
 
-
 pytestmark = pytest.mark.asyncio
 
 
 def _display() -> DocumentDisplayMetadata:
     return DocumentDisplayMetadata(
-        title="t", report_code="REP-1", issuer_name="iss",
-        encounter_date_iso="2026-05-10", page_count=1,
-        sha256_hex="00" * 32, language="uk",
+        title="t",
+        report_code="REP-1",
+        issuer_name="iss",
+        encounter_date_iso="2026-05-10",
+        page_count=1,
+        sha256_hex="00" * 32,
+        language="uk",
     )
 
 
@@ -42,14 +42,18 @@ async def test_signed_envelope_verifies_against_test_ca(tmp_path):
     p = MockProvider(environment="development", test_ca_dir=tmp_path)
     doc_hash = hashlib.sha256(b"contents").digest()
     init = await p.initiate(
-        document_pdf_hash=doc_hash, display=_display(),
-        signer_hint=None, callback_url="http://localhost/cb",
+        document_pdf_hash=doc_hash,
+        display=_display(),
+        signer_hint=None,
+        callback_url="http://localhost/cb",
     )
-    body = json.dumps({
-        "approved": True,
-        "signer_full_name": "Лікар Тест",
-        "signer_ipn": "9876543210",
-    }).encode("utf-8")
+    body = json.dumps(
+        {
+            "approved": True,
+            "signer_full_name": "Лікар Тест",
+            "signer_ipn": "9876543210",
+        }
+    ).encode("utf-8")
     sig = hmac.new(b"mock-callback-key", body, hashlib.sha256).hexdigest()
     envelope = await p.handle_callback(
         provider_session_id=init.provider_session_id,
@@ -76,8 +80,10 @@ async def test_wrong_document_hash_fails(tmp_path):
     p = MockProvider(environment="development", test_ca_dir=tmp_path)
     doc_hash = hashlib.sha256(b"original").digest()
     init = await p.initiate(
-        document_pdf_hash=doc_hash, display=_display(),
-        signer_hint=None, callback_url="http://localhost/cb",
+        document_pdf_hash=doc_hash,
+        display=_display(),
+        signer_hint=None,
+        callback_url="http://localhost/cb",
     )
     body = json.dumps({"approved": True}).encode("utf-8")
     sig = hmac.new(b"mock-callback-key", body, hashlib.sha256).hexdigest()
@@ -101,8 +107,10 @@ async def test_no_trust_anchor_fails(tmp_path):
     p = MockProvider(environment="development", test_ca_dir=tmp_path)
     doc_hash = hashlib.sha256(b"x").digest()
     init = await p.initiate(
-        document_pdf_hash=doc_hash, display=_display(),
-        signer_hint=None, callback_url="http://localhost/cb",
+        document_pdf_hash=doc_hash,
+        display=_display(),
+        signer_hint=None,
+        callback_url="http://localhost/cb",
     )
     body = json.dumps({"approved": True}).encode("utf-8")
     sig = hmac.new(b"mock-callback-key", body, hashlib.sha256).hexdigest()

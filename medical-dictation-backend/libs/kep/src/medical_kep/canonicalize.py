@@ -15,9 +15,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 from audit.canonical import canonicalize
 
@@ -33,26 +31,28 @@ class CanonicalReportInput:
     easy to test and prevents subtle drift across types.
     """
 
-    tenant_id: str           # UUID as string
+    tenant_id: str  # UUID as string
     tenant_legal_name: str
-    report_id: str           # UUID as string
-    report_code: str         # human REP-YYYY-NNNNN
-    report_version_id: str   # UUID as string
+    report_id: str  # UUID as string
+    report_code: str  # human REP-YYYY-NNNNN
+    report_version_id: str  # UUID as string
     report_version_number: int
     title: str
     encounter_date: str | None  # ISO-8601 date
     primary_author_full_name: str
-    primary_author_id: str   # UUID
+    primary_author_id: str  # UUID
     primary_author_role: str
     co_author_names: list[str]
-    patient_id: str | None   # UUID or None
+    patient_id: str | None  # UUID or None
     patient_full_name_redacted: str | None
     icd10_codes: list[str]
     sections: list[dict[str, Any]]  # ordered; each {section_key, text, transcript_segment_ids}
     template_id: str
     template_schema_version: int
-    finalized_at: str        # ISO-8601 datetime
-    signed_at_intent: str    # the timestamp we *intend* to sign; provider TSA replaces this in the cert chain
+    finalized_at: str  # ISO-8601 datetime
+    signed_at_intent: (
+        str  # the timestamp we *intend* to sign; provider TSA replaces this in the cert chain
+    )
 
 
 def canonicalize_report(payload: CanonicalReportInput) -> tuple[bytes, str]:

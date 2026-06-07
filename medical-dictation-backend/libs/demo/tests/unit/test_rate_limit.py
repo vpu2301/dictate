@@ -5,9 +5,7 @@ from __future__ import annotations
 import time
 
 import pytest
-
 from demo.rate_limit import DemoRateLimiter, RateLimitConfig
-
 
 pytestmark = pytest.mark.asyncio
 

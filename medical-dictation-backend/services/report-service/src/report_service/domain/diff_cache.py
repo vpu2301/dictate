@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Final
 from uuid import UUID
 
 from report_models import DiffResponse

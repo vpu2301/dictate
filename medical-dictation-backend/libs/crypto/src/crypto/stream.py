@@ -40,9 +40,7 @@ def fresh_stream_nonce() -> bytes:
     return token_bytes(NONCE_SIZE)
 
 
-def encryptor_at_offset(
-    *, key: bytes, nonce: bytes, byte_offset: int
-) -> object:
+def encryptor_at_offset(*, key: bytes, nonce: bytes, byte_offset: int) -> object:
     """Return an AES-CTR encryptor positioned to ``byte_offset``.
 
     ``byte_offset`` MUST be a multiple of 16 (the AES block size); the
@@ -55,9 +53,7 @@ def encryptor_at_offset(
     if len(nonce) != NONCE_SIZE:
         raise ValueError(f"nonce must be {NONCE_SIZE} bytes")
     if byte_offset % CTR_BLOCK_SIZE != 0:
-        raise ValueError(
-            f"byte_offset {byte_offset} not aligned to {CTR_BLOCK_SIZE}-byte block"
-        )
+        raise ValueError(f"byte_offset {byte_offset} not aligned to {CTR_BLOCK_SIZE}-byte block")
     block_index = byte_offset // CTR_BLOCK_SIZE
     counter = nonce + block_index.to_bytes(8, "big")
     return Cipher(algorithms.AES(key), modes.CTR(counter)).encryptor()

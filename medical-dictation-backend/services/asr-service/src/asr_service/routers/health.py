@@ -65,11 +65,8 @@ async def readyz(response: Response) -> ReadyResponse:
     except Exception as exc:  # noqa: BLE001
         s3_ok = f"fail: {type(exc).__name__}"
 
-    if "ok" not in {db_ok, redis_ok, s3_ok} or any(
-        v != "ok" for v in (db_ok, redis_ok, s3_ok)
-    ):
-        # Any non-ok flips the response code.
-        if db_ok != "ok" or redis_ok != "ok" or s3_ok != "ok":
-            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-            return ReadyResponse(status="not_ready", db=db_ok, redis=redis_ok, s3=s3_ok)
+    # Any non-ok flips the response code.
+    if db_ok != "ok" or redis_ok != "ok" or s3_ok != "ok":
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return ReadyResponse(status="not_ready", db=db_ok, redis=redis_ok, s3=s3_ok)
     return ReadyResponse(status="ready", db=db_ok, redis=redis_ok, s3=s3_ok)

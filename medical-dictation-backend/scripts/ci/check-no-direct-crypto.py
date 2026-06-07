@@ -7,7 +7,11 @@ codebase is a red flag — it usually means an engineer has reinvented
 encryption or bypassed the envelope.
 
 Allow-listed paths: libs/crypto/, tests/ (so adversarial tests can
-construct deliberately-bad ciphertext to verify the envelope rejects it).
+construct deliberately-bad ciphertext to verify the envelope rejects it),
+and libs/kep/ — the KEP digital-signature library (sprint 09). KEP signing
+operates on X.509 certificate chains and CMS/PAdES structures, a domain the
+``libs/crypto`` AEAD envelope abstraction does not (and should not) cover, so
+libs/kep is a second sanctioned home for ``cryptography`` primitives.
 
 Exit codes:
     0 — no violations
@@ -27,9 +31,10 @@ BANNED_IMPORTS = re.compile(
 
 ALLOWED_PREFIXES = (
     "libs/crypto/",
-    "libs/storage/tests/",     # tampering tests
-    "libs/crypto/tests/",      # adversarial tests
-    "libs/auth/tests/",        # JWT signing-key fixtures (RS256 test keys)
+    "libs/kep/",  # KEP digital signatures: X.509/CMS/PAdES primitives
+    "libs/storage/tests/",  # tampering tests
+    "libs/crypto/tests/",  # adversarial tests
+    "libs/auth/tests/",  # JWT signing-key fixtures (RS256 test keys)
     "scripts/ci/check-no-direct-crypto.py",
 )
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
 
-from report_service.domain.draft_audit_buffer import DraftAuditBuffer
+import pytest
 
+from report_service.domain.draft_audit_buffer import DraftAuditBuffer
 
 pytestmark = pytest.mark.asyncio
 
@@ -15,7 +15,9 @@ async def test_records_and_flushes_aggregated():
     flushes: list[tuple] = []
 
     async def _flush(tenant_id, report_id, session_id, entry):
-        flushes.append((tenant_id, report_id, session_id, entry.autosave_count, entry.final_version_number))
+        flushes.append(
+            (tenant_id, report_id, session_id, entry.autosave_count, entry.final_version_number)
+        )
 
     buf = DraftAuditBuffer(flush_fn=_flush)
     tid = uuid4()
@@ -44,9 +46,7 @@ async def test_no_flush_for_unknown_session_key():
         flushes.append(a)
 
     buf = DraftAuditBuffer(flush_fn=_flush)
-    await buf.flush_session(
-        tenant_id=uuid4(), report_id=uuid4(), dictation_session_id=uuid4()
-    )
+    await buf.flush_session(tenant_id=uuid4(), report_id=uuid4(), dictation_session_id=uuid4())
     assert flushes == []
 
 

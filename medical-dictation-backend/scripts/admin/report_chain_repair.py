@@ -51,41 +51,51 @@ async def dump(dsn: str, report_id: UUID) -> int:
             """,
             report_id,
         )
-        print(json.dumps(
-            {
-                "report": {
-                    "id": str(report_id),
-                    "tenant_id": str(meta["tenant_id"]),
-                    "code": meta["code"],
-                    "status": meta["status"],
-                    "current_version_id": str(meta["current_version_id"]) if meta["current_version_id"] else None,
+        print(
+            json.dumps(
+                {
+                    "report": {
+                        "id": str(report_id),
+                        "tenant_id": str(meta["tenant_id"]),
+                        "code": meta["code"],
+                        "status": meta["status"],
+                        "current_version_id": str(meta["current_version_id"])
+                        if meta["current_version_id"]
+                        else None,
+                    },
+                    "versions": [
+                        {
+                            "id": str(v["id"]),
+                            "version_number": int(v["version_number"]),
+                            "parent_version_id": str(v["parent_version_id"])
+                            if v["parent_version_id"]
+                            else None,
+                            "is_amendment": bool(v["is_amendment"]),
+                            "amendment_type": v["amendment_type"],
+                            "amendment_reason": v["amendment_reason"],
+                            "signed": bool(v["signed"]),
+                            "created_at": v["created_at"].isoformat(),
+                        }
+                        for v in versions
+                    ],
+                    "failures": [
+                        {
+                            "detected_at": f["detected_at"].isoformat(),
+                            "anomaly_kind": f["anomaly_kind"],
+                            "detail": json.loads(f["detail_jsonb"])
+                            if isinstance(f["detail_jsonb"], str)
+                            else f["detail_jsonb"],
+                            "resolved_at": f["resolved_at"].isoformat()
+                            if f["resolved_at"]
+                            else None,
+                        }
+                        for f in failures
+                    ],
                 },
-                "versions": [
-                    {
-                        "id": str(v["id"]),
-                        "version_number": int(v["version_number"]),
-                        "parent_version_id": str(v["parent_version_id"]) if v["parent_version_id"] else None,
-                        "is_amendment": bool(v["is_amendment"]),
-                        "amendment_type": v["amendment_type"],
-                        "amendment_reason": v["amendment_reason"],
-                        "signed": bool(v["signed"]),
-                        "created_at": v["created_at"].isoformat(),
-                    }
-                    for v in versions
-                ],
-                "failures": [
-                    {
-                        "detected_at": f["detected_at"].isoformat(),
-                        "anomaly_kind": f["anomaly_kind"],
-                        "detail": json.loads(f["detail_jsonb"]) if isinstance(f["detail_jsonb"], str) else f["detail_jsonb"],
-                        "resolved_at": f["resolved_at"].isoformat() if f["resolved_at"] else None,
-                    }
-                    for f in failures
-                ],
-            },
-            indent=2,
-            ensure_ascii=False,
-        ))
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return 0
     finally:
         await conn.close()

@@ -16,9 +16,12 @@ processors:
     spike_limit_mib: 128
 
 exporters:
-  # Traces → Jaeger (OTLP gRPC)
+  # Traces → Jaeger (OTLP gRPC). NOTE (Sprint A1, DEF-A1-22): must target
+  # Jaeger's OTLP port 4317 (COLLECTOR_OTLP_ENABLED=true), NOT 14250 — 14250 is
+  # Jaeger's native model.proto gRPC and rejects OTLP with "Unimplemented:
+  # unknown service opentelemetry.proto.collector.trace.v1.TraceService".
   otlp/jaeger:
-    endpoint: jaeger:14250
+    endpoint: jaeger:4317
     tls:
       insecure: true
 

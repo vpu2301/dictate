@@ -59,9 +59,7 @@ async def readyz(response: Response) -> ReadyResponse:
 
     model_loaded = state.punctuation_stage.is_loaded
     ok = (db_ok == "ok") and (redis_ok == "ok") and model_loaded
-    response.status_code = (
-        status.HTTP_200_OK if ok else status.HTTP_503_SERVICE_UNAVAILABLE
-    )
+    response.status_code = status.HTTP_200_OK if ok else status.HTTP_503_SERVICE_UNAVAILABLE
     return ReadyResponse(
         status="ready" if ok else "not_ready",
         db=db_ok,

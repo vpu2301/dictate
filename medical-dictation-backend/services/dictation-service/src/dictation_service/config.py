@@ -65,23 +65,13 @@ class Settings(BaseSettings):
     s3_use_ssl: bool = Field(default=False, alias="S3_USE_SSL")
 
     # ── Master key (envelope crypto for finalized uploads) ──────────────
-    master_key_path: str = Field(
-        default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH"
-    )
+    master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
 
     # ── Streaming protocol ──────────────────────────────────────────────
-    ws_subprotocol: str = Field(
-        default="medical-dictation.v1", alias="MDX_WS_SUBPROTOCOL"
-    )
-    ws_heartbeat_interval_s: float = Field(
-        default=10.0, alias="MDX_WS_HEARTBEAT_INTERVAL_S"
-    )
-    ws_idle_timeout_s: float = Field(
-        default=35.0, alias="MDX_WS_IDLE_TIMEOUT_S"
-    )
-    ws_max_binary_frame_bytes: int = Field(
-        default=8 * 1024, alias="MDX_WS_MAX_BINARY_FRAME_BYTES"
-    )
+    ws_subprotocol: str = Field(default="medical-dictation.v1", alias="MDX_WS_SUBPROTOCOL")
+    ws_heartbeat_interval_s: float = Field(default=10.0, alias="MDX_WS_HEARTBEAT_INTERVAL_S")
+    ws_idle_timeout_s: float = Field(default=35.0, alias="MDX_WS_IDLE_TIMEOUT_S")
+    ws_max_binary_frame_bytes: int = Field(default=8 * 1024, alias="MDX_WS_MAX_BINARY_FRAME_BYTES")
     ws_idle_close_after_no_session_s: float = Field(
         default=10.0, alias="MDX_WS_IDLE_CLOSE_AFTER_NO_SESSION_S"
     )
@@ -95,27 +85,19 @@ class Settings(BaseSettings):
     )
 
     # ── Session lifecycle ───────────────────────────────────────────────
-    session_idle_abandon_minutes: int = Field(
-        default=30, alias="MDX_SESSION_IDLE_ABANDON_MINUTES"
-    )
-    session_hard_cap_minutes: int = Field(
-        default=60, alias="MDX_SESSION_HARD_CAP_MINUTES"
-    )
+    session_idle_abandon_minutes: int = Field(default=30, alias="MDX_SESSION_IDLE_ABANDON_MINUTES")
+    session_hard_cap_minutes: int = Field(default=60, alias="MDX_SESSION_HARD_CAP_MINUTES")
     session_token_expiry_warn_seconds: int = Field(
         default=60, alias="MDX_SESSION_TOKEN_EXPIRY_WARN_SECONDS"
     )
 
     # ── Windowing / inference ───────────────────────────────────────────
     window_seconds: float = Field(default=4.0, alias="MDX_WINDOW_SECONDS")
-    window_overlap_seconds: float = Field(
-        default=2.0, alias="MDX_WINDOW_OVERLAP_SECONDS"
-    )
+    window_overlap_seconds: float = Field(default=2.0, alias="MDX_WINDOW_OVERLAP_SECONDS")
     window_min_for_partial_seconds: float = Field(
         default=1.5, alias="MDX_WINDOW_MIN_FOR_PARTIAL_SECONDS"
     )
-    window_tick_interval_ms: int = Field(
-        default=600, alias="MDX_WINDOW_TICK_INTERVAL_MS"
-    )
+    window_tick_interval_ms: int = Field(default=600, alias="MDX_WINDOW_TICK_INTERVAL_MS")
     window_inference_deadline_multiplier: float = Field(
         default=1.5, alias="MDX_WINDOW_INFERENCE_DEADLINE_MULTIPLIER"
     )
@@ -128,14 +110,13 @@ class Settings(BaseSettings):
     prompt_max_tokens: int = Field(default=150, alias="MDX_PROMPT_MAX_TOKENS")
 
     # ── Concurrency cap per GPU worker ──────────────────────────────────
-    per_worker_max_sessions: int = Field(
-        default=4, alias="MDX_PER_WORKER_MAX_SESSIONS"
-    )
+    per_worker_max_sessions: int = Field(default=4, alias="MDX_PER_WORKER_MAX_SESSIONS")
     per_tenant_max_active_sessions: int = Field(
         default=10, alias="MDX_PER_TENANT_MAX_ACTIVE_SESSIONS"
     )
     retransmit_max_range_frames: int = Field(
-        default=1500, alias="MDX_RETRANSMIT_MAX_RANGE_FRAMES"  # 30s @ 50fps
+        default=1500,
+        alias="MDX_RETRANSMIT_MAX_RANGE_FRAMES",  # 30s @ 50fps
     )
 
     # ── tmpfs ring buffer ───────────────────────────────────────────────
@@ -145,12 +126,8 @@ class Settings(BaseSettings):
 
     # ── Worker identity (Redis liveness key) ────────────────────────────
     worker_id: str = Field(default="worker-1", alias="MDX_WORKER_ID")
-    worker_heartbeat_interval_s: float = Field(
-        default=5.0, alias="MDX_WORKER_HEARTBEAT_INTERVAL_S"
-    )
-    worker_heartbeat_ttl_s: float = Field(
-        default=30.0, alias="MDX_WORKER_HEARTBEAT_TTL_S"
-    )
+    worker_heartbeat_interval_s: float = Field(default=5.0, alias="MDX_WORKER_HEARTBEAT_INTERVAL_S")
+    worker_heartbeat_ttl_s: float = Field(default=30.0, alias="MDX_WORKER_HEARTBEAT_TTL_S")
 
     # ── Origin allow-list for WS upgrades ──────────────────────────────
     ws_allowed_origins: list[str] = Field(

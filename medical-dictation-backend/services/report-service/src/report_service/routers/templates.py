@@ -8,9 +8,9 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from opentelemetry import metrics
+from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
 from auth import Claims
@@ -31,9 +31,7 @@ _meter = metrics.get_meter("mdx.templates")
 _clones = _meter.create_counter("mdx_template_clones_total", unit="1")
 _updates = _meter.create_counter("mdx_template_updates_total", unit="1")
 _deprecations = _meter.create_counter("mdx_template_deprecations_total", unit="1")
-_section_lookups = _meter.create_counter(
-    "mdx_template_section_prompt_lookups_total", unit="1"
-)
+_section_lookups = _meter.create_counter("mdx_template_section_prompt_lookups_total", unit="1")
 
 
 # ── Wire models ─────────────────────────────────────────────────────
@@ -230,9 +228,7 @@ async def get_section_prompt(
     claims: Annotated[Claims, Depends(requires("template.read", "template"))],
 ) -> SectionPromptResponse:
     state = get_state()
-    cached = state.template_cache.get(
-        tenant_id=claims.tid, template_id=template_id
-    )
+    cached = state.template_cache.get(tenant_id=claims.tid, template_id=template_id)
     if cached is None:
         async with tenant_connection(state.app_pool, claims.tid) as conn:
             row = await repository.get_template(conn, template_id=template_id)
@@ -248,9 +244,7 @@ async def get_section_prompt(
             schema_version=int(row["schema_version"]),
             status=row["status"],
         )
-        state.template_cache.put(
-            tenant_id=claims.tid, template_id=template_id, cached=cached
-        )
+        state.template_cache.put(tenant_id=claims.tid, template_id=template_id, cached=cached)
 
     result = section_prompt_from_jsonb(cached.schema_jsonb, section_id)
     if result is None:
@@ -260,9 +254,7 @@ async def get_section_prompt(
         )
     prompt, language, section_name = result
     _section_lookups.add(1)
-    return SectionPromptResponse(
-        prompt=prompt, language=language, section_name=section_name
-    )
+    return SectionPromptResponse(prompt=prompt, language=language, section_name=section_name)
 
 
 # ── Clone ───────────────────────────────────────────────────────────
@@ -367,9 +359,7 @@ async def deprecate_template(
 ) -> dict[str, str]:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
-        outcome = await repository.deprecate_template(
-            conn, template_id=template_id
-        )
+        outcome = await repository.deprecate_template(conn, template_id=template_id)
     if outcome == "not_found":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if outcome == "in_use":

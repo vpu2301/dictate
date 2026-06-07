@@ -33,9 +33,7 @@ def test_section_passes_arg_through() -> None:
 
 
 def test_unknown_intent_returns_marker() -> None:
-    slot = CommandSlot(
-        intent="not_in_table", span_start_s=0.0, span_end_s=0.5, confidence=0.95
-    )
+    slot = CommandSlot(intent="not_in_table", span_start_s=0.0, span_end_s=0.5, confidence=0.95)
     op = operations_for(slot)
     assert op.op == "unknown_intent"
     assert op.arg == {"intent": "not_in_table"}

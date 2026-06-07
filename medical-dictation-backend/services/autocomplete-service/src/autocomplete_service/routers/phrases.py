@@ -13,7 +13,8 @@ from audit import Severity
 from auth import Action, Claims, TargetKind
 from db import tenant_connection
 
-from .. import audit_kinds, repository as repo
+from .. import audit_kinds
+from .. import repository as repo
 from ..deps import get_state, requires
 from ..scrubber import contains_pii
 
@@ -104,9 +105,13 @@ async def create_phrase(
     await state.trie_cache.bump_version_tag(tenant_id=claims.tid)
     return PhraseDTO(
         id=phrase_id,
-        phrase=body.phrase, language=body.language,
-        specialty=body.specialty, section_hint=body.section_hint,
-        source=body.source, impression_count=0, acceptance_count=0,
+        phrase=body.phrase,
+        language=body.language,
+        specialty=body.specialty,
+        section_hint=body.section_hint,
+        source=body.source,
+        impression_count=0,
+        acceptance_count=0,
     )
 
 

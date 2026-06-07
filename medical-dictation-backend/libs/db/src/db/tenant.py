@@ -10,9 +10,9 @@ isolation and is forbidden — see ADR-0004.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import AsyncIterator
 from uuid import UUID
 
 import asyncpg

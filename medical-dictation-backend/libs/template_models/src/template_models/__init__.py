@@ -14,12 +14,12 @@ from __future__ import annotations
 from .schema import (
     ASR_PROMPT_MAX_TOKENS,
     FIELD_TYPES,
+    EditKind,
     FieldType,
     TemplateDefinition,
     TemplateMetadata,
     TemplateSection,
     classify_edit,
-    EditKind,
 )
 
 __all__ = [

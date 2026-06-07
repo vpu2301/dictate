@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from autocomplete_service.ranking import (
     PhraseRecord,
@@ -16,10 +16,14 @@ from autocomplete_service.ranking import (
 
 
 def _rec(**overrides) -> PhraseRecord:
-    base = dict(
-        id="a", phrase="хворий поступив зі скаргами", source="system",
-        impression_count=0, acceptance_count=0, last_accepted_at=None,
-    )
+    base = {
+        "id": "a",
+        "phrase": "хворий поступив зі скаргами",
+        "source": "system",
+        "impression_count": 0,
+        "acceptance_count": 0,
+        "last_accepted_at": None,
+    }
     base.update(overrides)
     return PhraseRecord(**base)
 
@@ -37,7 +41,7 @@ def test_bayesian_grows_with_accepts():
 
 
 def test_recency_boost_recent_lifts():
-    today = datetime.now(timezone.utc)
+    today = datetime.now(UTC)
     assert recency_boost(today, now=today) > 1.0
     week_ago = today - timedelta(days=7)
     assert recency_boost(week_ago, now=today) > 1.0
@@ -45,7 +49,7 @@ def test_recency_boost_recent_lifts():
 
 
 def test_recency_boost_old_neutral():
-    today = datetime.now(timezone.utc)
+    today = datetime.now(UTC)
     old = today - timedelta(days=60)
     assert recency_boost(old, now=today) == 1.0
     assert recency_boost(None) == 1.0
@@ -67,9 +71,11 @@ def test_diversity_filter_drops_near_duplicates():
     a = _rec(id="a", phrase="alpha-beta-gamma")
     b = _rec(id="b", phrase="alpha-beta-gamna")  # 1 char off
     c = _rec(id="c", phrase="totally different")
-    ranked = [(a, 0.9, "alpha-beta-gamma"),
-              (b, 0.8, "alpha-beta-gamna"),
-              (c, 0.7, "totally different")]
+    ranked = [
+        (a, 0.9, "alpha-beta-gamma"),
+        (b, 0.8, "alpha-beta-gamna"),
+        (c, 0.7, "totally different"),
+    ]
     kept = diversity_filter(ranked, levenshtein_threshold=3)
     assert len(kept) == 2
     assert kept[0][0].id == "a"

@@ -18,7 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from audit import Severity
 from auth import Action, Claims, TargetKind
 from db import tenant_connection
-
 from report_models import ReportAmendmentType, ReportContent, ReportStatus
 
 from .. import audit_kinds
