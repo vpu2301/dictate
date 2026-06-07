@@ -73,8 +73,8 @@ def _wer(ref: str, hyp: str) -> tuple[float, int]:
         for j in range(1, m + 1):
             cost = 0 if ref_words[i - 1] == hyp_words[j - 1] else 1
             curr[j] = min(
-                prev[j] + 1,         # deletion
-                curr[j - 1] + 1,     # insertion
+                prev[j] + 1,  # deletion
+                curr[j - 1] + 1,  # insertion
                 prev[j - 1] + cost,  # substitution
             )
         prev = curr
@@ -83,9 +83,10 @@ def _wer(ref: str, hyp: str) -> tuple[float, int]:
 
 def evaluate(fixtures_dir: Path) -> list[WerResult]:
     """Walk ``fixtures_dir`` and compute WER per (language, specialty)."""
+    import asyncio
+
     from asr_worker.audio_io import decode_to_pcm
     from asr_worker.inference import WhisperEngine
-    import asyncio
 
     engine = WhisperEngine()
     engine.load()
@@ -98,7 +99,7 @@ def evaluate(fixtures_dir: Path) -> list[WerResult]:
             logger.warning("missing audio: %s", audio_path)
             continue
 
-        async def run() -> str:
+        async def run(audio_path=audio_path, doc=doc) -> str:
             audio = audio_path.read_bytes()
             pcm = await decode_to_pcm(audio)
             out = await engine.transcribe(
@@ -134,8 +135,9 @@ def evaluate(fixtures_dir: Path) -> list[WerResult]:
     for (lang, spec), (sum_, n_ref, n_files) in grouped.items():
         agg_wer = sum_ / n_ref if n_ref else 1.0
         results.append(
-            WerResult(language=lang, specialty=spec, wer=agg_wer,
-                      n_ref_words=n_ref, n_files=n_files)
+            WerResult(
+                language=lang, specialty=spec, wer=agg_wer, n_ref_words=n_ref, n_files=n_files
+            )
         )
     return results
 

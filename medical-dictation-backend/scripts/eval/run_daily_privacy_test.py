@@ -42,7 +42,7 @@ import struct
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,16 +58,13 @@ class PrivacyTestResult:
     failure_reason: str | None = None
 
     def step(self, name: str, ok: bool, **details: Any) -> None:
-        self.steps.append(
-            {"name": name, "ok": ok, "ts": datetime.now(timezone.utc).isoformat(), **details}
-        )
+        self.steps.append({"name": name, "ok": ok, "ts": datetime.now(UTC).isoformat(), **details})
 
 
 # ── Step implementations ─────────────────────────────────────────────
 
 
 async def _login(client: object, space_url: str, email: str, password: str) -> str:
-    import httpx
 
     resp = await client.post(  # type: ignore[attr-defined]
         f"{space_url}/auth/login",
@@ -85,7 +82,6 @@ async def _find_audio_files(client: object, space_url: str, hf_token: str) -> li
     Returns a list of audio-file paths inside the container. Empty list
     is the privacy-test-passing state.
     """
-    import httpx
 
     resp = await client.get(  # type: ignore[attr-defined]
         f"{space_url}/admin/_debug/find_audio",
@@ -108,7 +104,6 @@ async def _ws_dictate(
     seconds: int = 30,
 ) -> None:
     """Stream synthetic-silence audio via the medical-dictation.v1 protocol."""
-    import httpx
     import websockets
 
     ws_url = space_url.replace("https://", "wss://").replace("http://", "ws://") + "/ws/dictate"
@@ -127,11 +122,13 @@ async def _ws_dictate(
         template_id = templates[0]["id"] if templates else None
 
         await ws.send(
-            json.dumps({
-                "type": "start_session",
-                "prompt_id": template_id or "00000000-0000-0000-0000-000000000000",
-                "language": "uk",
-            })
+            json.dumps(
+                {
+                    "type": "start_session",
+                    "prompt_id": template_id or "00000000-0000-0000-0000-000000000000",
+                    "language": "uk",
+                }
+            )
         )
         raw = await ws.recv()
         if json.loads(raw).get("type") != "session_started":
@@ -150,7 +147,7 @@ async def _ws_dictate(
         while time.monotonic() < end:
             try:
                 msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=2))
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             if msg.get("type") == "session_terminated":
                 return
@@ -163,7 +160,7 @@ async def _ws_dictate(
 async def run(args: argparse.Namespace) -> PrivacyTestResult:
     import httpx
 
-    result = PrivacyTestResult(started_at=datetime.now(timezone.utc))
+    result = PrivacyTestResult(started_at=datetime.now(UTC))
 
     async with httpx.AsyncClient(timeout=30) as client:
         try:
@@ -205,9 +202,7 @@ async def run(args: argparse.Namespace) -> PrivacyTestResult:
                 new_audio_files=sorted(new_files),
             )
             if new_files:
-                result.failure_reason = (
-                    f"audio survived session: {sorted(new_files)}"
-                )
+                result.failure_reason = f"audio survived session: {sorted(new_files)}"
                 return result
         except Exception as exc:  # noqa: BLE001
             result.step("post_immediate", False, error=str(exc))
@@ -223,9 +218,7 @@ async def run(args: argparse.Namespace) -> PrivacyTestResult:
                 new_audio_files=sorted(new_files),
             )
             if new_files:
-                result.failure_reason = (
-                    f"audio survived 60 s after session: {sorted(new_files)}"
-                )
+                result.failure_reason = f"audio survived 60 s after session: {sorted(new_files)}"
                 return result
         except Exception as exc:  # noqa: BLE001
             result.step("post_late", False, error=str(exc))
@@ -233,7 +226,7 @@ async def run(args: argparse.Namespace) -> PrivacyTestResult:
         # All checks passed.
         result.passed = True
 
-    result.finished_at = datetime.now(timezone.utc)
+    result.finished_at = datetime.now(UTC)
     return result
 
 
@@ -273,22 +266,26 @@ def main() -> int:
         emit_prom(result, args.metrics_file)
 
     # Pretty print:
-    print(json.dumps(
-        {
-            "passed": result.passed,
-            "started_at": result.started_at.isoformat(),
-            "finished_at": result.finished_at.isoformat() if result.finished_at else None,
-            "failure_reason": result.failure_reason,
-            "steps": result.steps,
-        },
-        ensure_ascii=False,
-        indent=2,
-    ))
+    print(
+        json.dumps(
+            {
+                "passed": result.passed,
+                "started_at": result.started_at.isoformat(),
+                "finished_at": result.finished_at.isoformat() if result.finished_at else None,
+                "failure_reason": result.failure_reason,
+                "steps": result.steps,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
     if args.self_test:
         # Deliberate-failure mode: we expect the test to fail.
         if result.passed:
-            print("self-test: ERROR — test reported PASS when it should have FAILED.", file=sys.stderr)
+            print(
+                "self-test: ERROR — test reported PASS when it should have FAILED.", file=sys.stderr
+            )
             return 1
         return 0
 

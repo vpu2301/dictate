@@ -32,9 +32,7 @@ async def _seed(dsn: str, fixtures_dir: Path) -> int:
             language = path.stem.split("_")[-1]
             commands = json.loads(path.read_text("utf-8"))
             # Clean slate for this language so re-seeds drop removed commands.
-            await conn.execute(
-                "DELETE FROM voice_commands WHERE language = $1", language
-            )
+            await conn.execute("DELETE FROM voice_commands WHERE language = $1", language)
             for cmd in commands:
                 await conn.execute(
                     """
@@ -67,10 +65,7 @@ def main() -> int:
     parser.add_argument(
         "--fixtures-dir",
         type=Path,
-        default=Path(__file__).resolve().parents[2]
-        / "infra"
-        / "postgres"
-        / "seed",
+        default=Path(__file__).resolve().parents[2] / "infra" / "postgres" / "seed",
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")

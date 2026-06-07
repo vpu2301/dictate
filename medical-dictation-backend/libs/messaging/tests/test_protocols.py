@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import pytest
 
@@ -66,7 +66,7 @@ def test_stub_consumer_satisfies_protocol() -> None:
 
 def test_message_is_frozen() -> None:
     m = Message(topic="t", key=b"k", value=b"v", headers={}, timestamp_ms=0)
-    with pytest.raises(Exception):  # FrozenInstanceError or AttributeError under slots+frozen
+    with pytest.raises(AttributeError):  # FrozenInstanceError subclasses AttributeError
         m.topic = "x"  # type: ignore[misc]
 
 

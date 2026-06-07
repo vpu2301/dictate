@@ -5,7 +5,6 @@ from __future__ import annotations
 from uuid import uuid4
 
 from report_models import DiffResponse, MetadataDiff
-
 from report_service.domain.diff_cache import DiffCache
 
 
@@ -43,7 +42,7 @@ def test_lru_evicts_oldest():
     c = DiffCache(max_entries=2)
     rid = uuid4()
     pairs = [(uuid4(), uuid4()) for _ in range(3)]
-    for (a, b) in pairs:
+    for a, b in pairs:
         c.put(report_id=rid, from_id=a, to_id=b, value=_payload(rid, a, b))
     # First inserted should have been evicted.
     assert c.get(report_id=rid, from_id=pairs[0][0], to_id=pairs[0][1]) is None

@@ -8,33 +8,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 import asyncpg
 
 from db import create_pool
 
-from ..config import settings
 from .. import repository as repo
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 
 def _next_month_bounds(now: datetime) -> tuple[datetime, datetime]:
     if now.month == 12:
-        start = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
-        end   = datetime(now.year + 1, 2, 1, tzinfo=timezone.utc)
+        start = datetime(now.year + 1, 1, 1, tzinfo=UTC)
+        end = datetime(now.year + 1, 2, 1, tzinfo=UTC)
     else:
-        start = datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc)
+        start = datetime(now.year, now.month + 1, 1, tzinfo=UTC)
         if start.month == 12:
-            end = datetime(start.year + 1, 1, 1, tzinfo=timezone.utc)
+            end = datetime(start.year + 1, 1, 1, tzinfo=UTC)
         else:
-            end = datetime(start.year, start.month + 1, 1, tzinfo=timezone.utc)
+            end = datetime(start.year, start.month + 1, 1, tzinfo=UTC)
     return start, end
 
 
 async def ensure_next_partition(app_pool: asyncpg.Pool) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     start, end = _next_month_bounds(now)
     async with app_pool.acquire() as conn:
         return await repo.create_next_telemetry_partition(conn, start=start, end=end)

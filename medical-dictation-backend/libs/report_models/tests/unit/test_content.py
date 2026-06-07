@@ -66,9 +66,9 @@ def test_icd10_validates_format() -> None:
     Icd10Code(code="I21.0")
     Icd10Code(code="I21")
     with pytest.raises(ValidationError):
-        Icd10Code(code="12.0")          # must start with letter
+        Icd10Code(code="12.0")  # must start with letter
     with pytest.raises(ValidationError):
-        Icd10Code(code="I21.")          # trailing dot
+        Icd10Code(code="I21.")  # trailing dot
 
 
 def test_icd10_uppercases_lowercase_input() -> None:

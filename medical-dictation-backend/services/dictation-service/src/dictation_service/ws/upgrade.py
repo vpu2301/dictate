@@ -81,22 +81,25 @@ async def authorize_upgrade(
     # Origin allow-list. Browsers send `Origin` for cross-site WS too;
     # we mirror the frontend CORS allow-list. CLI tools (no Origin)
     # are allowed through in dev only.
-    if origin is not None and origin not in settings.ws_allowed_origins:
-        if settings.environment != "development":
-            await _audit_upgrade_fail(
-                audit_writer,
-                tenant_id=None,
-                user_sub=None,
-                client_ip=client_ip,
-                reason="origin_rejected",
-                severity=Severity.WARN,
-                origin=origin,
-            )
-            raise UpgradeRejected(
-                status_code=status.HTTP_403_FORBIDDEN,
-                code="origin_rejected",
-                detail=f"origin {origin!r} is not in the allow-list",
-            )
+    if (
+        origin is not None
+        and origin not in settings.ws_allowed_origins
+        and settings.environment != "development"
+    ):
+        await _audit_upgrade_fail(
+            audit_writer,
+            tenant_id=None,
+            user_sub=None,
+            client_ip=client_ip,
+            reason="origin_rejected",
+            severity=Severity.WARN,
+            origin=origin,
+        )
+        raise UpgradeRejected(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="origin_rejected",
+            detail=f"origin {origin!r} is not in the allow-list",
+        )
 
     # Per-IP rate limit: 10 upgrade attempts per minute.
     if not await _allow_ip(redis, client_ip):
@@ -129,9 +132,7 @@ async def authorize_upgrade(
         raise UpgradeRejected(
             status_code=status.HTTP_400_BAD_REQUEST,
             code="unsupported_protocol",
-            detail=(
-                f"client did not offer {SUBPROTOCOL!r}; offered={offered!r}"
-            ),
+            detail=(f"client did not offer {SUBPROTOCOL!r}; offered={offered!r}"),
         )
 
     # Bearer token. We accept Authorization header *or* (some browsers
@@ -266,9 +267,7 @@ async def _allow_ip(redis: Redis, ip: str) -> bool:
 
 async def _allow_user(redis: Redis, sub: UUID) -> bool:
     key = f"mdx:dict:rl:user:{sub}:{int(time.time()) // 3600}"
-    return await _allow(
-        redis, key, settings.upgrade_ratelimit_per_user_per_hour, ttl=3 * 3600
-    )
+    return await _allow(redis, key, settings.upgrade_ratelimit_per_user_per_hour, ttl=3 * 3600)
 
 
 async def _allow(redis: Redis, key: str, limit: int, *, ttl: int) -> bool:

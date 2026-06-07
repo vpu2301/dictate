@@ -31,7 +31,7 @@ Checks performed (each fail-closed):
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from asn1crypto import x509
 
@@ -54,7 +54,7 @@ def verify_envelope(
     now: datetime | None = None,
 ) -> VerificationResult:
     errors: list[str] = []
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
 
     # 1) Document hash binding.
     if parsed.document_hash_sha256 != expected_document_hash:
@@ -120,10 +120,7 @@ def _chain_terminates_in_trust(chain: list[x509.Certificate], trust: TrustStore)
     # anchor.
     if trust.find_by_subject(chain[0]["tbs_certificate"]["issuer"]) is not None:
         return True
-    for i in range(1, len(chain)):
-        if trust.is_anchor(chain[i]):
-            return True
-    return False
+    return any(trust.is_anchor(chain[i]) for i in range(1, len(chain)))
 
 
 def _result(
@@ -138,9 +135,9 @@ def _result(
         signer_cert_serial=parsed.signer_cert_serial_hex,
         signer_cert_issuer_cn=parsed.signer_cert_issuer_cn,
         signed_at=parsed.signed_at,
-        is_qualified=(override_is_qualified
-                      if override_is_qualified is not None
-                      else parsed.is_qualified),
+        is_qualified=(
+            override_is_qualified if override_is_qualified is not None else parsed.is_qualified
+        ),
         document_hash_sha256_hex=parsed.document_hash_sha256.hex(),
         format=parsed.format.value if hasattr(parsed.format, "value") else parsed.format,
     )

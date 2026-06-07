@@ -56,14 +56,8 @@ async def readyz(response: Response) -> ReadyResponse:
         redis_ok = f"fail: {type(exc).__name__}"
     model_loaded = state.engine.is_loaded
     gpu_available = _gpu_available()
-    ok = (
-        db_ok == "ok"
-        and redis_ok == "ok"
-        and model_loaded
-    )
-    response.status_code = (
-        status.HTTP_200_OK if ok else status.HTTP_503_SERVICE_UNAVAILABLE
-    )
+    ok = db_ok == "ok" and redis_ok == "ok" and model_loaded
+    response.status_code = status.HTTP_200_OK if ok else status.HTTP_503_SERVICE_UNAVAILABLE
     return ReadyResponse(
         status="ready" if ok else "not_ready",
         db=db_ok,

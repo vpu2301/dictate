@@ -60,7 +60,9 @@ def main() -> int:
         for lineno, line in enumerate(text.splitlines(), 1):
             # Only match writes to the audit schema specifically — many
             # tables have an `events` column or table elsewhere.
-            if re.search(r"audit\.events|audit\"\.\"events", line, re.IGNORECASE) and PATTERN.search(line):
+            if re.search(
+                r"audit\.events|audit\"\.\"events", line, re.IGNORECASE
+            ) and PATTERN.search(line):
                 failures.append(f"{rel}:{lineno}: {line.strip()[:120]}")
 
     if failures:

@@ -22,7 +22,6 @@ from typing import Any
 from opentelemetry import metrics
 
 from .base import (
-    AbbreviationSnapshot,
     PipelineWarning,
     ProcessingContext,
     Stage,
@@ -142,9 +141,7 @@ class Orchestrator:
                     metadata={**current.metadata, f"{stage.name}.error": type(exc).__name__},
                 )
             dt_ms = (time.monotonic() - t0) * 1000.0
-            _stage_latency_ms.record(
-                dt_ms, {"stage": stage.name, "language": ctx.language}
-            )
+            _stage_latency_ms.record(dt_ms, {"stage": stage.name, "language": ctx.language})
             current = StageOutput(
                 text=out.text,
                 words=out.words,

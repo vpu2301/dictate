@@ -11,8 +11,9 @@ The verifier is data-only — no DB types, no asyncpg dependency.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Literal
+from typing import Literal
 from uuid import UUID
 
 AnomalyKind = Literal[
@@ -68,7 +69,7 @@ def verify_chain(
     numbers = sorted(by_number.keys())
     if numbers[0] != 1:
         out.append(Anomaly(kind="gap_in_version_numbers", detail={"first": numbers[0]}))
-    for prev, cur in zip(numbers, numbers[1:]):
+    for prev, cur in zip(numbers, numbers[1:], strict=False):
         if cur != prev + 1:
             out.append(
                 Anomaly(
@@ -109,39 +110,39 @@ def verify_chain(
             )
 
     # Cycle detection via DFS.
-    WHITE, GRAY, BLACK = 0, 1, 2
-    colour: dict[UUID, int] = {nid: WHITE for nid in by_id}
+    white, gray, black = 0, 1, 2
+    colour: dict[UUID, int] = dict.fromkeys(by_id, white)
     for start in by_id:
-        if colour[start] != WHITE:
+        if colour[start] != white:
             continue
         stack: list[UUID] = [start]
         path: set[UUID] = set()
         while stack:
             cur = stack[-1]
-            if colour[cur] == WHITE:
-                colour[cur] = GRAY
+            if colour[cur] == white:
+                colour[cur] = gray
                 path.add(cur)
                 parent = by_id[cur].parent_id
                 if parent is not None and parent in by_id:
-                    if colour.get(parent, BLACK) == GRAY:
+                    if colour.get(parent, black) == gray:
                         out.append(
                             Anomaly(
                                 kind="cycle_detected",
                                 detail={"id": str(cur), "parent_id": str(parent)},
                             )
                         )
-                        colour[cur] = BLACK
+                        colour[cur] = black
                         path.discard(cur)
                         stack.pop()
                         continue
-                    if colour[parent] == WHITE:
+                    if colour[parent] == white:
                         stack.append(parent)
                         continue
-                colour[cur] = BLACK
+                colour[cur] = black
                 path.discard(cur)
                 stack.pop()
-            elif colour[cur] == GRAY:
-                colour[cur] = BLACK
+            elif colour[cur] == gray:
+                colour[cur] = black
                 path.discard(cur)
                 stack.pop()
             else:

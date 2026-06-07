@@ -54,9 +54,7 @@ async def list_templates(
     if not include_deprecated:
         where.append("status <> 'deprecated'")
     if cursor is not None:
-        where.append(
-            f"(updated_at, id) < (${len(args) + 1}, ${len(args) + 2})"
-        )
+        where.append(f"(updated_at, id) < (${len(args) + 1}, ${len(args) + 2})")
         args.append(cursor[0])
         args.append(cursor[1])
     args.append(limit)
@@ -77,9 +75,7 @@ async def list_templates(
     )
 
 
-async def get_template(
-    conn: asyncpg.Connection, *, template_id: UUID
-) -> asyncpg.Record | None:
+async def get_template(conn: asyncpg.Connection, *, template_id: UUID) -> asyncpg.Record | None:
     return await conn.fetchrow(
         """
         SELECT id, tenant_id, parent_template_id, code, name, language,
@@ -214,9 +210,7 @@ async def update_template(
 # ── Deprecate (soft-delete) ─────────────────────────────────────────
 
 
-async def deprecate_template(
-    conn: asyncpg.Connection, *, template_id: UUID
-) -> str:
+async def deprecate_template(conn: asyncpg.Connection, *, template_id: UUID) -> str:
     """Set status='deprecated' if no referencing report exists.
 
     Returns "deprecated" on success, "in_use" if reports reference,
@@ -257,11 +251,9 @@ def section_prompt_from_jsonb(
     schema_jsonb: dict[str, Any] | str, section_id: str
 ) -> tuple[str, str, str] | None:
     """Return (prompt, language, section_name) or None if not found."""
-    raw: dict[str, Any]
-    if isinstance(schema_jsonb, str):
-        raw = json.loads(schema_jsonb)
-    else:
-        raw = schema_jsonb
+    raw: dict[str, Any] = (
+        json.loads(schema_jsonb) if isinstance(schema_jsonb, str) else schema_jsonb
+    )
     for section in raw.get("sections", []):
         if section.get("id") == section_id:
             return (

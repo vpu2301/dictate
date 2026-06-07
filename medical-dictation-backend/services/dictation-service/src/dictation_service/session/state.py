@@ -41,24 +41,30 @@ class StateTransitionError(Exception):
 # from-state → allowed to-states
 _ALLOWED: Final[dict[SessionState, frozenset[SessionState]]] = {
     SessionState.CREATING: frozenset({SessionState.ACTIVE, SessionState.FAILED}),
-    SessionState.ACTIVE: frozenset({
-        SessionState.PAUSED,
-        SessionState.RECONNECTING,
-        SessionState.FINALIZED,
-        SessionState.FAILED,
-    }),
-    SessionState.PAUSED: frozenset({
-        SessionState.ACTIVE,
-        SessionState.RECONNECTING,
-        SessionState.FINALIZED,
-        SessionState.FAILED,
-    }),
-    SessionState.RECONNECTING: frozenset({
-        SessionState.ACTIVE,
-        SessionState.ABANDONED,
-        SessionState.FAILED,
-        SessionState.FINALIZED,  # force-finalize on stuck session
-    }),
+    SessionState.ACTIVE: frozenset(
+        {
+            SessionState.PAUSED,
+            SessionState.RECONNECTING,
+            SessionState.FINALIZED,
+            SessionState.FAILED,
+        }
+    ),
+    SessionState.PAUSED: frozenset(
+        {
+            SessionState.ACTIVE,
+            SessionState.RECONNECTING,
+            SessionState.FINALIZED,
+            SessionState.FAILED,
+        }
+    ),
+    SessionState.RECONNECTING: frozenset(
+        {
+            SessionState.ACTIVE,
+            SessionState.ABANDONED,
+            SessionState.FAILED,
+            SessionState.FINALIZED,  # force-finalize on stuck session
+        }
+    ),
     # Terminal states — no outgoing transitions.
     SessionState.FINALIZED: frozenset(),
     SessionState.ABANDONED: frozenset(),
@@ -77,9 +83,7 @@ def assert_transition(from_state: SessionState, to_state: SessionState) -> None:
     earliest possible point and is loud in the logs.
     """
     if not can_transition(from_state, to_state):
-        raise StateTransitionError(
-            f"invalid transition {from_state.value!r} → {to_state.value!r}"
-        )
+        raise StateTransitionError(f"invalid transition {from_state.value!r} → {to_state.value!r}")
 
 
 def is_terminal(state: SessionState) -> bool:

@@ -60,9 +60,7 @@ class NlpBatchClient:
                     "segments": segments,
                     "language": language,
                     "specialty": specialty,
-                    "reference_date": (
-                        reference_date.isoformat() if reference_date else None
-                    ),
+                    "reference_date": (reference_date.isoformat() if reference_date else None),
                 },
             )
         except httpx.HTTPError as exc:

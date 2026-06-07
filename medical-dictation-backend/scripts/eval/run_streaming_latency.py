@@ -63,12 +63,14 @@ async def measure(
         additional_headers={"Authorization": f"Bearer {token}"},
     ) as ws:
         await ws.send(
-            json.dumps({
-                "type": "start_session",
-                "prompt_id": prompt_id,
-                "language": language,
-                "target_kind": "generic",
-            })
+            json.dumps(
+                {
+                    "type": "start_session",
+                    "prompt_id": prompt_id,
+                    "language": language,
+                    "target_kind": "generic",
+                }
+            )
         )
         # First message is session_started; ignore.
         await ws.recv()
@@ -79,11 +81,9 @@ async def measure(
         # latency measurement when the audio is pre-recorded.
         frame_count = len(opus_bytes) // 80  # ~80-byte 20-ms frames
         send_start = time.monotonic()
-        consumer_task = asyncio.create_task(
-            _consume(ws, partials, finals, send_start)
-        )
+        consumer_task = asyncio.create_task(_consume(ws, partials, finals, send_start))
         for seq in range(frame_count):
-            chunk = opus_bytes[seq * 80: (seq + 1) * 80]
+            chunk = opus_bytes[seq * 80 : (seq + 1) * 80]
             framed = struct.pack(">I", seq) + chunk
             await ws.send(framed)
             await asyncio.sleep(0.02)
@@ -92,7 +92,7 @@ async def measure(
         await ws.send(json.dumps({"type": "end_session"}))
         try:
             await asyncio.wait_for(consumer_task, timeout=5.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             consumer_task.cancel()
 
     return LatencyResult(
@@ -102,9 +102,7 @@ async def measure(
     )
 
 
-async def _consume(
-    ws: object, partials: list[int], finals: list[int], send_start: float
-) -> None:
+async def _consume(ws: object, partials: list[int], finals: list[int], send_start: float) -> None:
     async for raw in ws:  # type: ignore[union-attr]
         if not isinstance(raw, str):
             continue
@@ -127,9 +125,9 @@ def emit_prom(result: LatencyResult, path: Path) -> None:
     lines = [
         "# HELP mdx_dictation_synthetic_partial_latency_ms ms",
         "# TYPE mdx_dictation_synthetic_partial_latency_ms gauge",
-        f"mdx_dictation_synthetic_partial_latency_ms{{quantile=\"0.50\"}} {result.partial_p50_ms}",
-        f"mdx_dictation_synthetic_partial_latency_ms{{quantile=\"0.95\"}} {result.partial_p95_ms}",
-        f"mdx_dictation_synthetic_final_latency_ms{{quantile=\"0.95\"}} {result.final_p95_ms}",
+        f'mdx_dictation_synthetic_partial_latency_ms{{quantile="0.50"}} {result.partial_p50_ms}',
+        f'mdx_dictation_synthetic_partial_latency_ms{{quantile="0.95"}} {result.partial_p95_ms}',
+        f'mdx_dictation_synthetic_final_latency_ms{{quantile="0.95"}} {result.final_p95_ms}',
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -145,9 +143,7 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    result = asyncio.run(
-        measure(args.audio, args.url, args.token, args.prompt_id, args.language)
-    )
+    result = asyncio.run(measure(args.audio, args.url, args.token, args.prompt_id, args.language))
     print(
         f"partial p50={result.partial_p50_ms}ms p95={result.partial_p95_ms}ms  "
         f"final p95={result.final_p95_ms}ms"

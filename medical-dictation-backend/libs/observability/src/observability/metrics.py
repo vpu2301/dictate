@@ -13,19 +13,29 @@ sprint spec: ``5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000`` ms.
 from __future__ import annotations
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 
 logger = logging.getLogger(__name__)
 
 LATENCY_BUCKETS_MS: Sequence[float] = (
-    5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0,
+    5.0,
+    10.0,
+    25.0,
+    50.0,
+    100.0,
+    250.0,
+    500.0,
+    1000.0,
+    2500.0,
+    5000.0,
+    10000.0,
 )
 
 
@@ -42,7 +52,7 @@ def setup_metrics(
         OTLPMetricExporter(endpoint=otlp_endpoint, insecure=True),
         export_interval_millis=export_interval_ms,
     )
-    readers = [otlp_reader]
+    readers: list[MetricReader] = [otlp_reader]
 
     if prometheus_port is not None:
         try:

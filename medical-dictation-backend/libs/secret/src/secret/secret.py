@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import hmac
-from typing import Any, Generic, TypeVar
+from typing import Any, SupportsIndex, cast
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
 
-T = TypeVar("T")
-
 _MASK = "Secret(***)"
 
 
-class Secret(Generic[T]):
+class Secret[T]:
     """A value wrapper that refuses to leak via the usual channels.
 
     .value() is the single intentional read path. repr/str/format/f-string all
@@ -40,13 +38,13 @@ class Secret(Generic[T]):
     def __reduce__(self) -> Any:
         raise TypeError("Secret cannot be pickled")
 
-    def __reduce_ex__(self, protocol: int) -> Any:
+    def __reduce_ex__(self, protocol: SupportsIndex) -> Any:
         raise TypeError("Secret cannot be pickled")
 
-    def __copy__(self) -> "Secret[T]":
+    def __copy__(self) -> Secret[T]:
         raise TypeError("Secret cannot be copied (use Secret(s.value()) explicitly if needed)")
 
-    def __deepcopy__(self, memo: dict[int, Any]) -> "Secret[T]":
+    def __deepcopy__(self, memo: dict[int, Any]) -> Secret[T]:
         raise TypeError("Secret cannot be deep-copied")
 
     def __eq__(self, other: object) -> bool:
@@ -56,13 +54,16 @@ class Secret(Generic[T]):
         if isinstance(a, (bytes, bytearray)) and isinstance(b, (bytes, bytearray)):
             return hmac.compare_digest(bytes(a), bytes(b))
         if isinstance(a, str) and isinstance(b, str):
-            return hmac.compare_digest(a, b)
+            # ``a`` is read from this instance's own type parameter ``T``, which
+            # mypy does not narrow through isinstance (it stays widened to
+            # ``object``); the guard proves it is str.
+            return hmac.compare_digest(cast(str, a), b)
         return bool(a == b)
 
     def __ne__(self, other: object) -> bool:
         result = self.__eq__(other)
         if result is NotImplemented:
-            return NotImplemented  # type: ignore[return-value]
+            return NotImplemented
         return not result
 
     def __hash__(self) -> int:
@@ -75,10 +76,10 @@ class Secret(Generic[T]):
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> CoreSchema:
-        def _validate(v: Any) -> "Secret[Any]":
+        def _validate(v: Any) -> Secret[Any]:
             return v if isinstance(v, Secret) else Secret(v)
 
-        def _serialize(v: "Secret[Any]") -> str:
+        def _serialize(v: Secret[Any]) -> str:
             return "<redacted>"
 
         return core_schema.no_info_plain_validator_function(

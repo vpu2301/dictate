@@ -47,7 +47,9 @@ GRANT SELECT ON audit.eval_runs, audit.eval_utterances TO audit_reader;
 GRANT INSERT, SELECT ON audit.eval_runs, audit.eval_utterances TO audit_writer;
 
 ALTER TABLE audit.eval_runs        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit.eval_runs        FORCE  ROW LEVEL SECURITY;  -- Sprint A1: FORCE was missing
 ALTER TABLE audit.eval_utterances  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit.eval_utterances  FORCE  ROW LEVEL SECURITY;  -- Sprint A1: FORCE was missing
 
 CREATE POLICY eval_runs_select_all ON audit.eval_runs
     FOR SELECT TO audit_writer, audit_reader USING (true);

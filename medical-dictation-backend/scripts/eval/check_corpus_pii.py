@@ -31,9 +31,7 @@ def sweep_text(text: str, path: Path) -> list[str]:
     for m in IPN_RE.finditer(text):
         findings.append(f"{path}: 10-digit (IPN?): {m.group(0)}")
     for m in CONTEXT_TERMS.finditer(text):
-        findings.append(
-            f"{path}: context+digits: term={m.group(1)} digits={m.group(2)}"
-        )
+        findings.append(f"{path}: context+digits: term={m.group(1)} digits={m.group(2)}")
     return findings
 
 

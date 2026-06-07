@@ -12,7 +12,7 @@ CREATE TYPE signing_session_status AS ENUM (
 CREATE TABLE signing_sessions (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id               UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
-    initiated_by            UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    initiated_by            UUID NOT NULL REFERENCES users(sub) ON DELETE RESTRICT,
 
     resource_type           TEXT NOT NULL,
     resource_id             UUID NOT NULL,

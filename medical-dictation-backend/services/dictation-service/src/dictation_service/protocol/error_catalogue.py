@@ -47,7 +47,7 @@ RECOVERABLE: Final[frozenset[ErrorCode]] = frozenset(
         ErrorCode.HIGH_LATENCY,
         ErrorCode.WORKER_OVERLOADED,
         ErrorCode.LOW_CONFIDENCE,
-        ErrorCode.GPU_FULL,        # retry later
+        ErrorCode.GPU_FULL,  # retry later
         ErrorCode.RATE_LIMITED,
         ErrorCode.RETRANSMIT_TOO_LARGE,
     }

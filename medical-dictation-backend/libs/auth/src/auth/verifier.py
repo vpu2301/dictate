@@ -62,9 +62,7 @@ async def verify_token(
 
     alg = header.get("alg")
     if alg not in _ACCEPTED_ALGORITHMS:
-        raise InvalidTokenError(
-            f"unsupported alg {alg!r}; only RS256 is accepted"
-        )
+        raise InvalidTokenError(f"unsupported alg {alg!r}; only RS256 is accepted")
 
     kid = header.get("kid")
     if not kid or not isinstance(kid, str):

@@ -43,6 +43,7 @@ class ObjectStoreDisabledError(Exception):
     demo paths skip the audio_files row without crashing the request.
     """
 
+
 HEADER_LENGTH_PREFIX_BYTES: Final = 4
 HEADER_MAGIC: Final = "mdx-env-v1"
 
@@ -129,9 +130,7 @@ class EncryptedObjectStore:
             )
         blob = await self._envelope.encrypt(plaintext, tenant_id=tenant_id, aad=aad)
         header_bytes = _encode_header(blob)
-        body = (
-            struct.pack(">I", len(header_bytes)) + header_bytes + blob.ciphertext
-        )
+        body = struct.pack(">I", len(header_bytes)) + header_bytes + blob.ciphertext
         await self._s3.put_object(bucket=self.bucket, key=key, body=body)
         return _decode_header(header_bytes)
 
@@ -219,9 +218,7 @@ def _decode_header(header_bytes: bytes) -> ObjectHeader:
             wrapped_dek=base64.b64decode(doc["wrapped_dek"]),
             dek_iv=base64.b64decode(doc["dek_iv"]),
             dek_tag=base64.b64decode(doc["dek_tag"]),
-            extra_aad=(
-                base64.b64decode(doc["extra_aad"]) if "extra_aad" in doc else None
-            ),
+            extra_aad=(base64.b64decode(doc["extra_aad"]) if "extra_aad" in doc else None),
         )
     except (KeyError, ValueError) as exc:
         raise EnvelopeFormatError(f"object header missing/invalid field: {exc}") from exc

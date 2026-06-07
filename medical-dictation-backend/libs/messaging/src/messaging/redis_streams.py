@@ -24,6 +24,7 @@ Idempotency is the *caller's* responsibility — workers consult the
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -82,7 +83,7 @@ class RedisStreamsProducer:
         if key is not None:
             fields[b"key"] = key
         for h_name, h_value in (headers or {}).items():
-            fields[f"h-{h_name}".encode("utf-8")] = h_value.encode("utf-8")
+            fields[f"h-{h_name}".encode()] = h_value.encode("utf-8")
 
         kwargs: dict[str, Any] = {}
         if self._maxlen is not None:
@@ -165,18 +166,14 @@ class RedisStreamsConsumer:
         self._stop.set()
         if self._reclaim_task is not None:
             self._reclaim_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._reclaim_task
-            except (asyncio.CancelledError, Exception):
-                pass
 
     async def _ensure_group(self) -> None:
         try:
             # `$` = only messages produced after this group is created.
             # `mkstream=True` creates the stream if it doesn't exist yet.
-            await self._client.xgroup_create(
-                self._stream, self._group, id="$", mkstream=True
-            )
+            await self._client.xgroup_create(self._stream, self._group, id="$", mkstream=True)
             logger.info(
                 "redis_streams.group_created",
                 extra={"stream": self._stream, "group": self._group},
@@ -288,14 +285,12 @@ class RedisStreamsConsumer:
         """
         while not self._stop.is_set():
             try:
-                await asyncio.wait_for(
-                    self._stop.wait(), timeout=self._reclaim_interval_s
-                )
+                await asyncio.wait_for(self._stop.wait(), timeout=self._reclaim_interval_s)
                 return  # stop set
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             try:
-                _cursor, claimed, _deleted = await self._client.xautoclaim(  # type: ignore[misc]
+                _cursor, claimed, _deleted = await self._client.xautoclaim(
                     name=self._stream,
                     groupname=self._group,
                     consumername=self._consumer,
@@ -327,9 +322,7 @@ def _to_message(
     msg_id_raw: bytes,
     fields: dict[bytes, bytes],
 ) -> Message:
-    msg_id = (
-        msg_id_raw.decode("utf-8") if isinstance(msg_id_raw, bytes) else str(msg_id_raw)
-    )
+    msg_id = msg_id_raw.decode("utf-8") if isinstance(msg_id_raw, bytes) else str(msg_id_raw)
     value = fields.get(b"value", b"")
     key = fields.get(b"key")
     headers: dict[str, str] = {"_id": msg_id}

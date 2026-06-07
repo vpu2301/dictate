@@ -14,7 +14,6 @@ verification path (envelope.py + verify.py) is unchanged.
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
 import hmac
@@ -22,19 +21,17 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from medical_kep.envelope import Envelope, EnvelopeFormat, ParsedEnvelope
+from medical_kep.envelope import Envelope, EnvelopeFormat
 from medical_kep.provider import (
     DocumentDisplayMetadata,
     InvalidCallbackError,
     ParsedEnvelopeDTO,
     ProviderHealthSnapshot,
     ProviderName,
-    ProviderTransientError,
     SignedEnvelope,
     SignerHint,
     SigningProvider,
@@ -83,8 +80,8 @@ class IitProvider(SigningProvider):
         }
         return SigningSessionInit(
             provider=ProviderName.IIT,
-            provider_session_id=f"iit-{int(time.time()*1000)}-{hashlib.sha256(document_pdf_hash).hexdigest()[:8]}",
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            provider_session_id=f"iit-{int(time.time() * 1000)}-{hashlib.sha256(document_pdf_hash).hexdigest()[:8]}",
+            expires_at=datetime.now(UTC) + timedelta(minutes=10),
             local_helper_payload=payload,
         )
 

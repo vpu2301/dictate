@@ -115,9 +115,7 @@ _MASK_NAMES: frozenset[str] = frozenset(
 )
 
 # Field-name prefixes that always mask. The patient_* family is the canonical case.
-_MASK_PREFIXES: tuple[str, ...] = (
-    "patient_",
-)
+_MASK_PREFIXES: tuple[str, ...] = ("patient_",)
 
 # Regex to redact JSON-style fragments inside string messages.
 _JSON_FIELD_NAMES = sorted(_DROP_NAMES | _MASK_NAMES)
@@ -206,9 +204,28 @@ class PIISafeFilter(logging.Filter):
 
 _STDLIB_RECORD_ATTRS: frozenset[str] = frozenset(
     {
-        "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
-        "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
-        "created", "msecs", "relativeCreated", "thread", "threadName",
-        "processName", "process", "message", "asctime", "taskName",
+        "name",
+        "msg",
+        "args",
+        "levelname",
+        "levelno",
+        "pathname",
+        "filename",
+        "module",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "lineno",
+        "funcName",
+        "created",
+        "msecs",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "processName",
+        "process",
+        "message",
+        "asctime",
+        "taskName",
     }
 )

@@ -3,22 +3,21 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
 from auth import Action, Claims, TargetKind
 from db import tenant_connection
-
-from report_models import ReportContent, ReadPurpose
+from report_models import ReadPurpose, ReportContent
 
 from .. import audit_kinds
-from ..deps import current_user, get_state, requires
-from ..domain import code_sequence, reports_repository as repo
-from ..domain.pii_redactor import is_treatment_team
+from ..deps import get_state, requires
+from ..domain import code_sequence
+from ..domain import reports_repository as repo
 
 logger = logging.getLogger(__name__)
 

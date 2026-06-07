@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Iterable
 
 import asyncpg
 
@@ -27,7 +26,9 @@ async def run_once(app_pool: asyncpg.Pool, audit_writer: AuditWriter) -> int:
     transitioned = 0
     async with app_pool.acquire() as conn:
         # Read across all tenants — reaper bypasses tenant scope.
-        await conn.execute("SET LOCAL row_security TO off")  # privileged; reaper runs on app_role with NO RLS bypass in prod
+        await conn.execute(
+            "SET LOCAL row_security TO off"
+        )  # privileged; reaper runs on app_role with NO RLS bypass in prod
         tenants = await conn.fetch(
             "SELECT DISTINCT tenant_id FROM signing_sessions "
             "WHERE status IN ('initiating','awaiting_user','verifying')"

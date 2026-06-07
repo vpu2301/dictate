@@ -29,19 +29,19 @@ REDACTED: Final = "<redacted_PII>"
 # Order matters: more-specific patterns first so they win the
 # substitution before the generic 7-digit pattern eats them.
 _PATTERNS: Final[list[tuple[str, re.Pattern[str]]]] = [
-    ("email",     re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")),
-    ("ipn",       re.compile(r"\b\d{10}\b")),
-    ("med_id",    re.compile(r"\b\d{13}\b")),
-    ("passport",  re.compile(r"\b[A-Za-zА-ЯЇІЄҐа-яїієґ]{2}\s?\d{6}\b")),
-    ("dob_like",  re.compile(r"\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b")),
-    ("phone",     re.compile(r"\b\d{7,9}\b")),
+    ("email", re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")),
+    ("ipn", re.compile(r"\b\d{10}\b")),
+    ("med_id", re.compile(r"\b\d{13}\b")),
+    ("passport", re.compile(r"\b[A-Za-zА-ЯЇІЄҐа-яїієґ]{2}\s?\d{6}\b")),
+    ("dob_like", re.compile(r"\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b")),
+    ("phone", re.compile(r"\b\d{7,9}\b")),
 ]
 
 
 @dataclass(frozen=True, slots=True)
 class ScrubResult:
     text: str
-    redactions: dict[str, int]    # pattern_name → count
+    redactions: dict[str, int]  # pattern_name → count
 
 
 def scrub_prefix(text: str) -> ScrubResult:

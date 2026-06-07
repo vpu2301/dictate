@@ -90,9 +90,7 @@ class S3Client:
         async with self._client() as c:
             await c.head_bucket(Bucket=bucket)
 
-    async def generate_presigned_url(
-        self, *, bucket: str, key: str, expires_in: int
-    ) -> str:
+    async def generate_presigned_url(self, *, bucket: str, key: str, expires_in: int) -> str:
         async with self._client() as c:
             url: str = await c.generate_presigned_url(
                 "get_object",

@@ -11,6 +11,21 @@ exclude = [".venv", "dist", "__pycache__"]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency/parameter markers are designed to be evaluated as
+# argument defaults; they are effectively immutable singletons, so B008 does
+# not apply to them.
+extend-immutable-calls = [
+    "fastapi.Query",
+    "fastapi.Depends",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+    "fastapi.File",
+]
+
 [tool.ruff.lint.isort]
 known-first-party = [
     "template_service",

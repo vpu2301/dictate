@@ -25,9 +25,7 @@ import json
 import os
 import random
 import struct
-import time
 from dataclasses import dataclass
-from uuid import uuid4
 
 import pytest
 
@@ -79,29 +77,29 @@ async def _consume(ws, stats: StreamStats) -> None:  # type: ignore[no-untyped-d
         return
 
 
-async def _drive(ws, *, frames: int, drop_rate: float = 0.0,
-                 jitter_ms: int = 0, malformed_rate: float = 0.0) -> None:  # type: ignore[no-untyped-def]
+async def _drive(
+    ws, *, frames: int, drop_rate: float = 0.0, jitter_ms: int = 0, malformed_rate: float = 0.0
+) -> None:  # type: ignore[no-untyped-def]
     for seq in range(frames):
         if random.random() < drop_rate:
             continue
-        if random.random() < malformed_rate:
-            # Send garbage but well-sized: server should emit
-            # audio_decode_failed and continue.
-            payload = os.urandom(80)
-        else:
-            payload = b"\x00" * 80  # silence-like Opus placeholder
+        # Garbage but well-sized when malformed (server should emit
+        # audio_decode_failed and continue); otherwise silence-like Opus.
+        payload = os.urandom(80) if random.random() < malformed_rate else b"\x00" * 80
         await ws.send(_frame(seq, payload))
         await asyncio.sleep(0.020 + random.uniform(-jitter_ms, jitter_ms) / 1000.0)
 
 
 async def _start_session(ws) -> None:  # type: ignore[no-untyped-def]
     await ws.send(
-        json.dumps({
-            "type": "start_session",
-            "prompt_id": PROMPT_ID,
-            "language": "uk",
-            "target_kind": "generic",
-        })
+        json.dumps(
+            {
+                "type": "start_session",
+                "prompt_id": PROMPT_ID,
+                "language": "uk",
+                "target_kind": "generic",
+            }
+        )
     )
     raw = await ws.recv()
     msg = json.loads(raw)

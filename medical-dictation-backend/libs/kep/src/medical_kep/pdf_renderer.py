@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import io
 import logging
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -87,8 +86,7 @@ def render_unsigned_pdf(payload: RenderInput) -> bytes:
         patient=_clamp(payload.patient_full_name_redacted),
         icd10=payload.icd10_codes,
         sections=[
-            {"key": _clamp(s.get("section_key", "")),
-             "text": _clamp(s.get("text", ""))}
+            {"key": _clamp(s.get("section_key", "")), "text": _clamp(s.get("text", ""))}
             for s in payload.sections
         ],
         finalized_at=payload.finalized_at,
@@ -134,12 +132,14 @@ def _normalise_pdf_dates(pdf_bytes: bytes) -> bytes:
 
 def _stamp_deterministic_dates(writer) -> None:
     try:
-        writer.add_metadata({
-            "/CreationDate": _DETERMINISTIC_DATE,
-            "/ModDate": _DETERMINISTIC_DATE,
-            "/Producer": "medical_kep",
-            "/Creator": "medical_kep",
-        })
+        writer.add_metadata(
+            {
+                "/CreationDate": _DETERMINISTIC_DATE,
+                "/ModDate": _DETERMINISTIC_DATE,
+                "/Producer": "medical_kep",
+                "/Creator": "medical_kep",
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         logger.debug("pdf metadata stamp failed (non-fatal): %s", exc)
 

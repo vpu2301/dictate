@@ -70,9 +70,7 @@ PROM_TEXTFILE = Path(
 async def list_active_tenants(dsn: str) -> list[UUID]:
     conn = await asyncpg.connect(dsn)
     try:
-        rows = await conn.fetch(
-            "SELECT id FROM tenants WHERE status = 'active' ORDER BY id"
-        )
+        rows = await conn.fetch("SELECT id FROM tenants WHERE status = 'active' ORDER BY id")
         return [r["id"] for r in rows]
     finally:
         await conn.close()
@@ -159,17 +157,13 @@ async def main() -> int:
                         "last_seq": report.last_seq,
                         "first_divergence_seq": report.first_divergence_seq,
                         "divergence_reason": (
-                            report.divergence_reason.value
-                            if report.divergence_reason
-                            else None
+                            report.divergence_reason.value if report.divergence_reason else None
                         ),
                     },
                     severity=Severity.SEC if not report.ok else Severity.INFO,
                 )
             except Exception as exc:
-                logger.warning(
-                    "could not write chain_verified event for tenant=%s: %s", tid, exc
-                )
+                logger.warning("could not write chain_verified event for tenant=%s: %s", tid, exc)
 
         try:
             write_prom_textfile(records)

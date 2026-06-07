@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
-from uuid import UUID
 
 
 class ProviderName(StrEnum):
@@ -88,7 +87,7 @@ class SignedEnvelope:
     provider: ProviderName
     provider_envelope_id: str
     signed_bytes: bytes
-    parsed: "ParsedEnvelopeDTO"
+    parsed: ParsedEnvelopeDTO
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +176,7 @@ class SigningProvider(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def health(self) -> "ProviderHealthSnapshot":
+    async def health(self) -> ProviderHealthSnapshot:
         """Lightweight probe of provider reachability."""
 
     @abc.abstractmethod

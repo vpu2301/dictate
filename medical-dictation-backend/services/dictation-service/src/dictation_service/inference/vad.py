@@ -22,13 +22,16 @@ SAMPLES_PER_FRAME: int = SAMPLE_RATE_HZ * FRAME_MS // 1000
 
 @dataclass(frozen=True, slots=True)
 class VadConfig:
-    energy_threshold: float = 0.005      # normalised RMS
-    min_silence_frames: int = 25         # 500 ms
+    energy_threshold: float = 0.005  # normalised RMS
+    min_silence_frames: int = 25  # 500 ms
     smooth_frames: int = 3
 
 
+_DEFAULT_VAD_CONFIG = VadConfig()
+
+
 def last_silence_boundary_ms(
-    pcm: np.ndarray, *, end_ms: int, config: VadConfig = VadConfig()
+    pcm: np.ndarray, *, end_ms: int, config: VadConfig = _DEFAULT_VAD_CONFIG
 ) -> int | None:
     """Return the timestamp of the most recent silence-boundary (end of
     speech, start of silence) within ``pcm``, or None if no boundary

@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from autocomplete_service.suggest import (
     extract_snippet_trigger,
     is_snippet_prefix,
@@ -13,7 +12,7 @@ from autocomplete_service.suggest import (
 )
 from autocomplete_service.trie import (
     PhraseTrieEntry,
-    SerializerVersionMismatch,
+    SerializerVersionMismatchError,
     build_trie_from_phrases,
     deserialize_trie,
     serialize_trie,
@@ -22,11 +21,12 @@ from autocomplete_service.trie import (
 
 def _entry(id_: str, phrase: str, **kw) -> PhraseTrieEntry:
     return PhraseTrieEntry(
-        id=id_, phrase=phrase,
+        id=id_,
+        phrase=phrase,
         source=kw.get("source", "system"),
         impression_count=kw.get("imp", 0),
         acceptance_count=kw.get("acc", 0),
-        last_accepted_at=kw.get("last", None),
+        last_accepted_at=kw.get("last"),
         specialty=kw.get("specialty"),
         section_hint=kw.get("hint"),
     )
@@ -34,7 +34,9 @@ def _entry(id_: str, phrase: str, **kw) -> PhraseTrieEntry:
 
 def test_build_indexes_short_prefixes():
     trie = build_trie_from_phrases(
-        tenant_id="t", language="uk", user_id="u",
+        tenant_id="t",
+        language="uk",
+        user_id="u",
         rows=[
             _entry("a", "задишка при навантаженні"),
             _entry("b", "задишка спокою"),
@@ -49,10 +51,11 @@ def test_build_indexes_short_prefixes():
 
 def test_serializer_roundtrip_preserves_entries():
     trie = build_trie_from_phrases(
-        tenant_id="t", language="uk", user_id="u",
+        tenant_id="t",
+        language="uk",
+        user_id="u",
         rows=[
-            _entry("x", "ритм синусовий", source="user",
-                   imp=5, acc=3, last=datetime.now(timezone.utc)),
+            _entry("x", "ритм синусовий", source="user", imp=5, acc=3, last=datetime.now(UTC)),
             _entry("y", "тони серця ясні", source="tenant"),
         ],
     )
@@ -64,13 +67,13 @@ def test_serializer_roundtrip_preserves_entries():
 
 
 def test_serializer_rejects_bad_magic():
-    with pytest.raises(SerializerVersionMismatch):
+    with pytest.raises(SerializerVersionMismatchError):
         deserialize_trie(b"BAD" + b"\x01\x00")
 
 
 def test_serializer_rejects_unknown_version():
     blob = b"MDXT" + bytes([99, 0])
-    with pytest.raises(SerializerVersionMismatch):
+    with pytest.raises(SerializerVersionMismatchError):
         deserialize_trie(blob)
 
 
@@ -88,10 +91,12 @@ def test_suggest_from_trie_returns_top_k():
     # Phrases differ in suffix by > Levenshtein 3 so the diversity
     # guard does not collapse them.
     trie = build_trie_from_phrases(
-        tenant_id="t", language="uk", user_id="u",
+        tenant_id="t",
+        language="uk",
+        user_id="u",
         rows=[
-            _entry("a", "задишка при навантаженні", source="user",   imp=10, acc=8),
-            _entry("b", "задишка в спокої вночі",   source="tenant", imp=10, acc=4),
+            _entry("a", "задишка при навантаженні", source="user", imp=10, acc=8),
+            _entry("b", "задишка в спокої вночі", source="tenant", imp=10, acc=4),
             _entry("c", "задишка змішаного характеру", source="system", imp=10, acc=2),
             _entry("d", "не починається з задишк", source="system"),
         ],
@@ -107,9 +112,11 @@ def test_suggest_from_trie_returns_top_k():
 
 def test_diversity_guard_collapses_near_duplicates():
     trie = build_trie_from_phrases(
-        tenant_id="t", language="uk", user_id="u",
+        tenant_id="t",
+        language="uk",
+        user_id="u",
         rows=[
-            _entry("a", "задишка тип 1", source="user",   imp=10, acc=8),
+            _entry("a", "задишка тип 1", source="user", imp=10, acc=8),
             _entry("b", "задишка тип 2", source="tenant", imp=10, acc=4),
             _entry("c", "задишка тип 3", source="system", imp=10, acc=2),
         ],
@@ -122,7 +129,9 @@ def test_diversity_guard_collapses_near_duplicates():
 
 def test_suggest_from_trie_empty_on_unknown_prefix():
     trie = build_trie_from_phrases(
-        tenant_id="t", language="uk", user_id="u",
+        tenant_id="t",
+        language="uk",
+        user_id="u",
         rows=[_entry("a", "інше")],
     )
     assert suggest_from_trie(trie=trie, prefix="zzzzzzz", limit=3) == []

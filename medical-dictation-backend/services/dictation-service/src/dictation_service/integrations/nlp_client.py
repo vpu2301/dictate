@@ -60,9 +60,7 @@ class NlpClient:
         headers = {"Authorization": f"Bearer {service_token}"} if service_token else {}
         self._client = httpx.AsyncClient(
             base_url=config.base_url,
-            timeout=httpx.Timeout(
-                connect=0.2, read=config.timeout_seconds, write=0.2, pool=0.2
-            ),
+            timeout=httpx.Timeout(connect=0.2, read=config.timeout_seconds, write=0.2, pool=0.2),
             headers=headers,
             limits=httpx.Limits(max_connections=64, max_keepalive_connections=16),
         )
@@ -125,16 +123,12 @@ class NlpClient:
 
     # ── HTTP ───────────────────────────────────────────────────────
 
-    async def _post(
-        self, path: str, *, timeout: float, body: dict[str, Any]
-    ) -> NlpResult | None:
+    async def _post(self, path: str, *, timeout: float, body: dict[str, Any]) -> NlpResult | None:
         attempts = 2 if self._config.retry_on_503 else 1
         for attempt in range(attempts):
             try:
-                resp = await asyncio.wait_for(
-                    self._client.post(path, json=body), timeout=timeout
-                )
-            except (asyncio.TimeoutError, httpx.TimeoutException):
+                resp = await asyncio.wait_for(self._client.post(path, json=body), timeout=timeout)
+            except (TimeoutError, httpx.TimeoutException):
                 logger.info(
                     "nlp.timeout",
                     extra={"path": path, "timeout_s": timeout, "attempt": attempt + 1},

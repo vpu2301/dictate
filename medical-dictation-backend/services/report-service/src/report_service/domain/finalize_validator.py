@@ -8,11 +8,9 @@ true.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-
-from template_models import TemplateDefinition
 
 from report_models import ReportContent
+from template_models import TemplateDefinition
 
 
 @dataclass(slots=True)
@@ -35,16 +33,15 @@ def validate_finalize(
         required = bool(getattr(tpl_section, "required", False))
         min_chars = int(getattr(tpl_section, "min_chars", 0) or 0)
 
-        if required:
-            if body is None or len(body.text.strip()) == 0:
-                problems.append(
-                    FinalizeProblem(
-                        field=f"sections.{tpl_section.key}.text",
-                        code="missing_required_section",
-                        detail=f"section {tpl_section.key!r} is required",
-                    )
+        if required and (body is None or len(body.text.strip()) == 0):
+            problems.append(
+                FinalizeProblem(
+                    field=f"sections.{tpl_section.key}.text",
+                    code="missing_required_section",
+                    detail=f"section {tpl_section.key!r} is required",
                 )
-                continue
+            )
+            continue
         if body is not None and min_chars > 0 and len(body.text.strip()) < min_chars:
             problems.append(
                 FinalizeProblem(

@@ -20,18 +20,14 @@ rules.
 
 from __future__ import annotations
 
-import calendar
 import logging
 import re
 import time
-from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Literal
 
 from ..pipeline.base import (
     PipelineWarning,
     ProcessingContext,
-    Stage,
     StageInput,
     StageOutput,
 )
@@ -41,35 +37,91 @@ logger = logging.getLogger(__name__)
 # ── Vocab ───────────────────────────────────────────────────────────
 
 _WEEKDAYS_UK = {
-    "понеділок": 0, "понеділка": 0,
-    "вівторок": 1, "вівторка": 1,
-    "середа": 2, "середу": 2,
-    "четвер": 3, "четверга": 3,
-    "п'ятниця": 4, "п'ятницю": 4, "пятницю": 4, "пятниця": 4,
-    "субота": 5, "суботу": 5,
-    "неділя": 6, "неділю": 6,
+    "понеділок": 0,
+    "понеділка": 0,
+    "вівторок": 1,
+    "вівторка": 1,
+    "середа": 2,
+    "середу": 2,
+    "четвер": 3,
+    "четверга": 3,
+    "п'ятниця": 4,
+    "п'ятницю": 4,
+    "пятницю": 4,
+    "пятниця": 4,
+    "субота": 5,
+    "суботу": 5,
+    "неділя": 6,
+    "неділю": 6,
 }
 _WEEKDAYS_EN = {
-    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-    "friday": 4, "saturday": 5, "sunday": 6,
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
 }
 
 _MONTHS_UK = {
-    "січень": 1, "січня": 1, "лютий": 2, "лютого": 2,
-    "березень": 3, "березня": 3, "квітень": 4, "квітня": 4,
-    "травень": 5, "травня": 5, "червень": 6, "червня": 6,
-    "липень": 7, "липня": 7, "серпень": 8, "серпня": 8,
-    "вересень": 9, "вересня": 9, "жовтень": 10, "жовтня": 10,
-    "листопад": 11, "листопада": 11, "грудень": 12, "грудня": 12,
+    "січень": 1,
+    "січня": 1,
+    "лютий": 2,
+    "лютого": 2,
+    "березень": 3,
+    "березня": 3,
+    "квітень": 4,
+    "квітня": 4,
+    "травень": 5,
+    "травня": 5,
+    "червень": 6,
+    "червня": 6,
+    "липень": 7,
+    "липня": 7,
+    "серпень": 8,
+    "серпня": 8,
+    "вересень": 9,
+    "вересня": 9,
+    "жовтень": 10,
+    "жовтня": 10,
+    "листопад": 11,
+    "листопада": 11,
+    "грудень": 12,
+    "грудня": 12,
 }
-_MONTH_NAMES_UK = {v: k for k, v in _MONTHS_UK.items() if k in {
-    "січня", "лютого", "березня", "квітня", "травня", "червня",
-    "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
-}}
+_MONTH_NAMES_UK = {
+    v: k
+    for k, v in _MONTHS_UK.items()
+    if k
+    in {
+        "січня",
+        "лютого",
+        "березня",
+        "квітня",
+        "травня",
+        "червня",
+        "липня",
+        "серпня",
+        "вересня",
+        "жовтня",
+        "листопада",
+        "грудня",
+    }
+}
 _MONTHS_EN = {
-    "january": 1, "february": 2, "march": 3, "april": 4,
-    "may": 5, "june": 6, "july": 7, "august": 8,
-    "september": 9, "october": 10, "november": 11, "december": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
 }
 _MONTH_NAMES_EN = {v: k for k, v in _MONTHS_EN.items()}
 
@@ -80,9 +132,7 @@ class DateNormStage:
     name = "date_norm"
     runs_on_partials: bool = False
 
-    async def process(
-        self, ctx: ProcessingContext, input: StageInput
-    ) -> StageOutput:
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
         t0 = time.monotonic()
         warnings = list(input.warnings)
         new_text = input.text
@@ -113,7 +163,8 @@ class DateNormStage:
 
 _REL_UK = {
     "сьогодні": 0,
-    "вчора": -1, "учора": -1,
+    "вчора": -1,
+    "учора": -1,
     "позавчора": -2,
     "завтра": 1,
     "післязавтра": 2,
@@ -125,9 +176,7 @@ _REL_EN = {
 }
 
 
-def _apply_relative(
-    text: str, ctx: ProcessingContext
-) -> tuple[str, list[PipelineWarning]]:
+def _apply_relative(text: str, ctx: ProcessingContext) -> tuple[str, list[PipelineWarning]]:
     warnings: list[PipelineWarning] = []
     table = _REL_UK if ctx.language == "uk" else _REL_EN
 
@@ -225,9 +274,7 @@ _ABS_EN = re.compile(
 _NUMERIC = re.compile(r"\b(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})\b")
 
 
-def _apply_absolute(
-    text: str, ctx: ProcessingContext
-) -> tuple[str, list[PipelineWarning]]:
+def _apply_absolute(text: str, ctx: ProcessingContext) -> tuple[str, list[PipelineWarning]]:
     warnings: list[PipelineWarning] = []
     if ctx.language == "uk":
         pattern = _ABS_UK
@@ -258,7 +305,10 @@ def _apply_absolute(
 
 
 def _safe_format(
-    day: int, month: int, year: int, ctx: ProcessingContext,
+    day: int,
+    month: int,
+    year: int,
+    ctx: ProcessingContext,
     warnings: list[PipelineWarning],
 ) -> str:
     """If (day, month, year) is invalid, leave as-is + emit warning."""
@@ -286,9 +336,7 @@ _TIME_HOUR_WORD_UK = re.compile(
 )
 
 
-def _apply_time(
-    text: str, ctx: ProcessingContext
-) -> tuple[str, list[PipelineWarning]]:
+def _apply_time(text: str, ctx: ProcessingContext) -> tuple[str, list[PipelineWarning]]:
     warnings: list[PipelineWarning] = []
     if ctx.language == "uk":
 

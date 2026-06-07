@@ -22,10 +22,10 @@ Public surface:
 from __future__ import annotations
 
 from .envelope import (
-    Envelope,
-    EnvelopeBlob,
     ENVELOPE_ALGORITHM,
     ENVELOPE_VERSION,
+    Envelope,
+    EnvelopeBlob,
 )
 from .exceptions import (
     CryptoError,

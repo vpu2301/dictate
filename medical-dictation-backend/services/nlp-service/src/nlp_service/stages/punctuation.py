@@ -31,7 +31,6 @@ from ..config import settings
 from ..pipeline.base import (
     PipelineWarning,
     ProcessingContext,
-    Stage,
     StageInput,
     StageOutput,
 )
@@ -96,9 +95,7 @@ class PunctuationStage:
     def load_failed(self) -> bool:
         return self._load_failed
 
-    async def process(
-        self, ctx: ProcessingContext, input: StageInput
-    ) -> StageOutput:
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
         t0 = time.monotonic()
         warnings = list(input.warnings)
         text = input.text
@@ -131,7 +128,7 @@ class PunctuationStage:
                     self._model_punctuate(text, ctx.language),
                     timeout=settings.punctuation_timeout_ms / 1000.0,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 new_text = _rule_based_punctuate(text, ctx.language)
                 path = "fallback_timeout"
                 warnings.append(
@@ -225,13 +222,18 @@ class PunctuationStage:
 def _render_tokens(tokens: list[str], pred_ids: list[int], label_list: dict[int, str]) -> str:
     """Reassemble subword tokens + punctuation labels into a sentence."""
     out: list[str] = []
-    for tok, pid in zip(tokens, pred_ids):
+    for tok, pid in zip(tokens, pred_ids, strict=False):
         if tok in {"[CLS]", "[SEP]", "<s>", "</s>", "<pad>"}:
             continue
-        clean = tok.lstrip("##").lstrip("Ġ")
+        clean = tok.removeprefix("##").removeprefix("Ġ")
         if not clean:
             continue
-        if not out or tok.startswith("##") or tok.startswith("Ġ") is False and not tok.startswith(" "):
+        if (
+            not out
+            or tok.startswith("##")
+            or tok.startswith("Ġ") is False
+            and not tok.startswith(" ")
+        ):
             if out:
                 out[-1] = out[-1] + clean
             else:

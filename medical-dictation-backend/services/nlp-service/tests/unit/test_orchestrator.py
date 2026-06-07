@@ -9,15 +9,11 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
-from typing import Any
 from uuid import UUID
-
-import pytest
 
 from nlp_service.pipeline.base import (
     AbbreviationSnapshot,
     ProcessingContext,
-    Stage,
     StageInput,
     StageOutput,
 )

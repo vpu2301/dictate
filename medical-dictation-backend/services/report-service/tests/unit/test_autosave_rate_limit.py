@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
-
-import pytest
 from uuid import uuid4
 
-from report_service.domain.autosave_rate_limit import AutosaveRateLimiter
+import pytest
 
+from report_service.domain.autosave_rate_limit import AutosaveRateLimiter
 
 pytestmark = pytest.mark.asyncio
 

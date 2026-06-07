@@ -3,14 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel
-
-from audit import Severity
-from db import tenant_connection
 from medical_kep import (
     InvalidCallbackError,
     ProviderName,
@@ -18,11 +12,14 @@ from medical_kep import (
 )
 from medical_kep.envelope import Envelope, EnvelopeFormat
 
+from audit import Severity
+from db import tenant_connection
+
 from .. import audit_kinds
 from .. import repository as repo
+from ..config import settings
 from ..deps import get_state
 from ..security import ipn_hmac, new_verification_token
-from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +35,15 @@ async def receive_callback(
     try:
         provider_name = ProviderName(provider)
     except ValueError:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="unknown provider")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="unknown provider") from None
 
     try:
         provider_impl = state.providers.get(provider_name)
     except ValueError:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="provider not configured")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="provider not configured") from None
 
     body = await request.body()
-    headers = {k: v for k, v in request.headers.items()}
+    headers = dict(request.headers)
 
     # 1) Look up session (callback writer pool).
     session_id_str = request.query_params.get("session_id") or request.headers.get(
@@ -55,9 +52,7 @@ async def receive_callback(
     if not session_id_str:
         # Best effort: extract from body if provider posts it there.
         # Sprint-09 ships with explicit query/header passing.
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, detail="missing provider session id"
-        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="missing provider session id")
 
     async with state.callback_writer_pool.acquire() as conn:
         session_row = await repo.fetch_session_by_provider_id(
@@ -107,8 +102,9 @@ async def receive_callback(
         return _no_info_response(401)
 
     # 3) Verify envelope against trust store.
-    parsed = Envelope(envelope.signed_bytes,
-                      declared_format=EnvelopeFormat(envelope.parsed.format)).parse()
+    parsed = Envelope(
+        envelope.signed_bytes, declared_format=EnvelopeFormat(envelope.parsed.format)
+    ).parse()
     result = verify_envelope(
         parsed=parsed,
         expected_document_hash=envelope.parsed.document_hash_sha256,
@@ -165,7 +161,8 @@ async def receive_callback(
             tsa_response=None,
             ocsp_responses=[],
             is_qualified=envelope.parsed.is_qualified,
-            ltv_enabled=envelope.parsed.tsa_token_present and envelope.parsed.ocsp_responses_present,
+            ltv_enabled=envelope.parsed.tsa_token_present
+            and envelope.parsed.ocsp_responses_present,
         )
         await repo.transition_session(
             conn,
@@ -198,6 +195,4 @@ def _no_info_response(status_code: int) -> dict[str, str]:
     set by FastAPI via the inferred return type. For sprint-09 we
     return a generic body and let the caller infer status via test
     instrumentation; HTTPException is used for explicit codes."""
-    from fastapi import HTTPException as _H
-
-    raise _H(status_code=status_code, detail="")
+    raise HTTPException(status_code=status_code, detail="")

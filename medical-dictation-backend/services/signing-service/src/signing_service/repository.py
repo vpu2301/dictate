@@ -16,7 +16,6 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-
 from medical_kep import ProviderName
 
 logger = logging.getLogger(__name__)
@@ -52,9 +51,18 @@ async def insert_session(
                 'awaiting_user', $8, $9, $10, $11, $12)
         RETURNING id
         """,
-        tenant_id, initiated_by, resource_type, resource_id,
-        resource_version_id, provider.value, provider_session_id,
-        expires_at, redirect_url, qr_payload, callback_completion_url, purpose_code,
+        tenant_id,
+        initiated_by,
+        resource_type,
+        resource_id,
+        resource_version_id,
+        provider.value,
+        provider_session_id,
+        expires_at,
+        redirect_url,
+        qr_payload,
+        callback_completion_url,
+        purpose_code,
     )
 
 
@@ -72,7 +80,8 @@ async def fetch_session_by_provider_id(
         FROM signing_sessions
         WHERE provider = $1::signing_provider AND provider_session_id = $2
         """,
-        provider.value, provider_session_id,
+        provider.value,
+        provider_session_id,
     )
 
 
@@ -95,14 +104,16 @@ async def transition_session(
         WHERE id = $1 AND status = $2::signing_session_status
         RETURNING id
         """,
-        session_id, expected_from, to, failure_reason, signed_envelope_id,
+        session_id,
+        expected_from,
+        to,
+        failure_reason,
+        signed_envelope_id,
     )
     return row is not None
 
 
-async def expire_due_sessions(
-    conn: asyncpg.Connection, *, grace_seconds: int = 60
-) -> list[UUID]:
+async def expire_due_sessions(conn: asyncpg.Connection, *, grace_seconds: int = 60) -> list[UUID]:
     rows = await conn.fetch(
         """
         UPDATE signing_sessions
@@ -118,9 +129,7 @@ async def expire_due_sessions(
     return [r["id"] for r in rows]
 
 
-async def mark_stuck_verifying(
-    conn: asyncpg.Connection, *, stuck_minutes: int = 5
-) -> list[UUID]:
+async def mark_stuck_verifying(conn: asyncpg.Connection, *, stuck_minutes: int = 5) -> list[UUID]:
     rows = await conn.fetch(
         """
         UPDATE signing_sessions
@@ -191,20 +200,34 @@ async def insert_envelope(
         )
         RETURNING id
         """,
-        tenant_id, signer_user_id, resource_type, resource_id, resource_version_id,
-        provider.value, provider_session_id, provider_envelope_id,
-        json.dumps(canonical_json), canonical_json_hash,
-        signed_at, signed_data, signature_algorithm,
-        verification_token, pdf_storage_uri,
-        signer_ipn_hmac, signer_full_name,
-        certificate_serial, certificate_issuer_cn, certificate_chain,
-        tsa_response, ocsp_responses, is_qualified, ltv_enabled,
+        tenant_id,
+        signer_user_id,
+        resource_type,
+        resource_id,
+        resource_version_id,
+        provider.value,
+        provider_session_id,
+        provider_envelope_id,
+        json.dumps(canonical_json),
+        canonical_json_hash,
+        signed_at,
+        signed_data,
+        signature_algorithm,
+        verification_token,
+        pdf_storage_uri,
+        signer_ipn_hmac,
+        signer_full_name,
+        certificate_serial,
+        certificate_issuer_cn,
+        certificate_chain,
+        tsa_response,
+        ocsp_responses,
+        is_qualified,
+        ltv_enabled,
     )
 
 
-async def fetch_envelope_by_token(
-    conn: asyncpg.Connection, *, token: str
-) -> asyncpg.Record | None:
+async def fetch_envelope_by_token(conn: asyncpg.Connection, *, token: str) -> asyncpg.Record | None:
     """Public verify lookup. Runs on the ``app_public_verify`` role
     pool with a stripped column set (RLS policy enforces visibility)."""
     return await conn.fetchrow(
@@ -243,7 +266,10 @@ async def upsert_provider_health(
                 (provider, healthy, last_check_at, consecutive_failures, last_error)
             VALUES ($1::signing_provider, $2, now(), $3, $4)
             """,
-            provider.value, healthy, 0 if healthy else 1, last_error,
+            provider.value,
+            healthy,
+            0 if healthy else 1,
+            last_error,
         )
         return True
     prev_healthy = bool(row["healthy"])
@@ -261,7 +287,10 @@ async def upsert_provider_health(
             last_error           = $4
         WHERE provider = $1::signing_provider
         """,
-        provider.value, new_healthy, new_fail, last_error,
+        provider.value,
+        new_healthy,
+        new_fail,
+        last_error,
     )
     return new_healthy != prev_healthy
 
@@ -291,6 +320,10 @@ async def insert_public_verify_audit(
              user_agent_hash, result, bytes_returned)
         VALUES ($1, $2, $3, $4, $5, $6)
         """,
-        event_kind, verification_token, requestor_ip_hmac,
-        user_agent_hash, result, bytes_returned,
+        event_kind,
+        verification_token,
+        requestor_ip_hmac,
+        user_agent_hash,
+        result,
+        bytes_returned,
     )

@@ -7,8 +7,9 @@ specific transport, while we negotiate transport choices across sprints.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator, Protocol
+from typing import Protocol
 
 
 @dataclass(frozen=True, slots=True)

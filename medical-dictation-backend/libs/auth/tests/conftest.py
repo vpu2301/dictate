@@ -82,10 +82,7 @@ def _mint(
 ) -> str:
     headers = {"kid": kid, "alg": alg}
     default_payload = _valid_payload()
-    if payload:
-        merged = {**default_payload, **payload}
-    else:
-        merged = default_payload
+    merged = {**default_payload, **payload} if payload else default_payload
     return jose_jwt.encode(merged, private_pem, algorithm=alg, headers=headers)
 
 

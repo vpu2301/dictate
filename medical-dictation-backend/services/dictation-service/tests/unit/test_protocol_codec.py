@@ -33,9 +33,9 @@ from dictation_service.protocol.codec import (
     MIN_BINARY_FRAME_BYTES,
 )
 from dictation_service.protocol.messages import (
+    Final,
     Heartbeat,
     Partial,
-    Final,
     SessionStarted,
 )
 
@@ -97,9 +97,7 @@ def test_decode_text_non_object_rejected() -> None:
 
 def test_decode_text_invalid_language_rejected() -> None:
     with pytest.raises(BadMessageError):
-        decode_text(
-            f'{{"type":"start_session","prompt_id":"{uuid4()}","language":"fr"}}'
-        )
+        decode_text(f'{{"type":"start_session","prompt_id":"{uuid4()}","language":"fr"}}')
 
 
 def test_decode_binary_happy_path() -> None:

@@ -21,16 +21,25 @@ from .claims import Claims
 # Kept as plain str so we can read them from the CSV without a Literal
 # bridge. The exhaustive test guards against typos.
 
-Role = str          # tenant_admin | clinician | nurse | auditor | service
-Action = str        # e.g. 'user.invite', 'audit.read'
-TargetKind = str    # e.g. 'user', 'audit', 'tenant'
+Role = str  # tenant_admin | clinician | nurse | auditor | service
+Action = str  # e.g. 'user.invite', 'audit.read'
+TargetKind = str  # e.g. 'user', 'audit', 'tenant'
 
 KNOWN_ROLES: Final[frozenset[str]] = frozenset(
     {"tenant_admin", "clinician", "nurse", "auditor", "service"}
 )
 
 KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
-    {"tenant", "user", "audit", "asr_job", "dictation_session", "nlp_text", "abbreviation", "template"}
+    {
+        "tenant",
+        "user",
+        "audit",
+        "asr_job",
+        "dictation_session",
+        "nlp_text",
+        "abbreviation",
+        "template",
+    }
 )
 
 

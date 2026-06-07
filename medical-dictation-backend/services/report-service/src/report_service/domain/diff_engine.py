@@ -120,12 +120,8 @@ def compute_diff(
 
 
 def _metadata_diff(a: ReportContent, b: ReportContent) -> MetadataDiff:
-    from_icd = {c.code for c in a.icd10_codes} | {
-        c.code for s in a.sections for c in s.icd10
-    }
-    to_icd = {c.code for c in b.icd10_codes} | {
-        c.code for s in b.sections for c in s.icd10
-    }
+    from_icd = {c.code for c in a.icd10_codes} | {c.code for s in a.sections for c in s.icd10}
+    to_icd = {c.code for c in b.icd10_codes} | {c.code for s in b.sections for c in s.icd10}
     return MetadataDiff(
         title_changed=(a.title != b.title),
         title_from=a.title if a.title != b.title else None,
@@ -141,7 +137,7 @@ def _metadata_diff(a: ReportContent, b: ReportContent) -> MetadataDiff:
 def section_diff_summary(diff: DiffResponse) -> dict[str, list[str]]:
     """Compact representation suitable for ``report_versions.diff_jsonb``."""
     return {
-        "added":     [s.section_key for s in diff.sections if s.kind == "added"],
-        "removed":   [s.section_key for s in diff.sections if s.kind == "removed"],
-        "modified":  [s.section_key for s in diff.sections if s.kind == "modified"],
+        "added": [s.section_key for s in diff.sections if s.kind == "added"],
+        "removed": [s.section_key for s in diff.sections if s.kind == "removed"],
+        "modified": [s.section_key for s in diff.sections if s.kind == "modified"],
     }

@@ -7,11 +7,9 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
 
 from auth import Action, Claims, TargetKind
 from db import tenant_connection
-
 from report_models import DiffResponse
 
 from ..deps import get_state, requires
@@ -82,7 +80,7 @@ async def _resolve(conn, *, report_id: UUID, ref: str):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"version reference {ref!r} is neither a version_number nor a UUID",
-        )
+        ) from None
     v = await repo.fetch_version(conn, version_id=version_id)
     if v is None or v.report_id != report_id:
         return None

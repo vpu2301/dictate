@@ -24,18 +24,24 @@ import json
 import logging
 import random
 import sys
-from datetime import date, datetime, timedelta, timezone
-from uuid import UUID, uuid4
+from datetime import date, timedelta
+from uuid import UUID
 
 import asyncpg
 
 logger = logging.getLogger(__name__)
 
-STATUS_WEIGHTS = [("draft", 60), ("finalized", 25), ("signed", 10), ("amended", 4), ("cancelled", 1)]
+STATUS_WEIGHTS = [
+    ("draft", 60),
+    ("finalized", 25),
+    ("signed", 10),
+    ("amended", 4),
+    ("cancelled", 1),
+]
 
 
 def _pick_status(rng: random.Random) -> str:
-    pop, weights = zip(*STATUS_WEIGHTS)
+    pop, weights = zip(*STATUS_WEIGHTS, strict=False)
     return rng.choices(pop, weights=weights, k=1)[0]
 
 
@@ -49,9 +55,7 @@ async def seed_tenant(
     if template_id is None:
         raise RuntimeError("no system templates available for seeding")
 
-    author_id = await conn.fetchval(
-        "SELECT id FROM users WHERE tenant_id = $1 LIMIT 1", tenant_id
-    )
+    author_id = await conn.fetchval("SELECT id FROM users WHERE tenant_id = $1 LIMIT 1", tenant_id)
     if author_id is None:
         raise RuntimeError(f"tenant {tenant_id} has no users")
 
@@ -144,15 +148,14 @@ async def main(args: argparse.Namespace) -> int:
             )
         total = 0
         for t in tenants:
-            async with pool.acquire() as conn:
-                async with conn.transaction():
-                    n = await seed_tenant(
-                        conn,
-                        tenant_id=t["id"],
-                        count=args.reports_per_tenant,
-                        rng=rng,
-                    )
-                    total += n
+            async with pool.acquire() as conn, conn.transaction():
+                n = await seed_tenant(
+                    conn,
+                    tenant_id=t["id"],
+                    count=args.reports_per_tenant,
+                    rng=rng,
+                )
+                total += n
             print(f"seeded {n} reports for tenant {t['id']}")
         print(f"DONE: {total} total")
         return 0

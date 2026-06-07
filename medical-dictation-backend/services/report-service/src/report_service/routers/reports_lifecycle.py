@@ -12,21 +12,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from audit import Severity
 from auth import Action, Claims, TargetKind
 from db import tenant_connection
-
 from report_models import ReportStatus
 
 from .. import audit_kinds
 from ..deps import get_state, requires
 from ..domain import reports_repository as repo
+from ..domain.finalize_validator import validate_finalize
 from ..domain.report_lifecycle import (
     ConcurrentTransitionError,
     IllegalTransitionError,
     NotPrimaryAuthorError,
     ReportStateMachine,
     RevertWindowExceededError,
-    TransitionAction,
 )
-from ..domain.finalize_validator import validate_finalize
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +69,7 @@ async def finalize_report(
         assert current is not None
 
         # Load template to run finalize validation.
-        template = await _fetch_template_definition(
-            conn, template_id=current.content.template_id
-        )
+        template = await _fetch_template_definition(conn, template_id=current.content.template_id)
         problems = validate_finalize(content=current.content, template=template)
         if problems:
             raise HTTPException(
@@ -124,13 +120,9 @@ async def revert_to_draft(
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="report not found")
         try:
-            await _sm.revert_to_draft(
-                conn, report_id=report_id, actor_user_id=claims.sub
-            )
+            await _sm.revert_to_draft(conn, report_id=report_id, actor_user_id=claims.sub)
         except IllegalTransitionError as exc:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-            ) from exc
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
         except NotPrimaryAuthorError as exc:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
@@ -142,9 +134,7 @@ async def revert_to_draft(
                 detail="revert window of 1 hour has elapsed",
             ) from exc
         except ConcurrentTransitionError as exc:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT, detail=str(exc)
-            ) from exc
+            raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     await state.audit_writer.write_event(
         tenant_id=claims.tid,
@@ -178,13 +168,9 @@ async def cancel_report(
                 reason=body.reason,
             )
         except IllegalTransitionError as exc:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-            ) from exc
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
         except ConcurrentTransitionError as exc:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT, detail=str(exc)
-            ) from exc
+            raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     await state.audit_writer.write_event(
         tenant_id=claims.tid,
@@ -205,9 +191,11 @@ async def cancel_report(
 async def _fetch_template_definition(conn, *, template_id: UUID):
     # report_service.domain.repository owns templates queries — we reuse
     # one of its helpers.
-    from ..domain.repository import get_template  # type: ignore
-    from template_models import TemplateDefinition
     import json
+
+    from template_models import TemplateDefinition
+
+    from ..domain.repository import get_template  # type: ignore
 
     row = await get_template(conn, template_id=template_id)
     if row is None:

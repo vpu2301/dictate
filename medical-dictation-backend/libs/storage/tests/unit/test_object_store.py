@@ -42,9 +42,7 @@ class _InMemoryS3:
     async def head_bucket(self, bucket: str) -> None:
         return None
 
-    async def generate_presigned_url(
-        self, *, bucket: str, key: str, expires_in: int
-    ) -> str:
+    async def generate_presigned_url(self, *, bucket: str, key: str, expires_in: int) -> str:
         return f"http://example/{bucket}/{key}?expires={expires_in}"
 
     async def aclose(self) -> None:
@@ -114,12 +112,8 @@ async def test_round_trip_large(store: EncryptedObjectStore) -> None:
 async def test_round_trip_with_aad(store: EncryptedObjectStore) -> None:
     tid = uuid4()
     audio_id = uuid4()
-    await store.put(
-        key="t/k3", plaintext=b"phi", tenant_id=tid, aad=audio_id.bytes
-    )
-    assert (
-        await store.get(key="t/k3", tenant_id=tid, aad=audio_id.bytes) == b"phi"
-    )
+    await store.put(key="t/k3", plaintext=b"phi", tenant_id=tid, aad=audio_id.bytes)
+    assert await store.get(key="t/k3", tenant_id=tid, aad=audio_id.bytes) == b"phi"
     with pytest.raises(DecryptError):
         await store.get(key="t/k3", tenant_id=tid, aad=b"wrong-aad")
 

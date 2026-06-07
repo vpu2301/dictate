@@ -48,9 +48,7 @@ class Settings(BaseSettings):
 
     # In-process TTLCache for templates
     template_cache_maxsize: int = Field(default=5000, alias="MDX_TEMPLATE_CACHE_MAXSIZE")
-    template_cache_ttl_seconds: int = Field(
-        default=60, alias="MDX_TEMPLATE_CACHE_TTL_SECONDS"
-    )
+    template_cache_ttl_seconds: int = Field(default=60, alias="MDX_TEMPLATE_CACHE_TTL_SECONDS")
 
 
 settings = Settings()

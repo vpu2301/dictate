@@ -9,6 +9,7 @@ worker.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import TYPE_CHECKING
 
@@ -19,7 +20,7 @@ from . import repository as repo
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Iterable
+    pass
 
 
 class TelemetryBuffer:
@@ -61,10 +62,8 @@ class TelemetryBuffer:
     async def stop(self) -> None:
         if self._task is not None:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):  # noqa: BLE001
                 await self._task
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                pass
             self._task = None
         await self._flush_locked()
 

@@ -16,7 +16,6 @@ import pytest
 from crypto import (
     Envelope,
     FileMasterKeyProvider,
-    TenantKekRepository,
 )
 from crypto.master import MASTER_KEY_SIZE_BYTES, MasterKeyProvider
 

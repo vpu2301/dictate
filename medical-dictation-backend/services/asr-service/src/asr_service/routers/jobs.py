@@ -15,7 +15,6 @@ Notes:
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from datetime import datetime
@@ -45,7 +44,6 @@ from ..deps import get_state, requires
 from ..domain import repository
 from ..validators import run_all
 from ..validators.quota import validate_quota
-from ..validators.result import ValidationCode
 
 logger = logging.getLogger(__name__)
 
@@ -282,9 +280,7 @@ async def list_jobs(
 ) -> list[TranscriptionJobView]:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
-        return await repository.list_jobs(
-            conn, limit=limit, status=status_filter, since=since
-        )
+        return await repository.list_jobs(conn, limit=limit, status=status_filter, since=since)
 
 
 @router.delete(
@@ -318,9 +314,7 @@ async def cancel_job(
     return {"status": outcome}
 
 
-async def _audit_quota_exceeded(
-    state: object, claims: Claims, audio_id: UUID
-) -> None:
+async def _audit_quota_exceeded(state: object, claims: Claims, audio_id: UUID) -> None:
     # ``state`` typed as object so the import-linter doesn't see this fn
     # as creating a cycle with main_deps.
     try:

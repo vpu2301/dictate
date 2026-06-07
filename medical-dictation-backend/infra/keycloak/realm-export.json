@@ -353,6 +353,7 @@
 
   "users": [
     {
+      "id": "0a000000-0000-0000-0000-00000000000a",
       "username": "dev-admin",
       "email": "admin@tenant-a.example",
       "firstName": "Dev",
@@ -368,6 +369,7 @@
       "realmRoles": ["tenant_admin", "clinician"]
     },
     {
+      "id": "0c000000-0000-0000-0000-00000000000a",
       "username": "dev-clinician",
       "email": "clinician@tenant-a.example",
       "firstName": "Dev",
@@ -383,6 +385,7 @@
       "realmRoles": ["clinician"]
     },
     {
+      "id": "0d000000-0000-0000-0000-00000000000a",
       "username": "dev-nurse",
       "email": "nurse@tenant-a.example",
       "firstName": "Dev",
@@ -398,6 +401,7 @@
       "realmRoles": ["nurse"]
     },
     {
+      "id": "0e000000-0000-0000-0000-00000000000a",
       "username": "dev-auditor",
       "email": "auditor@tenant-a.example",
       "firstName": "Dev",
@@ -413,6 +417,7 @@
       "realmRoles": ["auditor"]
     },
     {
+      "id": "0c000000-0000-0000-0000-00000000000b",
       "username": "dev-clinician-b",
       "email": "clinician@tenant-b.example",
       "firstName": "Dev",
@@ -426,6 +431,22 @@
       },
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
       "realmRoles": ["clinician"]
+    },
+    {
+      "id": "0a000000-0000-0000-0000-00000000000b",
+      "username": "dev-admin-b",
+      "email": "admin@tenant-b.example",
+      "firstName": "Dev",
+      "lastName": "AdminB",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": ["00000000-0000-0000-0000-00000000000b"],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": ["0"]
+      },
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
+      "realmRoles": ["tenant_admin", "clinician"]
     },
     {
       "username": "service-account-mdx-admin",

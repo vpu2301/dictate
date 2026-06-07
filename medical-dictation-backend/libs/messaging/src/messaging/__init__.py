@@ -31,7 +31,7 @@ try:
     _REDIS_AVAILABLE = True
 except ImportError:  # pragma: no cover  — `redis` not installed
     _REDIS_AVAILABLE = False
-    DEFAULT_DLQ_SUFFIX = ":dlq"  # type: ignore[assignment]
+    DEFAULT_DLQ_SUFFIX = ":dlq"  # type: ignore[misc]
 
     class _MissingRedis:
         def __init__(self, *_a: object, **_kw: object) -> None:

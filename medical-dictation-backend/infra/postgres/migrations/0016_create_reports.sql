@@ -44,7 +44,7 @@ CREATE TABLE reports (
     status              report_status NOT NULL DEFAULT 'draft',
 
     -- Authorship.
-    primary_author_id   UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    primary_author_id   UUID NOT NULL REFERENCES users(sub) ON DELETE RESTRICT,
     co_author_ids       UUID[] NOT NULL DEFAULT '{}',
 
     -- Patient (sprint 11 brings the patients table).

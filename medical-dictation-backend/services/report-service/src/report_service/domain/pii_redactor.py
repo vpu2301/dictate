@@ -49,6 +49,4 @@ def is_treatment_team(
         return True
     if "tenant_admin" in (viewer_roles or []):
         return True
-    if "dpo" in (viewer_roles or []):
-        return True
-    return False
+    return "dpo" in (viewer_roles or [])

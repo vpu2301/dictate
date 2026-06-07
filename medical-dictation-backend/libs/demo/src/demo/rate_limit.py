@@ -17,10 +17,11 @@ detection still flows through the audit trail.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from dataclasses import dataclass
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class RateLimitBreach:
 
 
 class DemoRateLimiter:
-    def __init__(self, redis: "Redis", config: RateLimitConfig | None = None) -> None:
+    def __init__(self, redis: Redis, config: RateLimitConfig | None = None) -> None:
         self._r = redis
         self._cfg = config or RateLimitConfig()
 
@@ -87,10 +88,8 @@ class DemoRateLimiter:
 
         if conc > self._cfg.ip_concurrent_max:
             await self._record_hit(ip)
-            try:
+            with contextlib.suppress(Exception):  # noqa: BLE001
                 await self._r.decr(conc_key)  # revert
-            except Exception:  # noqa: BLE001
-                pass
             return RateLimitBreach(
                 kind="ip_concurrent",
                 retry_after_seconds=60,
@@ -170,9 +169,7 @@ class DemoRateLimiter:
             if hits == 1:
                 await self._r.expire(hits_key, 3600)
             if hits >= self._cfg.cooldown_after_hits:
-                await self._r.setex(
-                    f"demo:rl:cooldown:ip:{ip}", self._cfg.cooldown_seconds, "1"
-                )
+                await self._r.setex(f"demo:rl:cooldown:ip:{ip}", self._cfg.cooldown_seconds, "1")
         except Exception as exc:  # noqa: BLE001
             logger.warning("rate_limit redis error (hit): %s", exc)
 

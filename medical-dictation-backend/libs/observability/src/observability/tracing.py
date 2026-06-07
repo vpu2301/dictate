@@ -73,7 +73,7 @@ def _install_auto_instrumentation() -> None:
     try:
         from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 
-        AsyncPGInstrumentor().instrument()
+        AsyncPGInstrumentor().instrument()  # type: ignore[no-untyped-call]
     except Exception as exc:  # pragma: no cover  — optional at runtime
         logger.debug("AsyncPG instrumentation skipped: %s", exc)
     try:

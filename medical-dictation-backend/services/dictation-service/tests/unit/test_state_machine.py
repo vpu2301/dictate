@@ -30,9 +30,7 @@ def test_illegal_active_to_creating() -> None:
 def test_terminal_states_have_no_transitions() -> None:
     for terminal in (SessionState.FINALIZED, SessionState.ABANDONED, SessionState.FAILED):
         for target in SessionState:
-            assert not can_transition(terminal, target), (
-                f"{terminal} → {target} should be illegal"
-            )
+            assert not can_transition(terminal, target), f"{terminal} → {target} should be illegal"
 
 
 def test_reconnecting_can_finalize_force() -> None:

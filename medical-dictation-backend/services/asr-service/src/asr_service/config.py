@@ -66,38 +66,26 @@ class Settings(BaseSettings):
     s3_access_key: str = Field(default="minioadmin", alias="S3_ACCESS_KEY")
     s3_secret_key: str = Field(default="minioadmin", alias="S3_SECRET_KEY")
     s3_audio_bucket: str = Field(default="mdx-audio", alias="S3_AUDIO_BUCKET")
-    s3_transcripts_bucket: str = Field(
-        default="mdx-transcripts", alias="S3_TRANSCRIPTS_BUCKET"
-    )
+    s3_transcripts_bucket: str = Field(default="mdx-transcripts", alias="S3_TRANSCRIPTS_BUCKET")
     s3_use_ssl: bool = Field(default=False, alias="S3_USE_SSL")
-    s3_presigned_ttl_seconds: int = Field(
-        default=300, alias="S3_PRESIGNED_TTL_SECONDS"
-    )
+    s3_presigned_ttl_seconds: int = Field(default=300, alias="S3_PRESIGNED_TTL_SECONDS")
 
     # ── Master key (envelope crypto) ────────────────────────────────────
-    master_key_path: str = Field(
-        default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH"
-    )
+    master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
 
     # ── Upload validation ───────────────────────────────────────────────
     max_upload_mb: int = Field(default=100, alias="MD_ASR_MAX_UPLOAD_MB")
-    max_duration_seconds: int = Field(
-        default=30 * 60, alias="MD_ASR_MAX_DURATION_SECONDS"
-    )
+    max_duration_seconds: int = Field(default=30 * 60, alias="MD_ASR_MAX_DURATION_SECONDS")
     min_sample_rate_hz: int = Field(default=8000, alias="MD_ASR_MIN_SAMPLE_RATE_HZ")
     max_channels: int = Field(default=2, alias="MD_ASR_MAX_CHANNELS")
     monthly_quota_bytes: int = Field(
         default=10 * 1024 * 1024 * 1024, alias="MD_ASR_MONTHLY_QUOTA_BYTES"
     )
     ffprobe_path: str = Field(default="ffprobe", alias="MD_ASR_FFPROBE_PATH")
-    ffprobe_timeout_seconds: float = Field(
-        default=5.0, alias="MD_ASR_FFPROBE_TIMEOUT_SECONDS"
-    )
+    ffprobe_timeout_seconds: float = Field(default=5.0, alias="MD_ASR_FFPROBE_TIMEOUT_SECONDS")
 
     # ── Concurrency limits ──────────────────────────────────────────────
-    per_tenant_concurrent_jobs: int = Field(
-        default=10, alias="MD_ASR_PER_TENANT_CONCURRENT_JOBS"
-    )
+    per_tenant_concurrent_jobs: int = Field(default=10, alias="MD_ASR_PER_TENANT_CONCURRENT_JOBS")
 
 
 settings = Settings()

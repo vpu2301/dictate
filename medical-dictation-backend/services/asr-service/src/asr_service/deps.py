@@ -37,9 +37,7 @@ def install_state(state: ServiceState) -> None:
 
 def get_state() -> ServiceState:
     if _state is None:
-        raise RuntimeError(
-            "ServiceState not installed; this code must run after lifespan startup"
-        )
+        raise RuntimeError("ServiceState not installed; this code must run after lifespan startup")
     return _state
 
 
@@ -76,9 +74,7 @@ def requires(
             await _emit_authz_denied(exc)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"deny: roles={list(claims.roles)} cannot {action!r} on {target_kind!r}"
-                ),
+                detail=(f"deny: roles={list(claims.roles)} cannot {action!r} on {target_kind!r}"),
             ) from exc
         return claims
 

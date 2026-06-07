@@ -57,10 +57,8 @@ async def probe_audio(
             *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         try:
-            stdout, _stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout_seconds
-            )
-        except asyncio.TimeoutError:
+            stdout, _stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+        except TimeoutError:
             proc.kill()
             await proc.wait()
             logger.info("ffprobe.timeout", extra={"path": path})
@@ -103,9 +101,7 @@ async def probe_audio(
     )
 
 
-def validate_duration(
-    probe: ProbeOutput | None, *, max_seconds: int
-) -> ValidationResult:
+def validate_duration(probe: ProbeOutput | None, *, max_seconds: int) -> ValidationResult:
     if probe is None:
         return reject(
             ValidationCode.UNPROBEABLE,

@@ -59,9 +59,7 @@ async def build_state() -> WorkerState:
     envelope = Envelope(master_key_provider=master, kek_repository=kek_repo)
 
     redis_client = aioredis.from_url(settings.redis_url, decode_responses=False)
-    producer = RedisStreamsProducer(
-        client=redis_client, default_stream=settings.asr_jobs_stream
-    )
+    producer = RedisStreamsProducer(client=redis_client, default_stream=settings.asr_jobs_stream)
     consumer = RedisStreamsConsumer(
         client=redis_client,
         producer=producer,
@@ -80,9 +78,7 @@ async def build_state() -> WorkerState:
         region=settings.s3_region,
         use_ssl=settings.s3_use_ssl,
     )
-    audio_store = EncryptedObjectStore(
-        s3=s3, bucket=settings.s3_audio_bucket, envelope=envelope
-    )
+    audio_store = EncryptedObjectStore(s3=s3, bucket=settings.s3_audio_bucket, envelope=envelope)
     transcript_store = EncryptedObjectStore(
         s3=s3, bucket=settings.s3_transcripts_bucket, envelope=envelope
     )

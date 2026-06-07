@@ -41,9 +41,11 @@ SU_DSN = "postgresql://postgres:postgres@localhost:5432/medical_dictation"
 async def app():
     a = create_app()
     # Drive the FastAPI lifespan manually (no uvicorn).
-    async with httpx.AsyncClient(transport=ASGITransport(app=a), base_url="http://test") as _:
-        async with a.router.lifespan_context(a):
-            yield a
+    async with (
+        httpx.AsyncClient(transport=ASGITransport(app=a), base_url="http://test"),
+        a.router.lifespan_context(a),
+    ):
+        yield a
 
 
 @pytest_asyncio.fixture
@@ -146,17 +148,13 @@ async def test_login_happy_path(client: AsyncClient, superuser_conn: asyncpg.Con
 
 
 async def test_login_invalid_password_returns_401(client: AsyncClient):
-    r = await client.post(
-        "/auth/login", json={"username": "dev-clinician", "password": "wrong"}
-    )
+    r = await client.post("/auth/login", json={"username": "dev-clinician", "password": "wrong"})
     assert r.status_code == 401
     assert "WWW-Authenticate" in r.headers
 
 
 async def test_login_unknown_user_returns_401(client: AsyncClient):
-    r = await client.post(
-        "/auth/login", json={"username": "ghost@nowhere.test", "password": "x"}
-    )
+    r = await client.post("/auth/login", json={"username": "ghost@nowhere.test", "password": "x"})
     assert r.status_code == 401
 
 
@@ -183,6 +181,43 @@ async def test_refresh_without_cookie_401(client: AsyncClient):
     assert r.status_code == 401
 
 
+async def test_refresh_replay_emits_security_audit(
+    client: AsyncClient, superuser_conn: asyncpg.Connection
+):
+    """AC-A1-7: replaying a rotated (already-consumed) refresh token must be
+    rejected AND must write an ``auth.refresh_replay_detected`` audit event with
+    severity ``sec``."""
+    r1 = await client.post(
+        "/auth/login", json={"username": "dev-clinician", "password": "dev-password"}
+    )
+    assert r1.status_code == 200
+    stale_cookie = client.cookies.get("mdx_rt")
+    assert stale_cookie
+
+    # First refresh consumes `stale_cookie` and rotates to a new one.
+    r2 = await client.post("/auth/refresh")
+    assert r2.status_code == 200, r2.text
+
+    # Replay the now-consumed cookie explicitly — this is the attack. Clear the
+    # jar (which now holds the rotated cookie) and set only the stale one so the
+    # request deterministically carries the consumed token.
+    client.cookies.clear()
+    client.cookies.set("mdx_rt", stale_cookie)
+    replay = await client.post("/auth/refresh")
+    assert replay.status_code != 200, "replayed refresh token was accepted!"
+    # Must be 401 from the replay branch (not 401 'no refresh cookie').
+    assert "no refresh cookie" not in replay.text, "stale cookie did not reach the handler"
+
+    row = await superuser_conn.fetchrow(
+        "SELECT severity FROM audit.events "
+        "WHERE tenant_id=$1 AND kind='auth.refresh_replay_detected' "
+        "ORDER BY seq DESC LIMIT 1",
+        TENANT_A,
+    )
+    assert row is not None, "no auth.refresh_replay_detected audit row was written"
+    assert row["severity"] == "sec", f"expected severity 'sec', got {row['severity']!r}"
+
+
 # ── /auth/logout ────────────────────────────────────────────────────────
 
 
@@ -205,15 +240,11 @@ async def test_logout_clears_cookie(client: AsyncClient, superuser_conn):
     assert n == 1
 
 
-async def test_logout_without_access_token_still_clears_cookie(
-    client: AsyncClient, superuser_conn
-):
+async def test_logout_without_access_token_still_clears_cookie(client: AsyncClient, superuser_conn):
     """Logout works even without the access token — the refresh is still
     revoked. The auth.logout audit is skipped because tid is unrecoverable
     from a refresh token alone."""
-    await client.post(
-        "/auth/login", json={"username": "dev-clinician", "password": "dev-password"}
-    )
+    await client.post("/auth/login", json={"username": "dev-clinician", "password": "dev-password"})
     r = await client.post("/auth/logout")
     assert r.status_code == 204
     assert "mdx_rt=" in r.headers.get("set-cookie", "")
@@ -232,9 +263,13 @@ async def test_me_with_valid_token(client: AsyncClient):
     body = r2.json()
     assert body["claims"]["tid"] == str(TENANT_A)
     assert "clinician" in body["claims"]["roles"]
-    # No DB row exists for dev-clinician (Keycloak-only user); endpoint
-    # surfaces this as db_user=None — correct behaviour for sprint 02.
-    assert body["db_user"] is None
+    # dev-clinician is a seeded dev fixture (scripts/seed/seed.sql), so the
+    # endpoint joins the token `sub` to its DB row. (db_user stays None only for
+    # genuinely Keycloak-only users with no DB record.)
+    assert body["db_user"] is not None
+    assert body["db_user"]["role"] == "clinician"
+    assert body["db_user"]["tenant_id"] == str(TENANT_A)
+    assert body["db_user"]["status"] == "active"
 
 
 async def test_me_without_token_401(client: AsyncClient):
@@ -318,9 +353,7 @@ async def test_authz_denied_emits_audit_event(
     token = r1.json()["access_token"]
 
     # Attempt audit.read (allowed only for auditor / tenant_admin).
-    r2 = await client.get(
-        "/audit/events", headers={"Authorization": f"Bearer {token}"}
-    )
+    r2 = await client.get("/audit/events", headers={"Authorization": f"Bearer {token}"})
     assert r2.status_code == 403
 
     # Verify the audit row.
@@ -365,9 +398,7 @@ async def test_mfa_off_admin_invite_succeeds(
     assert r2.status_code == 201, r2.text
 
 
-async def test_mfa_on_admin_invite_rejected_with_mfa_challenge(
-    client: AsyncClient, monkeypatch
-):
+async def test_mfa_on_admin_invite_rejected_with_mfa_challenge(client: AsyncClient, monkeypatch):
     """Flipping MDX_REQUIRE_MFA=true makes the requires_mfa() dep enforce.
     Dev tokens carry mfa=false (no TOTP enrolled) → expect HTTP 401 with
     WWW-Authenticate: MFA so the frontend can prompt for the OTP."""
@@ -400,9 +431,7 @@ async def test_mfa_on_audit_routes_unaffected(client: AsyncClient, monkeypatch):
         "/auth/login", json={"username": "dev-auditor", "password": "dev-password"}
     )
     token = r1.json()["access_token"]
-    r2 = await client.get(
-        "/audit/events", headers={"Authorization": f"Bearer {token}"}
-    )
+    r2 = await client.get("/audit/events", headers={"Authorization": f"Bearer {token}"})
     assert r2.status_code == 200, r2.text
 
 
@@ -428,9 +457,7 @@ async def test_deactivate_happy_path(client: AsyncClient, superuser_conn):
     assert r2.json()["status"] == "deactivated"
 
     # Step 3: DB reflects.
-    row = await superuser_conn.fetchrow(
-        "SELECT status FROM users WHERE sub = $1", uuid.UUID(sub)
-    )
+    row = await superuser_conn.fetchrow("SELECT status FROM users WHERE sub = $1", uuid.UUID(sub))
     assert row["status"] == "deactivated"
 
     # Step 4: audit row (sec severity).

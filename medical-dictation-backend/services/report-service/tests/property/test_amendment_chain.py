@@ -13,14 +13,12 @@ production data.
 
 from __future__ import annotations
 
-from typing import List
 from uuid import UUID, uuid4
 
-import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from report_service.domain.chain_integrity import ChainNode, verify_chain
-
 
 # ── Strategy: generate a *valid* history ────────────────────────────
 
@@ -130,7 +128,7 @@ def test_amendment_off_unsigned_parent_flagged():
     nodes = [
         ChainNode(id=a, version_number=1, parent_id=None, is_amendment=False, parent_signed=False),
         ChainNode(id=b, version_number=2, parent_id=a, is_amendment=False, parent_signed=False),
-        ChainNode(id=c, version_number=3, parent_id=b, is_amendment=True,  parent_signed=False),
+        ChainNode(id=c, version_number=3, parent_id=b, is_amendment=True, parent_signed=False),
     ]
     anomalies = verify_chain(nodes, current_version_id=c)
     assert any(a.kind == "amendment_off_unsigned_parent" for a in anomalies)
@@ -140,7 +138,9 @@ def test_parent_missing_flagged():
     a = uuid4()
     nodes = [
         # Genesis has parent_id pointing at something that doesn't exist.
-        ChainNode(id=a, version_number=1, parent_id=uuid4(), is_amendment=False, parent_signed=False),
+        ChainNode(
+            id=a, version_number=1, parent_id=uuid4(), is_amendment=False, parent_signed=False
+        ),
     ]
     anomalies = verify_chain(nodes, current_version_id=a)
     assert any(a.kind == "parent_missing" for a in anomalies)
@@ -152,7 +152,9 @@ def test_unreachable_from_head_flagged():
         ChainNode(id=a, version_number=1, parent_id=None, is_amendment=False, parent_signed=False),
         ChainNode(id=b, version_number=2, parent_id=a, is_amendment=False, parent_signed=False),
         # Pretend version_number=3 exists but isn't reachable from head=b.
-        ChainNode(id=isolated, version_number=3, parent_id=a, is_amendment=False, parent_signed=False),
+        ChainNode(
+            id=isolated, version_number=3, parent_id=a, is_amendment=False, parent_signed=False
+        ),
     ]
     anomalies = verify_chain(nodes, current_version_id=b)
     # Note: version 3 is reachable from itself but walking from head b

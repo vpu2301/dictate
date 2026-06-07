@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
-from report_service.domain.code_sequence import _advisory_lock_key, next_code
+import pytest
 
+from report_service.domain.code_sequence import _advisory_lock_key, next_code
 
 # Async tests get the marker explicitly so the module works under
 # pytest-asyncio modes other than auto. Sync tests at the bottom are
@@ -38,7 +38,7 @@ async def test_first_code_is_00001_for_new_year():
     code = await next_code(
         conn,
         tenant_id=uuid4(),
-        now=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        now=datetime(2026, 1, 1, tzinfo=UTC),
     )
     assert code == "REP-2026-00001"
 
@@ -47,7 +47,7 @@ async def test_first_code_is_00001_for_new_year():
 async def test_subsequent_codes_increment():
     conn = StubConn()
     tid = uuid4()
-    now = datetime(2026, 5, 13, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 13, tzinfo=UTC)
     a = await next_code(conn, tenant_id=tid, now=now)
     b = await next_code(conn, tenant_id=tid, now=now)
     c = await next_code(conn, tenant_id=tid, now=now)
@@ -58,10 +58,8 @@ async def test_subsequent_codes_increment():
 async def test_counter_isolated_per_year():
     conn = StubConn()
     tid = uuid4()
-    a = await next_code(conn, tenant_id=tid,
-                        now=datetime(2026, 12, 31, tzinfo=timezone.utc))
-    b = await next_code(conn, tenant_id=tid,
-                        now=datetime(2027, 1, 1, tzinfo=timezone.utc))
+    a = await next_code(conn, tenant_id=tid, now=datetime(2026, 12, 31, tzinfo=UTC))
+    b = await next_code(conn, tenant_id=tid, now=datetime(2027, 1, 1, tzinfo=UTC))
     assert a == "REP-2026-00001"
     assert b == "REP-2027-00001"
 
@@ -71,7 +69,7 @@ async def test_counter_isolated_per_tenant():
     conn = StubConn()
     t1 = uuid4()
     t2 = uuid4()
-    now = datetime(2026, 5, 13, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 13, tzinfo=UTC)
     a = await next_code(conn, tenant_id=t1, now=now)
     b = await next_code(conn, tenant_id=t2, now=now)
     assert a == "REP-2026-00001"

@@ -57,23 +57,17 @@ class Committer:
             # Rule 3 — hallucination guard. Drop trailing tokens when
             # the segment-level no-speech probability is high.
             if no_speech_prob > self.no_speech_threshold:
-                decisions.append(
-                    CommitDecision(word=w, commit=False, reason="high_no_speech_prob")
-                )
+                decisions.append(CommitDecision(word=w, commit=False, reason="high_no_speech_prob"))
                 continue
             # Rule 1 — word must be older than a full window.
             if (now_ms - w.end_ms) < full_window_ms:
-                decisions.append(
-                    CommitDecision(word=w, commit=False, reason="too_recent")
-                )
+                decisions.append(CommitDecision(word=w, commit=False, reason="too_recent"))
                 continue
             # Rule 2 — silence boundary lies between this word and
             # whatever follows. If we don't have one, we keep it
             # provisional rather than commit mid-utterance.
             if last_silence_boundary_ms is None or last_silence_boundary_ms < w.end_ms:
-                decisions.append(
-                    CommitDecision(word=w, commit=False, reason="no_silence_boundary")
-                )
+                decisions.append(CommitDecision(word=w, commit=False, reason="no_silence_boundary"))
                 continue
             decisions.append(CommitDecision(word=w, commit=True, reason="ok"))
         return decisions
@@ -89,7 +83,7 @@ def words_to_final_segments(words: list[WordTiming]) -> list[Segment]:
         return []
     segments: list[Segment] = []
     bucket: list[WordTiming] = [words[0]]
-    for prev, curr in zip(words, words[1:]):
+    for prev, curr in zip(words, words[1:], strict=False):
         if curr.start_ms - prev.end_ms > 500:
             segments.append(_make_segment(bucket))
             bucket = [curr]
