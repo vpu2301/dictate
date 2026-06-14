@@ -274,6 +274,7 @@ Detailed per-sprint context lives in the project memory index
 ## Documentation map
 
 - `medical-dictation-backend/README.md` — backend-local quickstart & details.
+- `docs/testing/README.md` — terminal walkthrough: commands + expected responses to test the system end to end (plus the `mdx-test` CLI).
 - `docs/adr/` — Architecture Decision Records (0001–0025); `docs/adr/README.md` index.
 - `docs/architecture/` — service topology (e.g. `asr.md`).
 - `docs/runbooks/` — operational runbooks (auth, asr-worker, …).

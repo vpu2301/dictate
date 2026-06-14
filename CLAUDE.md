@@ -90,4 +90,4 @@ All dev users password `dev-password`. Tenant-A admin `admin@tenant-a.example`, 
 
 ## Decision history
 
-`docs/adr/` holds ADRs 0001–0025 (`docs/adr/README.md` is the index) — the authoritative record for why the load-bearing choices were made. Per-sprint context (01–10, plus verification batches A/B) lives in the project memory index.
+`docs/adr/` holds ADRs 0001–0025 (`docs/adr/README.md` is the index) — the authoritative record for why the load-bearing choices were made. Sprint 00 (the ground-floor foundation: uv workspace, `libs/{secret,db,observability}`, the `services/_template` paved road, distroless/nonroot containers, dev stack, CI gate; ADRs 0001–0005) has its canonical spec reconstructed as-built at `docs/sprints/sprint-00.md`, with sign-off (`docs/signoffs/sprint-00.md`) and retro (`docs/retros/sprint-00.md`). Per-sprint context (00–10, plus verification batches A/B) lives in the project memory index.
