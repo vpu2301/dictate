@@ -22,8 +22,14 @@ services:
     runtime: nvidia
     environment:
       MD_ASR_DEVICE: cuda
-      MD_ASR_MODEL: large-v3
+      # Load the weights BAKED into the image (ADR-0021). Do NOT set this to a
+      # bare HF id like "large-v3" — that would resolve over the network and
+      # break the offline guarantee below.
+      MD_ASR_MODEL: /opt/models/whisper-large-v3
       MD_ASR_COMPUTE_TYPE: float16
+      # Cut all runtime egress to Hugging Face.
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
     deploy:
@@ -41,8 +47,14 @@ services:
     runtime: nvidia
     environment:
       MD_ASR_DEVICE: cuda
-      MD_ASR_MODEL: large-v3
+      # Load the weights BAKED into the image (ADR-0021). Do NOT set this to a
+      # bare HF id like "large-v3" — that would resolve over the network and
+      # break the offline guarantee below.
+      MD_ASR_MODEL: /opt/models/whisper-large-v3
       MD_ASR_COMPUTE_TYPE: float16
+      # Cut all runtime egress to Hugging Face.
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
     deploy:

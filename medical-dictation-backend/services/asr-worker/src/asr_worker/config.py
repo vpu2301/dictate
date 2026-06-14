@@ -30,6 +30,20 @@ class Settings(BaseSettings):
     asr_model: str = Field(default="large-v3", alias="MD_ASR_MODEL")
     asr_compute_type: str = Field(default="float16", alias="MD_ASR_COMPUTE_TYPE")
     asr_beam_size: int = Field(default=5, alias="MD_ASR_BEAM_SIZE")
+
+    # ── Model sourcing / pinning (Sprint B1 Day 1, ADR-0021) ────────────
+    # These are build-time provenance knobs. Defaults are a no-op for the
+    # runtime: `asr_model` above still selects the weights (a HF id like
+    # "large-v3" in dev, or the baked local dir "/opt/models/whisper-large-v3"
+    # in the pinned GPU image). The fields below make a running worker
+    # self-describing — it can log exactly which repo@revision it was built
+    # from — and let `inference.py` reject an unsupported engine early.
+    asr_engine: str = Field(default="faster_whisper", alias="MD_ASR_ENGINE")
+    asr_model_repo: str = Field(
+        default="Systran/faster-whisper-large-v3", alias="MD_ASR_MODEL_REPO"
+    )
+    asr_model_revision: str = Field(default="", alias="MD_ASR_MODEL_REVISION")
+    asr_model_sha256: str = Field(default="", alias="MD_ASR_MODEL_SHA256")
     asr_max_inference_seconds_multiplier: float = Field(
         default=5.0, alias="MD_ASR_MAX_INFERENCE_SECONDS_MULTIPLIER"
     )
