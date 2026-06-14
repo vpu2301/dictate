@@ -78,6 +78,15 @@ class WhisperEngine:
         """
         if self._loaded:
             return
+        # Engine selection (ADR-0021). Only faster_whisper is supported on the
+        # streaming + confidence-span paths; a vLLM spike is gated behind an
+        # ADR (Sprint B1 Day 3). Fail loud rather than silently load the wrong
+        # backend.
+        if settings.asr_engine != "faster_whisper":
+            raise RuntimeError(
+                f"unsupported MD_ASR_ENGINE={settings.asr_engine!r}; "
+                "only 'faster_whisper' is supported (see ADR-0021)"
+            )
         from faster_whisper import WhisperModel  # local import
 
         device = settings.asr_device
@@ -88,6 +97,12 @@ class WhisperEngine:
                 "model": settings.asr_model,
                 "device": device,
                 "compute_type": compute_type,
+                # Build-time provenance: which pinned repo@revision produced
+                # the baked weights this process is loading (ADR-0021).
+                "engine": settings.asr_engine,
+                "model_repo": settings.asr_model_repo,
+                "model_revision": settings.asr_model_revision or "(unpinned)",
+                "model_sha256": settings.asr_model_sha256 or "(unpinned)",
             },
         )
         t0 = time.monotonic()

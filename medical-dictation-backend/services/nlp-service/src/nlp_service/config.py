@@ -62,9 +62,25 @@ class Settings(BaseSettings):
     rate_limit_per_ip_rps: int = Field(default=50, alias="MDX_NLP_RATE_LIMIT_PER_IP_RPS")
 
     # ── Stage 2: punctuation ───────────────────────────────────────────
+    # `punctuation_model` is a HF id in dev (downloaded on first request) or
+    # the baked local dir "/opt/models/punctuation" in the pinned image, in
+    # which case the runtime is fully offline (ADR-0021, Sprint B1 Day 2).
     punctuation_model: str = Field(
         default="oliverguhr/fullstop-punctuation-multilang-large",
         alias="MDX_NLP_PUNCTUATION_MODEL",
+    )
+    # Build-time provenance (no-op for the runtime; the dir above selects the
+    # weights). Lets a running service log which pinned revision it was built
+    # from.
+    punctuation_model_repo: str = Field(
+        default="oliverguhr/fullstop-punctuation-multilang-large",
+        alias="MDX_NLP_PUNCTUATION_MODEL_REPO",
+    )
+    punctuation_model_revision: str = Field(
+        default="", alias="MDX_NLP_PUNCTUATION_MODEL_REVISION"
+    )
+    punctuation_model_sha256: str = Field(
+        default="", alias="MDX_NLP_PUNCTUATION_MODEL_SHA256"
     )
     punctuation_timeout_ms: int = Field(default=250, alias="MDX_NLP_PUNCTUATION_TIMEOUT_MS")
     punctuation_token_budget: int = Field(default=256, alias="MDX_NLP_PUNCTUATION_TOKEN_BUDGET")

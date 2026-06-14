@@ -66,7 +66,7 @@ services:
       ENVIRONMENT: development
       LOG_LEVEL: INFO
       MD_ASR_DEVICE: cpu
-      MD_ASR_MODEL: tiny
+      MD_ASR_MODEL: /opt/models/whisper-tiny  # baked + offline (Dockerfile.cpu)
       MD_ASR_COMPUTE_TYPE: int8
       DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
       DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
@@ -94,7 +94,7 @@ services:
       ENVIRONMENT: development
       LOG_LEVEL: INFO
       MD_ASR_DEVICE: cpu
-      MD_ASR_MODEL: tiny
+      MD_ASR_MODEL: /opt/models/whisper-tiny  # baked + offline (Dockerfile.cpu)
       MD_ASR_COMPUTE_TYPE: int8
       MDX_WORKER_ID: dictation-dev-1
       AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
