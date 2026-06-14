@@ -65,7 +65,6 @@ class PrivacyTestResult:
 
 
 async def _login(client: object, space_url: str, email: str, password: str) -> str:
-
     resp = await client.post(  # type: ignore[attr-defined]
         f"{space_url}/auth/login",
         data={"email": email, "password": password},

@@ -68,7 +68,29 @@ jobs:
             uv pip install --system -e "$d"
           done
       - name: lint-imports
-        run: uv run lint-imports --config pyproject.toml
+        run: make lint-imports   # single definition lives in the Makefile
+
+  # ──────────────────────────────────────────────────────────────
+  gates:
+    name: Architectural gates (custom scanners)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv
+        run: pip install uv==${{ env.UV_VERSION }}
+      # Same gate targets `make ci` runs locally — invoked via make so the
+      # gate definitions have ONE source of truth and CI cannot drift from it.
+      - name: Custom architectural gates
+        run: |
+          make check-no-os-environ
+          make check-no-direct-asyncpg
+          make check-audit-insert
+          make check-no-object-storage
+          make check-no-crypto
+          make validate-templates
 
   # ──────────────────────────────────────────────────────────────
   test:
@@ -175,7 +197,7 @@ jobs:
   publish:
     name: Build & push to GHCR
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [lint, test, security, container-scan]
+    needs: [lint, import-linter, gates, test, security, container-scan]
     runs-on: ubuntu-latest
     permissions:
       contents: read

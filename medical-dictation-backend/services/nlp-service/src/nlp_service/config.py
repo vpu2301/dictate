@@ -76,12 +76,8 @@ class Settings(BaseSettings):
         default="oliverguhr/fullstop-punctuation-multilang-large",
         alias="MDX_NLP_PUNCTUATION_MODEL_REPO",
     )
-    punctuation_model_revision: str = Field(
-        default="", alias="MDX_NLP_PUNCTUATION_MODEL_REVISION"
-    )
-    punctuation_model_sha256: str = Field(
-        default="", alias="MDX_NLP_PUNCTUATION_MODEL_SHA256"
-    )
+    punctuation_model_revision: str = Field(default="", alias="MDX_NLP_PUNCTUATION_MODEL_REVISION")
+    punctuation_model_sha256: str = Field(default="", alias="MDX_NLP_PUNCTUATION_MODEL_SHA256")
     punctuation_timeout_ms: int = Field(default=250, alias="MDX_NLP_PUNCTUATION_TIMEOUT_MS")
     punctuation_token_budget: int = Field(default=256, alias="MDX_NLP_PUNCTUATION_TOKEN_BUDGET")
     punctuation_disabled: bool = Field(default=False, alias="MDX_NLP_PUNCTUATION_DISABLED")

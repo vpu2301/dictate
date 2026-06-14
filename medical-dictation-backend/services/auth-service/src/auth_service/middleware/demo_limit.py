@@ -8,7 +8,6 @@ this middleware absent from the FastAPI app stack.
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import Awaitable, Callable
 
 from demo.audit_kinds import DEMO_AUDIT_KINDS
@@ -41,7 +40,9 @@ class DemoRateLimitMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        if os.getenv("MDX_DEMO_MODE", "false").lower() != "true":
+        from ..config import settings
+
+        if not settings.demo_mode:
             return await call_next(request)
         if (request.method, request.url.path) not in self._guarded:
             return await call_next(request)
