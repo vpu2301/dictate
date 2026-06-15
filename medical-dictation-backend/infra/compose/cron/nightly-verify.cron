@@ -1,0 +1,31 @@
+# Nightly audit-chain verification — Sprint-02 spec § 4.3
+#
+# Walks every active tenant's hash-linked audit chain via
+# scripts/jobs/nightly_verify.py (audit.AuditVerifier), emits Prometheus
+# textfile metrics for node-exporter, and writes one `audit.chain_verified`
+# event per tenant. On divergence the script exits non-zero; the
+# `AuditChainBroken` / `AuditChainVerifyStale` alerts in
+# infra/prometheus/rules/sprint-02-auth-audit.yml fire on the gauges.
+#
+# Deployment (host or sidecar cron, NOT a docker-compose service — compose is
+# infra-only per CLAUDE.md; a job container would need an ADR amendment):
+#   * Install:   crontab infra/compose/cron/nightly-verify.cron
+#                (or symlink into /etc/cron.d/ with a leading user field)
+#   * Verify:    `make nightly-verify` runs the same job once, by hand.
+#
+# The textfile target MUST be the directory node-exporter's
+# --collector.textfile.directory points at. Writes are atomic (tmp+rename)
+# inside nightly_verify.py, so a partial scrape is never exposed.
+#
+# Required env (defaults target the local dev stack — override in prod):
+#   POSTGRES_HOST POSTGRES_PORT POSTGRES_DB
+#   AUDIT_READER_DSN AUDIT_WRITER_DSN TENANTS_DSN
+#   PROM_TEXTFILE  (node-exporter textfile_collector dir + filename)
+
+# m h  dom mon dow   command
+SHELL=/bin/bash
+PROM_TEXTFILE=/var/lib/node_exporter/textfile_collector/audit_chain.prom
+
+# 02:00 UTC daily. Ensure the crond runs in UTC (CRON_TZ=UTC) or the host is UTC.
+CRON_TZ=UTC
+0 2 * * *  cd /opt/medical-dictation-backend && /usr/bin/env uv run python scripts/jobs/nightly_verify.py >> /var/log/mdx/nightly-verify.log 2>&1
