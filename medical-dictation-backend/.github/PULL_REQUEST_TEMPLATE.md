@@ -33,6 +33,15 @@
 - [ ] No database migrations required
 - [ ] Migration included and tested against a clean schema
 
+## Architecture / ADR
+
+<!-- Any change to a load-bearing decision (layering, RLS, crypto envelope,
+storage boundary, audit chain, public API) needs an ADR in docs/adr/. -->
+
+- [ ] No architectural decision changed — no ADR needed
+- [ ] An ADR is needed and is included / linked in this PR
+- [ ] This PR amends an existing ADR (link it) and updates the affected import-linter / CI contract
+
 ## Reviewer notes
 
 <!-- Anything you'd like reviewers to pay special attention to. -->

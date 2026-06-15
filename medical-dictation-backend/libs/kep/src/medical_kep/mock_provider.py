@@ -61,7 +61,10 @@ class MockProvider(SigningProvider):
         environment: str | None = None,
         test_ca_dir: Path | None = None,
     ) -> None:
-        env = (environment or os.environ.get("ENVIRONMENT", "development")).lower()
+        # noqa justified: this is a library-level fail-safe, not app config —
+        # callers pass `environment` from their typed settings; the env read is
+        # only the fallback that refuses to construct a mock signer in prod.
+        env = (environment or os.environ.get("ENVIRONMENT", "development")).lower()  # noqa: ENV001
         if env in ("production", "prod"):
             raise RuntimeError(
                 "MockProvider may NOT run in production "

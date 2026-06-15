@@ -109,5 +109,10 @@ class Settings(BaseSettings):
     # entire enablement path — no other code change is required.
     require_mfa: bool = Field(default=False, alias="MDX_REQUIRE_MFA")
 
+    # ── demo mode (sprint 07 HF Space) ─────────────────────────────────
+    # When MDX_DEMO_MODE=true the DemoRateLimitMiddleware enforces per-IP/
+    # per-user caps on session endpoints. Off everywhere but the public demo.
+    demo_mode: bool = Field(default=False, alias="MDX_DEMO_MODE")
+
 
 settings = Settings()

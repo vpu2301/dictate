@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval
+.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -105,7 +105,20 @@ security: ## Run bandit (SAST) + pip-audit + semgrep
 security-scan: security ## Legacy alias of `security`
 
 lint-imports: ## Verify architectural contracts (import-linter)
-	uv run lint-imports --config pyproject.toml
+	# import-linter is not a venv dependency — pull it in for the run.
+	uv run --with "import-linter>=2.0" lint-imports --config pyproject.toml
+
+# The custom gates sweep APPLICATION SOURCE only (services/*/src, libs/*/src) —
+# the domain where architecture rules #7/#8 bind. Integration tests, the
+# migration runner, and operational scripts legitimately use raw asyncpg / env
+# and are out of scope (the scripts' own exclusions cover config.py/tests too).
+APP_SRC = git ls-files '*.py' | grep -E '^(services|libs)/[^/]+/src/'
+
+check-no-os-environ: ## CI gate — os.environ/os.getenv reads only in config.py
+	$(APP_SRC) | xargs uv run python scripts/dev/check-no-os-environ.py
+
+check-no-direct-asyncpg: ## CI gate — raw asyncpg only in libs/db (use tenant_connection)
+	$(APP_SRC) | xargs uv run python scripts/dev/check-no-direct-asyncpg.py
 
 reset-db: ## Wipe and recreate the dev Postgres volume (also re-imports the Keycloak realm)
 	$(COMPOSE) -f $(COMPOSE_FILE) down -v postgres
@@ -202,7 +215,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security check-audit-insert check-no-object-storage check-no-crypto validate-templates ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto validate-templates ## Mirror CI gates locally
 
 ci-with-db: ci check-rls openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

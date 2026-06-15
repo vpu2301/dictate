@@ -3,8 +3,12 @@
 # Run on all files: pre-commit run -a
 
 repos:
+  # Pin MUST track the ruff the project/CI run (uv resolves 0.15.x). A stale
+  # pin enforces a different (older) rule set than `make lint` — e.g. v0.4.x
+  # still flagged UP038/E402 that current ruff dropped — so the hook and CI
+  # disagree. Bump this in lockstep with the project ruff.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.10
+    rev: v0.15.5
     hooks:
       - id: ruff
         args: [--fix]
@@ -27,16 +31,6 @@ repos:
     hooks:
       - id: gitleaks
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
-    hooks:
-      - id: mypy
-        # Fast subset — full --strict runs in CI. We only check the secret
-        # and observability libs locally because they are small and security-critical.
-        files: ^libs/(secret|observability)/src/
-        additional_dependencies:
-          - pydantic>=2.7.0
-
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v3.27.0
     hooks:
@@ -45,18 +39,39 @@ repos:
 
   - repo: local
     hooks:
+      # mypy as a LOCAL hook (not the mirror): it must run in the project venv
+      # so the real third-party deps (opentelemetry, …) are importable. The
+      # isolated mirror env sees those imports as Any under ignore_missing_imports
+      # and then flags every real `type: ignore` as unused. This mirrors the
+      # `make typecheck` subset exactly. pass_filenames: false → mypy checks the
+      # packages, not isolated files (isolated files spuriously report unused
+      # ignores under --strict).
+      - id: mypy-foundation
+        name: mypy --strict (secret + observability)
+        entry: bash -c 'cd medical-dictation-backend && uv run --with "mypy>=1.10" mypy --strict libs/secret/src libs/observability/src'
+        language: system
+        pass_filenames: false
+        files: (^|/)libs/(secret|observability)/src/.*\.py$
+
       - id: no-os-environ-in-services
         name: Reject os.environ outside config.py
         description: All envvar reads go through pydantic-settings in config.py.
-        entry: scripts/dev/check-no-os-environ.py
-        language: python
+        # language: system + `python3 <path>` — the scripts are stdlib-only and
+        # NOT installed as console entry points, so `language: python` looked
+        # for a non-existent executable. Hooks run from the git toplevel (the
+        # thin wrapper above medical-dictation-backend/), so both the entry path
+        # and the file args carry that prefix; the script self-excludes the
+        # sanctioned surfaces, and the un-anchored exclude regex (re.search)
+        # just trims the file list for speed regardless of the prefix.
+        entry: python3 medical-dictation-backend/scripts/dev/check-no-os-environ.py
+        language: system
         types: [python]
-        exclude: ^(.*/config\.py|tests/|libs/secret/|scripts/)
+        exclude: (^|/)config\.py$|(^|/)(tests|scripts)/|(^|/)libs/secret/
 
       - id: no-direct-asyncpg
         name: Reject direct asyncpg.connect outside libs/db/
         description: Use libs/db.tenant_connection() — see ADR-0004.
-        entry: scripts/dev/check-no-direct-asyncpg.py
-        language: python
+        entry: python3 medical-dictation-backend/scripts/dev/check-no-direct-asyncpg.py
+        language: system
         types: [python]
-        exclude: ^libs/db/
+        exclude: (^|/)libs/db/|(^|/)(tests|scripts)/
