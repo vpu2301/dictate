@@ -16,7 +16,7 @@ CREATE TABLE signed_envelopes (
     tenant_id               UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
 
     -- Authorial linkage.
-    signer_user_id          UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    signer_user_id          UUID NOT NULL REFERENCES users(sub) ON DELETE RESTRICT,
 
     -- Resource binding.
     resource_type           TEXT NOT NULL CHECK (resource_type IN ('report', 'amendment', 'note', 'anamnesis', 'consent')),

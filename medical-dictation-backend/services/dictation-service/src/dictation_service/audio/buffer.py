@@ -50,7 +50,7 @@ BYTES_PER_SAMPLE: int = 4
 SAMPLE_RATE_HZ: int = 16_000
 
 
-class RingFull(Exception):
+class RingFullError(Exception):
     """Buffer wrapped because writer outpaced the ring length."""
 
 
@@ -68,7 +68,7 @@ class SessionAudioBuffer:
 
     ``write(pcm)`` advances the producer cursor. ``read(start_sample,
     end_sample)`` returns a view that's always within the ring; if the
-    caller asks for a window that's been overwritten, :class:`RingFull`
+    caller asks for a window that's been overwritten, :class:`RingFullError`
     is raised.
     """
 
@@ -245,7 +245,7 @@ class SessionAudioBuffer:
     def read(self, start_sample: int, end_sample: int) -> np.ndarray:
         """Return a copy of samples in [start, end).
 
-        Raises :class:`RingFull` if the requested range has been
+        Raises :class:`RingFullError` if the requested range has been
         overwritten (writer wrapped past it).
         """
         if start_sample < 0 or end_sample < start_sample:
@@ -254,9 +254,7 @@ class SessionAudioBuffer:
             head = self._producer_cursor
             tail = max(0, head - self._ring_samples)
             if start_sample < tail:
-                raise RingFull(
-                    f"[{start_sample},{end_sample}) is behind the ring tail {tail}"
-                )
+                raise RingFullError(f"[{start_sample},{end_sample}) is behind the ring tail {tail}")
             if end_sample > head:
                 end_sample = head  # caller asked past producer; clamp
             n = end_sample - start_sample

@@ -8,16 +8,14 @@ this middleware absent from the FastAPI app stack.
 from __future__ import annotations
 
 import logging
-import os
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
+from demo.audit_kinds import DEMO_AUDIT_KINDS
+from demo.rate_limit import DemoRateLimiter, RateLimitConfig
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from starlette.middleware.base import BaseHTTPMiddleware
-
-from demo.audit_kinds import DEMO_AUDIT_KINDS
-from demo.rate_limit import DemoRateLimiter, RateLimitConfig
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +40,17 @@ class DemoRateLimitMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        if os.getenv("MDX_DEMO_MODE", "false").lower() != "true":
+        from ..config import settings
+
+        if not settings.demo_mode:
             return await call_next(request)
         if (request.method, request.url.path) not in self._guarded:
             return await call_next(request)
 
-        ip = (request.headers.get("x-forwarded-for", "").split(",")[0]
-              or (request.client.host if request.client else "0.0.0.0")).strip()
+        ip = (
+            request.headers.get("x-forwarded-for", "").split(",")[0]
+            or (request.client.host if request.client else "0.0.0.0")
+        ).strip()
         user_id = getattr(request.state, "user_id", "anonymous")
 
         breach = await self._limiter.begin_session(ip=ip, user_id=user_id)

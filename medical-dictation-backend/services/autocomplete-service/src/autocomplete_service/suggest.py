@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Awaitable, Callable
 
 from autocomplete_service.ranking import (
     PhraseRecord,
@@ -16,7 +15,7 @@ from autocomplete_service.ranking import (
     diversity_filter,
     score,
 )
-from autocomplete_service.trie.builder import PhraseTrieEntry, TenantTrie
+from autocomplete_service.trie.builder import TenantTrie
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class Suggestion:
     id: str
-    kind: str             # 'phrase' | 'snippet'
+    kind: str  # 'phrase' | 'snippet'
     text: str
     completion: str
     source: str
@@ -66,10 +65,7 @@ def suggest_from_trie(
         s = score(rec, now=now)
         # Suffix = what the FE will surface as ghost-text.
         phrase_lower = c.phrase.lower()
-        if phrase_lower.startswith(full_prefix):
-            suffix = c.phrase[len(prefix):]
-        else:
-            suffix = c.phrase
+        suffix = c.phrase[len(prefix) :] if phrase_lower.startswith(full_prefix) else c.phrase
         ranked.append((rec, s, suffix))
 
     ranked.sort(key=lambda t: t[1], reverse=True)

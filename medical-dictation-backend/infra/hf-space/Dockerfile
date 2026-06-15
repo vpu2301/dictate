@@ -31,7 +31,7 @@ COPY services/nlp-service/ /build/services/nlp-service/
 COPY services/report-service/ /build/services/report-service/
 
 RUN pip install --no-cache-dir --upgrade pip uv==0.4.29 \
- && uv pip install --system --no-cache --no-dev \
+ && uv pip install --system --no-cache \
     --target /deps \
     /build/services/auth-service \
     /build/services/asr-service \
@@ -82,6 +82,12 @@ RUN wget -q "https://github.com/keycloak/keycloak/releases/download/${KEYCLOAK_V
  && /opt/keycloak/bin/kc.sh build --db=postgres
 
 COPY --from=wheels /deps /deps
+# Editable workspace libs install as .pth files, which Python only honors
+# in a site dir — not via PYTHONPATH. sitecustomize is auto-imported because
+# /deps is on PYTHONPATH; it re-registers /deps as a site dir so the editable
+# .pth files (asr_models, audit, observability, …) actually activate.
+RUN printf 'import site\nsite.addsitedir("/deps")\n' > /deps/sitecustomize.py
+
 ENV PYTHONPATH=/deps PATH="/deps/bin:${PATH}"
 
 # Compose runtime config.

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Final
 from uuid import UUID
@@ -47,12 +47,12 @@ class TransitionAction(StrEnum):
 
 # (from_status, action) -> to_status
 _ALLOWED: Final[dict[tuple[ReportStatus, TransitionAction], ReportStatus]] = {
-    (ReportStatus.DRAFT,     TransitionAction.FINALIZE):        ReportStatus.FINALIZED,
-    (ReportStatus.DRAFT,     TransitionAction.CANCEL):          ReportStatus.CANCELLED,
+    (ReportStatus.DRAFT, TransitionAction.FINALIZE): ReportStatus.FINALIZED,
+    (ReportStatus.DRAFT, TransitionAction.CANCEL): ReportStatus.CANCELLED,
     (ReportStatus.FINALIZED, TransitionAction.REVERT_TO_DRAFT): ReportStatus.DRAFT,
-    (ReportStatus.FINALIZED, TransitionAction.SIGN):            ReportStatus.SIGNED,
-    (ReportStatus.FINALIZED, TransitionAction.CANCEL):          ReportStatus.CANCELLED,
-    (ReportStatus.SIGNED,    TransitionAction.AMEND):           ReportStatus.AMENDED,
+    (ReportStatus.FINALIZED, TransitionAction.SIGN): ReportStatus.SIGNED,
+    (ReportStatus.FINALIZED, TransitionAction.CANCEL): ReportStatus.CANCELLED,
+    (ReportStatus.SIGNED, TransitionAction.AMEND): ReportStatus.AMENDED,
 }
 
 
@@ -60,9 +60,7 @@ class IllegalTransitionError(Exception):
     def __init__(self, from_status: ReportStatus, action: TransitionAction) -> None:
         self.from_status = from_status
         self.action = action
-        super().__init__(
-            f"action {action.value!r} not allowed from status {from_status.value!r}"
-        )
+        super().__init__(f"action {action.value!r} not allowed from status {from_status.value!r}")
 
 
 class ConcurrentTransitionError(Exception):
@@ -136,16 +134,10 @@ class ReportStateMachine:
         if extra_set:
             sets.append(extra_set)
         args: list = [report_id, to.value, expected_from.value, *extra_args]
-        sql = (
-            f"UPDATE reports SET {', '.join(sets)} "
-            f"WHERE id = $1 AND status = $3 "
-            f"RETURNING id"
-        )
+        sql = f"UPDATE reports SET {', '.join(sets)} WHERE id = $1 AND status = $3 RETURNING id"
         row = await conn.fetchrow(sql, *args)
         if row is None:
-            current = await conn.fetchrow(
-                "SELECT status FROM reports WHERE id = $1", report_id
-            )
+            current = await conn.fetchrow("SELECT status FROM reports WHERE id = $1", report_id)
             observed = ReportStatus(current["status"]) if current else None
             raise ConcurrentTransitionError(observed)
 
@@ -197,7 +189,7 @@ class ReportStateMachine:
         actor_user_id: UUID,
         now: datetime | None = None,
     ) -> TransitionResult:
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         row = await conn.fetchrow(
             "SELECT status, primary_author_id, finalized_at FROM reports WHERE id = $1",
             report_id,
@@ -241,9 +233,7 @@ class ReportStateMachine:
             to=to,
             timestamp_col="signed_at",
         )
-        return TransitionResult(
-            report_id, ReportStatus.FINALIZED, to, TransitionAction.SIGN
-        )
+        return TransitionResult(report_id, ReportStatus.FINALIZED, to, TransitionAction.SIGN)
 
     async def mark_amended(
         self,
@@ -260,6 +250,4 @@ class ReportStateMachine:
             to=to,
             timestamp_col=None,
         )
-        return TransitionResult(
-            report_id, ReportStatus.SIGNED, to, TransitionAction.AMEND
-        )
+        return TransitionResult(report_id, ReportStatus.SIGNED, to, TransitionAction.AMEND)

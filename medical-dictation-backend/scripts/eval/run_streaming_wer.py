@@ -23,8 +23,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
 
 
@@ -95,7 +93,7 @@ async def _simulate_one(audio_path: Path, language: str, prompt: str | None) -> 
     while cursor_ms + window_ms <= pcm.shape[0] * 1000 // sample_rate:
         start_ms = cursor_ms
         end_ms = cursor_ms + window_ms
-        chunk = pcm[start_ms * sample_rate // 1000: end_ms * sample_rate // 1000]
+        chunk = pcm[start_ms * sample_rate // 1000 : end_ms * sample_rate // 1000]
         result = await engine.transcribe_window(
             chunk,
             language=language,
@@ -147,8 +145,9 @@ def evaluate(fixtures_dir: Path) -> list[WerResult]:
     for (lang, spec), (sum_, n_ref, n_files) in grouped.items():
         agg_wer = sum_ / n_ref if n_ref else 1.0
         results.append(
-            WerResult(language=lang, specialty=spec, wer=agg_wer,
-                      n_ref_words=n_ref, n_files=n_files)
+            WerResult(
+                language=lang, specialty=spec, wer=agg_wer, n_ref_words=n_ref, n_files=n_files
+            )
         )
     return results
 

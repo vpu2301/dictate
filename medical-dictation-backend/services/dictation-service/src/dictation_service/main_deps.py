@@ -71,9 +71,7 @@ async def build_state() -> ServiceState:
         region=settings.s3_region,
         use_ssl=settings.s3_use_ssl,
     )
-    audio_store = EncryptedObjectStore(
-        s3=s3, bucket=settings.s3_audio_bucket, envelope=envelope
-    )
+    audio_store = EncryptedObjectStore(s3=s3, bucket=settings.s3_audio_bucket, envelope=envelope)
 
     engine = WhisperEngine()
     engine.load()

@@ -84,7 +84,12 @@ def _json_response(p: ProblemDetails, headers: dict[str, str] | None = None) -> 
 async def http_exception_handler(
     request: Request, exc: HTTPException | StarletteHTTPException
 ) -> JSONResponse:
-    p = _problem(status=exc.status_code, detail=str(exc.detail))
+    # A raiser may attach `problem_extras` (a dict) to surface RFC 9457 extension
+    # members — e.g. a machine-readable `code` the SPA can branch on. Set it on
+    # the exception instance before raising:
+    #     e = HTTPException(401, detail="…"); e.problem_extras = {"code": "…"}; raise e
+    extras = getattr(exc, "problem_extras", None) or {}
+    p = _problem(status=exc.status_code, detail=str(exc.detail), **extras)
     logger.info(
         "http_exception",
         extra={

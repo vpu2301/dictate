@@ -16,7 +16,7 @@ CREATE TYPE autocomplete_source AS ENUM ('system', 'tenant', 'user');
 CREATE TABLE autocomplete_phrases (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID REFERENCES tenants(id) ON DELETE CASCADE,
-    owner_user_id   UUID REFERENCES users(id) ON DELETE CASCADE,
+    owner_user_id   UUID REFERENCES users(sub) ON DELETE CASCADE,
     phrase          TEXT NOT NULL,
     language        TEXT NOT NULL CHECK (language IN ('uk', 'en')),
     specialty       TEXT,
@@ -122,7 +122,10 @@ CREATE POLICY delete_forbidden ON autocomplete_phrases
 GRANT SELECT, INSERT, UPDATE ON autocomplete_phrases TO app_role;
 
 -- Tenant_writer service role: used by migration 0026 corpus seed.
-CREATE ROLE tenant_writer;
+-- NOTE (Sprint A1): `tenant_writer` is a global role bootstrapped in
+-- infra/postgres/init.sql and already GRANT-ed to from migration 0002, so an
+-- unguarded `CREATE ROLE tenant_writer` here aborts a clean migrate-up with
+-- "role already exists". Removed; the role is guaranteed to pre-exist.
 GRANT SELECT, INSERT, UPDATE ON autocomplete_phrases TO tenant_writer;
 -- The seed role bypasses RLS for system-source rows by exclusion: its
 -- policy is permissive of all source=system inserts.

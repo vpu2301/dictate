@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from audit import Severity
 from auth import Action, Claims, TargetKind
 from db import tenant_connection
-
 from report_models import ReportContent, ReportStatus
 
-from .. import audit_kinds
 from ..deps import get_state, requires
 from ..domain import reports_repository as repo
-from ..domain.conflicts import OptimisticLockMismatch
+from ..domain.conflicts import OptimisticLockMismatchError
 from ..domain.diff_engine import compute_diff, section_diff_summary
 
 logger = logging.getLogger(__name__)
@@ -55,9 +52,7 @@ async def update_draft(
 ) -> UpdateDraftResponse:
     state = get_state()
 
-    allowed, retry_after = await state.autosave_rate_limiter.check_and_record(
-        report_id=report_id
-    )
+    allowed, retry_after = await state.autosave_rate_limiter.check_and_record(report_id=report_id)
     if not allowed:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
@@ -83,9 +78,7 @@ async def update_draft(
         # Idempotency: same body_hash as most recent version + expected_version
         # matches current → return prior version, no new row.
         if body.expected_version == row.current_version_number:
-            current = await repo.fetch_version(
-                conn, version_id=row.current_version_id
-            )
+            current = await repo.fetch_version(conn, version_id=row.current_version_id)
             if current is not None and current.body_hash == body_hash:
                 logger.info(
                     "draft.update.idempotent_replay",
@@ -103,9 +96,7 @@ async def update_draft(
                 )
 
         try:
-            current = await repo.fetch_version(
-                conn, version_id=row.current_version_id
-            )
+            current = await repo.fetch_version(conn, version_id=row.current_version_id)
             assert current is not None
             diff = compute_diff(
                 report_id=str(report_id),
@@ -125,7 +116,7 @@ async def update_draft(
                 diff_jsonb=section_diff_summary(diff),
                 body_hash_override=body_hash,
             )
-        except OptimisticLockMismatch as exc:
+        except OptimisticLockMismatchError as exc:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 detail={

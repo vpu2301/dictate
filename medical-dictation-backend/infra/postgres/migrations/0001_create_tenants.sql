@@ -50,3 +50,11 @@ CREATE POLICY tenants_writer_all ON tenants
     FOR ALL TO tenant_writer
     USING (true)
     WITH CHECK (true);
+
+-- RESTRICTIVE defence-in-depth (Sprint A1): even if a future PERMISSIVE policy
+-- is added too loosely, app_role traffic can still only ever touch its own
+-- tenant row. Scoped TO app_role only — tenant_writer onboarding deliberately
+-- has no incumbent tenant context and must remain unrestricted.
+CREATE POLICY tenants_app_restrictive ON tenants
+    AS RESTRICTIVE FOR ALL TO app_role
+    USING (id = current_setting('app.tenant_id', true)::uuid);

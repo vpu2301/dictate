@@ -102,9 +102,7 @@ async def token_expiry_watchdog(ctx: SessionContext) -> None:
             return
         if remaining <= warn_before:
             try:
-                await ctx.ws.send_text(
-                    encode_server(TokenExpiring(expires_in_s=int(remaining)))
-                )
+                await ctx.ws.send_text(encode_server(TokenExpiring(expires_in_s=int(remaining))))
             except Exception:
                 return
             # Re-emit cadence: every 15 s while in the warn window so a

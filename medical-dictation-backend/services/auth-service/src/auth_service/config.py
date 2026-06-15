@@ -67,16 +67,12 @@ class Settings(BaseSettings):
     # ── Keycloak (server-side login proxy + admin API) ──────────────────
     keycloak_base_url: str = Field(default="http://localhost:8088", alias="KEYCLOAK_BASE_URL")
     keycloak_realm: str = Field(default="medical-dictation", alias="KEYCLOAK_REALM")
-    keycloak_login_client_id: str = Field(
-        default="mdx-backend", alias="KEYCLOAK_LOGIN_CLIENT_ID"
-    )
+    keycloak_login_client_id: str = Field(default="mdx-backend", alias="KEYCLOAK_LOGIN_CLIENT_ID")
     keycloak_login_client_secret: str = Field(
         default="dev-secret-change-in-prod-mdx-backend",
         alias="KEYCLOAK_LOGIN_CLIENT_SECRET",
     )
-    keycloak_admin_client_id: str = Field(
-        default="mdx-admin", alias="KEYCLOAK_ADMIN_CLIENT_ID"
-    )
+    keycloak_admin_client_id: str = Field(default="mdx-admin", alias="KEYCLOAK_ADMIN_CLIENT_ID")
     keycloak_admin_client_secret: str = Field(
         default="dev-secret-change-in-prod-mdx-admin",
         alias="KEYCLOAK_ADMIN_CLIENT_SECRET",
@@ -88,12 +84,35 @@ class Settings(BaseSettings):
     # In dev (http://localhost) browsers won't set a Secure cookie. Default
     # off in development; staging/prod environments must override.
     auth_cookie_secure: bool = Field(default=False, alias="AUTH_COOKIE_SECURE")
+    # SameSite for the refresh cookie. The dev SPA (http://localhost:5173) and
+    # auth-service (http://localhost:8000) are same-site (both localhost) but
+    # cross-origin; `lax` is sent on those XHR/fetch calls and is the safe SPA
+    # default. Cross-SITE prod deployments must set `none` + Secure.
+    auth_cookie_samesite: str = Field(default="lax", alias="AUTH_COOKIE_SAMESITE")
+
+    # ── CORS (sprint A3 — SPA integration) ──────────────────────────────
+    # Comma-separated browser origins allowed to call this service WITH
+    # credentials (the HttpOnly refresh cookie). Must be explicit origins —
+    # never "*" — because allow_credentials=true forbids the wildcard.
+    cors_allowed_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
 
     # ── MFA enforcement (sprint 02 ships disabled per pilot decision) ───
     # When MDX_REQUIRE_MFA=true, routes wrapped with the requires_mfa() dep
     # reject tokens whose ``mfa`` claim isn't True. Flipping this on is the
     # entire enablement path — no other code change is required.
     require_mfa: bool = Field(default=False, alias="MDX_REQUIRE_MFA")
+
+    # ── demo mode (sprint 07 HF Space) ─────────────────────────────────
+    # When MDX_DEMO_MODE=true the DemoRateLimitMiddleware enforces per-IP/
+    # per-user caps on session endpoints. Off everywhere but the public demo.
+    demo_mode: bool = Field(default=False, alias="MDX_DEMO_MODE")
 
 
 settings = Settings()

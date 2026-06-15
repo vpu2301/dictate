@@ -112,9 +112,7 @@ async def list_sessions(
                 conn, user_id=claims.sub, limit=limit
             )
         else:
-            rows = await repository.list_sessions(
-                conn, status=status_filter, limit=limit
-            )
+            rows = await repository.list_sessions(conn, status=status_filter, limit=limit)
     return [
         SessionSummary(
             id=r["id"],

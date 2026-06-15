@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from hypothesis import HealthCheck, given, settings
@@ -27,10 +27,7 @@ async def test_round_trip_with_aad(envelope: Envelope) -> None:
     tid = uuid4()
     audio_id = uuid4()
     blob = await envelope.encrypt(b"phi", tenant_id=tid, aad=audio_id.bytes)
-    assert (
-        await envelope.decrypt(blob, tenant_id=tid, aad=audio_id.bytes)
-        == b"phi"
-    )
+    assert await envelope.decrypt(blob, tenant_id=tid, aad=audio_id.bytes) == b"phi"
 
 
 async def test_round_trip_empty(envelope: Envelope) -> None:

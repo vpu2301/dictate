@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval
+.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -39,7 +39,14 @@ keycloak-export: ## Re-extract realm JSON from the running Keycloak container in
 	@bash scripts/dev/keycloak-export.sh
 
 seed: ## Seed the dev database with sample data
-	@python scripts/seed/seed.py
+	uv run python scripts/seed/seed.py
+
+.PHONY: run-auth-service
+run-auth-service: ## Run auth-service on :8000 for the SPA (needs dev-up + migrate-up + seed)
+	# The SPA (VITE_AUTH_SERVICE_URL) expects auth-service at http://localhost:8000.
+	# CORS allows the Vite dev origin (CORS_ALLOWED_ORIGINS); cookie is SameSite=lax.
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+	uv run --project services/auth-service uvicorn auth_service.main:app --host 0.0.0.0 --port 8000
 
 doctor: ## Diagnose local environment issues
 	@bash scripts/doctor.sh
@@ -52,8 +59,11 @@ lint: ## Run ruff linter across all packages
 lint-fix: ## Run ruff with auto-fix
 	uv run ruff check --fix .
 
-typecheck: ## Run mypy --strict across all packages
-	uv run mypy --strict services/_template/src/ services/asr-service/src/ services/asr-worker/src/ services/dictation-service/src/ services/nlp-service/src/ services/report-service/src/ libs/observability/src/ libs/secret/src/ libs/auth/src/ libs/db/src/ libs/audit/src/ libs/messaging/src/ libs/crypto/src/ libs/storage/src/ libs/asr_models/src/ libs/template_models/src/
+typecheck: ## Run mypy --strict over the CI-gated foundation packages (mirrors .github/workflows/ci.yml)
+	uv run --with "mypy>=1.10" mypy --strict services/_template/src/ libs/observability/src/ libs/secret/src/ libs/auth/src/ libs/db/src/ libs/audit/src/ libs/messaging/src/
+
+typecheck-all: ## Run mypy --strict over ALL packages (non-blocking; tracks feature-service typing debt — see Sprint A1 report)
+	uv run --with "mypy>=1.10" mypy --strict services/_template/src/ services/asr-service/src/ services/asr-worker/src/ services/dictation-service/src/ services/nlp-service/src/ services/report-service/src/ libs/observability/src/ libs/secret/src/ libs/auth/src/ libs/db/src/ libs/audit/src/ libs/messaging/src/ libs/crypto/src/ libs/storage/src/ libs/asr_models/src/ libs/template_models/src/
 
 type-check: typecheck ## Legacy alias of `typecheck`
 
@@ -84,19 +94,40 @@ test-cov: ## Run pytest with coverage report (gate ≥ 80%)
 		--cov-report=xml \
 		--cov-fail-under=80
 
-security: ## Run bandit + pip-audit + semgrep
-	uv run bandit -r services/ libs/ -ll
-	uv run pip-audit || true
-	uv run semgrep --config p/owasp-top-ten --error || true
+security: ## Run bandit (SAST) + pip-audit + semgrep
+	# bandit: applies [tool.bandit] config (excludes tests, skips B101) and the
+	# same confidence filter as CI. MEDIUM is informational; HIGH is blocking.
+	uv run --with "bandit[toml]>=1.7.8" bandit -c pyproject.toml -r services/ libs/ --severity-level medium --confidence-level medium --exit-zero
+	uv run --with "bandit[toml]>=1.7.8" bandit -c pyproject.toml -r services/ libs/ --severity-level high --confidence-level medium
+	uv run --with pip-audit pip-audit || true
+	uv run --with semgrep semgrep --config p/owasp-top-ten --error || true
 
 security-scan: security ## Legacy alias of `security`
 
 lint-imports: ## Verify architectural contracts (import-linter)
-	uv run lint-imports --config pyproject.toml
+	# import-linter is not a venv dependency — pull it in for the run.
+	uv run --with "import-linter>=2.0" lint-imports --config pyproject.toml
 
-reset-db: ## Wipe and recreate the dev Postgres volume
+# The custom gates sweep APPLICATION SOURCE only (services/*/src, libs/*/src) —
+# the domain where architecture rules #7/#8 bind. Integration tests, the
+# migration runner, and operational scripts legitimately use raw asyncpg / env
+# and are out of scope (the scripts' own exclusions cover config.py/tests too).
+APP_SRC = git ls-files '*.py' | grep -E '^(services|libs)/[^/]+/src/'
+
+check-no-os-environ: ## CI gate — os.environ/os.getenv reads only in config.py
+	$(APP_SRC) | xargs uv run python scripts/dev/check-no-os-environ.py
+
+check-no-direct-asyncpg: ## CI gate — raw asyncpg only in libs/db (use tenant_connection)
+	$(APP_SRC) | xargs uv run python scripts/dev/check-no-direct-asyncpg.py
+
+reset-db: ## Wipe and recreate the dev Postgres volume (also re-imports the Keycloak realm)
 	$(COMPOSE) -f $(COMPOSE_FILE) down -v postgres
 	$(COMPOSE) -f $(COMPOSE_FILE) up -d --wait postgres
+	# Keycloak stores its realm in the SAME Postgres server (db `keycloak`).
+	# Wiping the volume drops Keycloak's schema; without this recreate it keeps
+	# a dead connection and every token request fails with `unauthorized_client`
+	# (Sprint A1, DEF-A1-16). Force-recreate so it rebuilds schema + re-imports.
+	$(COMPOSE) -f $(COMPOSE_FILE) up -d --force-recreate --wait keycloak
 
 migrate-up: ## Apply pending SQL migrations against the dev DB
 	uv run python scripts/db/migrate.py up
@@ -184,7 +215,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security check-audit-insert check-no-object-storage check-no-crypto validate-templates ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto validate-templates ## Mirror CI gates locally
 
 ci-with-db: ci check-rls openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

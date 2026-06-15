@@ -6,8 +6,6 @@ import asyncio
 from datetime import date
 from uuid import UUID
 
-import pytest
-
 from nlp_service.pipeline.base import (
     AbbreviationSnapshot,
     ProcessingContext,
@@ -68,8 +66,7 @@ def test_adjacent_same_level_merged() -> None:
 def test_voice_command_token_skipped() -> None:
     stage = ConfidenceStage()
     words = (
-        Word(text="новий", start_s=0.0, end_s=0.2, probability=0.3,
-             is_voice_command_token=True),
+        Word(text="новий", start_s=0.0, end_s=0.2, probability=0.3, is_voice_command_token=True),
     )
     out = asyncio.run(stage.process(_ctx(), StageInput(text="новий", words=words)))
     assert out.confidence_spans == ()

@@ -8,7 +8,7 @@
 CREATE TABLE autocomplete_snippets (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID REFERENCES tenants(id) ON DELETE CASCADE,
-    owner_user_id   UUID REFERENCES users(id) ON DELETE CASCADE,
+    owner_user_id   UUID REFERENCES users(sub) ON DELETE CASCADE,
     trigger         TEXT NOT NULL,
     expansion       TEXT NOT NULL,
     cursor_position INTEGER NOT NULL DEFAULT 0,

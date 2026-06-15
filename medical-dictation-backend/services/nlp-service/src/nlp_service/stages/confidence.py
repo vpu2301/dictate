@@ -20,14 +20,12 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
 from typing import Literal
 
 from ..config import settings
 from ..pipeline.base import (
     ConfidenceSpan,
     ProcessingContext,
-    Stage,
     StageInput,
     StageOutput,
     Word,
@@ -42,9 +40,7 @@ class ConfidenceStage:
     name = "confidence"
     runs_on_partials: bool = True
 
-    async def process(
-        self, ctx: ProcessingContext, input: StageInput
-    ) -> StageOutput:
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
         t0 = time.monotonic()
         spans = _compute_spans(
             text=input.text,
@@ -99,7 +95,7 @@ def _compute_spans(
         # Merge with previous if adjacent + same level.
         if out:
             last = out[-1]
-            if last.level == level and text[last.end_char:start].strip() == "":
+            if last.level == level and text[last.end_char : start].strip() == "":
                 out[-1] = ConfidenceSpan(
                     start_char=last.start_char,
                     end_char=end,

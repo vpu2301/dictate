@@ -82,28 +82,6 @@
         "title": "InviteResponse",
         "type": "object"
       },
-      "LoginRequest": {
-        "properties": {
-          "password": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
-          },
-          "username": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "username",
-          "password"
-        ],
-        "title": "LoginRequest",
-        "type": "object"
-      },
       "LoginResponse": {
         "properties": {
           "access_token": {
@@ -593,16 +571,6 @@
     "/auth/login": {
       "post": {
         "operationId": "login_auth_login_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
@@ -613,16 +581,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "summary": "Exchange username + password for an access token",

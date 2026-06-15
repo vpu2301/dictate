@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 import asyncpg
@@ -19,7 +19,8 @@ import asyncpg
 from audit import AuditWriter, Severity
 from db import create_pool, tenant_connection
 
-from .. import audit_kinds, repository as repo
+from .. import audit_kinds
+from .. import repository as repo
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ async def rollup_all(
     redis,
     day: date | None = None,
 ) -> int:
-    day_iso = (day or (datetime.now(timezone.utc).date() - timedelta(days=1))).isoformat()
+    day_iso = (day or (datetime.now(UTC).date() - timedelta(days=1))).isoformat()
     total_updated = 0
     async with app_pool.acquire() as conn:
         tenants = await conn.fetch(

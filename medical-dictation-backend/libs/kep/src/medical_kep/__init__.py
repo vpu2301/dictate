@@ -21,8 +21,8 @@ canonical JSON).
 
 from medical_kep.canonicalize import (
     CANONICAL_VERSION,
-    canonicalize_report,
     canonical_hash_hex,
+    canonicalize_report,
 )
 from medical_kep.envelope import (
     Envelope,

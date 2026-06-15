@@ -116,9 +116,7 @@ class TenantKekRepository:
                 return cached.plaintext
 
             row = await self._fetch_or_insert(tenant_id)
-            plaintext = await self._master.unwrap(
-                row["kek_master_id"], bytes(row["wrapped_kek"])
-            )
+            plaintext = await self._master.unwrap(row["kek_master_id"], bytes(row["wrapped_kek"]))
             if len(plaintext) != MASTER_KEY_SIZE_BYTES:
                 raise RuntimeError(
                     f"tenant KEK is {len(plaintext)} bytes; expected "
@@ -138,50 +136,49 @@ class TenantKekRepository:
         first-encrypts for the same tenant across processes. The follow-up
         SELECT is guaranteed to find a row.
         """
-        async with self._pool.acquire() as conn:
-            # Cross-tenant fetch is allowed here ONLY because the
-            # crypto_writer role is granted exactly that surface. The
-            # caller's identity is already authenticated upstream.
-            async with conn.transaction():
-                row = await conn.fetchrow(
-                    "SELECT wrapped_kek, kek_master_id FROM tenant_keks WHERE tenant_id = $1",
-                    tenant_id,
-                )
-                if row is not None:
-                    return row
-
-                # Generate a fresh KEK and wrap it under the current
-                # master. The DB INSERT cannot run inside the lock above
-                # because asyncpg pool acquisition can block on it.
-                plaintext_kek = os.urandom(MASTER_KEY_SIZE_BYTES)
-                try:
-                    master_key_id, wrapped = await self._master.wrap(plaintext_kek)
-                finally:
-                    plaintext_kek = b"\x00" * MASTER_KEY_SIZE_BYTES  # noqa: F841
-
-                await conn.execute(
-                    """
-                    INSERT INTO tenant_keks (tenant_id, wrapped_kek, kek_master_id)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (tenant_id) DO NOTHING
-                    """,
-                    tenant_id,
-                    wrapped,
-                    master_key_id,
-                )
-                # Re-fetch — either we just inserted, or another process
-                # got there first; either way the row exists now.
-                row = await conn.fetchrow(
-                    "SELECT wrapped_kek, kek_master_id FROM tenant_keks WHERE tenant_id = $1",
-                    tenant_id,
-                )
-                if row is None:  # pragma: no cover  — defensive
-                    raise RuntimeError(
-                        f"tenant KEK row missing for {tenant_id} immediately "
-                        "after INSERT — Postgres role lacks SELECT privilege?"
-                    )
-                logger.info(
-                    "tenant_kek.created",
-                    extra={"tenant_id": str(tenant_id), "master_key_id": master_key_id},
-                )
+        # Cross-tenant fetch is allowed here ONLY because the
+        # crypto_writer role is granted exactly that surface. The
+        # caller's identity is already authenticated upstream.
+        async with self._pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow(
+                "SELECT wrapped_kek, kek_master_id FROM tenant_keks WHERE tenant_id = $1",
+                tenant_id,
+            )
+            if row is not None:
                 return row
+
+            # Generate a fresh KEK and wrap it under the current
+            # master. The DB INSERT cannot run inside the lock above
+            # because asyncpg pool acquisition can block on it.
+            plaintext_kek = os.urandom(MASTER_KEY_SIZE_BYTES)
+            try:
+                master_key_id, wrapped = await self._master.wrap(plaintext_kek)
+            finally:
+                plaintext_kek = b"\x00" * MASTER_KEY_SIZE_BYTES  # noqa: F841
+
+            await conn.execute(
+                """
+                INSERT INTO tenant_keks (tenant_id, wrapped_kek, kek_master_id)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (tenant_id) DO NOTHING
+                """,
+                tenant_id,
+                wrapped,
+                master_key_id,
+            )
+            # Re-fetch — either we just inserted, or another process
+            # got there first; either way the row exists now.
+            row = await conn.fetchrow(
+                "SELECT wrapped_kek, kek_master_id FROM tenant_keks WHERE tenant_id = $1",
+                tenant_id,
+            )
+            if row is None:  # pragma: no cover  — defensive
+                raise RuntimeError(
+                    f"tenant KEK row missing for {tenant_id} immediately "
+                    "after INSERT — Postgres role lacks SELECT privilege?"
+                )
+            logger.info(
+                "tenant_kek.created",
+                extra={"tenant_id": str(tenant_id), "master_key_id": master_key_id},
+            )
+            return row

@@ -45,9 +45,7 @@ def install_state(state: ServiceState) -> None:
 
 def get_state() -> ServiceState:
     if _state is None:
-        raise RuntimeError(
-            "ServiceState not installed; this code must run after lifespan startup"
-        )
+        raise RuntimeError("ServiceState not installed; this code must run after lifespan startup")
     return _state
 
 
@@ -191,5 +189,3 @@ async def _emit_authz_denied(exc: AuthzDeniedError) -> None:
                 "error_class": type(audit_exc).__name__,
             },
         )
-
-

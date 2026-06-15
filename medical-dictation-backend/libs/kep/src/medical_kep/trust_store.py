@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from asn1crypto import x509
 
@@ -41,7 +40,7 @@ class TrustStore:
             object.__setattr__(self, "test_ca_certs", [])
 
     @classmethod
-    def load_from_dir(cls, dir_path: Path, *, include_test_ca: bool = False) -> "TrustStore":
+    def load_from_dir(cls, dir_path: Path, *, include_test_ca: bool = False) -> TrustStore:
         ca_path = dir_path / "ca-bundle.pem"
         tsa_path = dir_path / "tsa-bundle.pem"
         czo_path = dir_path / "czo-cert.pem"
@@ -55,9 +54,7 @@ class TrustStore:
         if include_test_ca and test_ca_path.exists():
             test_ca_certs = _load_pem_bundle(test_ca_path)
             if test_ca_certs:
-                logger.warning(
-                    "trust_store.test_ca_loaded — NEVER allowed in production"
-                )
+                logger.warning("trust_store.test_ca_loaded — NEVER allowed in production")
 
         return cls(
             ca_certs=ca_certs,
@@ -114,14 +111,11 @@ def _load_pem_bundle(path: Path) -> list[x509.Certificate]:
         try:
             from cryptography.hazmat.primitives import serialization
 
-            der_or_pem = b.encode("ascii")
             crypto_cert = serialization.load_pem_x509_certificate.__self__ if False else None  # noqa: F841 — placeholder
             # Use asn1crypto on the DER bytes for consistency with envelope.py.
             import base64
 
-            inner = "\n".join(
-                line for line in b.splitlines() if "CERTIFICATE" not in line
-            )
+            inner = "\n".join(line for line in b.splitlines() if "CERTIFICATE" not in line)
             der = base64.b64decode(inner)
             out.append(x509.Certificate.load(der))
         except Exception as exc:  # noqa: BLE001

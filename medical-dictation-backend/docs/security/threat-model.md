@@ -13,7 +13,7 @@ respective sprints.
 
 ```
 [browser] ─https→ [auth-service] ─REST→ [Keycloak] ─JDBC→ [keycloak DB]
-                  ↓                              
+                  ↓
                   ↓ asyncpg
                   ↓
             [Postgres /medical_dictation/]

@@ -86,9 +86,7 @@ def normalized_levenshtein(a: list[str], b: list[str]) -> float:
     return prev[m] / max(n, m)
 
 
-def _backtrace_alignment(
-    a: list[str], b: list[str]
-) -> list[tuple[str, int, int]]:
+def _backtrace_alignment(a: list[str], b: list[str]) -> list[tuple[str, int, int]]:
     """Produce the alignment operations (match/sub/ins/del) for two strings.
 
     Returned list contains ``(op, i, j)`` tuples in forward order, where
@@ -105,9 +103,9 @@ def _backtrace_alignment(
         for j in range(1, m + 1):
             cost = 0 if a[i - 1] == b[j - 1] else 1
             dp[i][j] = min(
-                dp[i - 1][j] + 1,        # delete
-                dp[i][j - 1] + 1,        # insert
-                dp[i - 1][j - 1] + cost, # match / sub
+                dp[i - 1][j] + 1,  # delete
+                dp[i][j - 1] + 1,  # insert
+                dp[i - 1][j - 1] + cost,  # match / sub
             )
 
     ops: list[tuple[str, int, int]] = []

@@ -14,10 +14,11 @@ cap is reached, the WS upgrade handler rejects new sessions with
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Awaitable, Callable
 
 import numpy as np
 
@@ -62,7 +63,7 @@ class InferenceQueue:
         self._worker_id = worker_id
         self._consecutive_deadline_misses = 0
 
-    async def __aenter__(self) -> "InferenceQueue":
+    async def __aenter__(self) -> InferenceQueue:
         self._consumer_task = asyncio.create_task(self._consume())
         return self
 
@@ -70,10 +71,8 @@ class InferenceQueue:
         self._stop.set()
         if self._consumer_task is not None:
             self._consumer_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._consumer_task
-            except (asyncio.CancelledError, Exception):
-                pass
 
     async def submit(
         self,
@@ -85,9 +84,7 @@ class InferenceQueue:
     ) -> object:
         """Enqueue a window for inference; return the WindowResult."""
         audio_seconds = pcm.shape[0] / 16_000.0
-        deadline = time.monotonic() + max(
-            2.0, audio_seconds * self._deadline_multiplier
-        )
+        deadline = time.monotonic() + max(2.0, audio_seconds * self._deadline_multiplier)
         fut: asyncio.Future[object] = asyncio.get_running_loop().create_future()
         await self._queue.put(
             _Job(
@@ -109,7 +106,7 @@ class InferenceQueue:
         while not self._stop.is_set():
             try:
                 job = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             t0 = time.monotonic()
             try:

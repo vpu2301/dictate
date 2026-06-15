@@ -183,9 +183,7 @@ class VoiceCommandMatcher:
 
     # ── Section argument resolution ────────────────────────────────
 
-    def _resolve_section(
-        self, words: list[Word], start: int
-    ) -> tuple[str | None, int]:
+    def _resolve_section(self, words: list[Word], start: int) -> tuple[str | None, int]:
         """Look at the next 1–3 words; return (section_id, words_consumed).
 
         Sections are matched by name OR alias, case-insensitively. If

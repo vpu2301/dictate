@@ -21,15 +21,12 @@ emitting CAdES-T-shaped envelopes.
 from __future__ import annotations
 
 import base64
-import hashlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
 
 from asn1crypto import cms, x509
-from cryptography.hazmat.primitives import serialization
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +96,8 @@ _QUALIFIED_POLICY_OIDS = {
     # store; this set is the conservative defaults baked into the
     # parser for routing only — the trust-store check is the final
     # source of truth.
-    "0.4.0.1862.1.1",     # qcCompliance
-    "0.4.0.1862.1.6.1",   # qcType-eSign
+    "0.4.0.1862.1.1",  # qcCompliance
+    "0.4.0.1862.1.6.1",  # qcType-eSign
 }
 
 
@@ -111,8 +108,7 @@ def _parse_cms(raw: bytes, *, declared: EnvelopeFormat | None) -> ParsedEnvelope
     signed_data: cms.SignedData = info["content"]
 
     certs_native: list[x509.Certificate] = [
-        c.chosen for c in signed_data["certificates"]
-        if c.name == "certificate"
+        c.chosen for c in signed_data["certificates"] if c.name == "certificate"
     ]
     if not certs_native:
         raise EnvelopeParseError("CMS SignedData has no certificates")
@@ -135,11 +131,7 @@ def _parse_cms(raw: bytes, *, declared: EnvelopeFormat | None) -> ParsedEnvelope
     ocsp_present = _has_ocsp_responses(signed_data)
     is_qualified = _is_qualified(signer_cert)
 
-    chain_pem = [
-        c.dump().hex() if False else
-        _to_pem(c)
-        for c in certs_native
-    ]
+    chain_pem = [c.dump().hex() if False else _to_pem(c) for c in certs_native]
 
     return ParsedEnvelope(
         format=declared or (EnvelopeFormat.CADES_T if tsa_present else EnvelopeFormat.CADES_BES),
@@ -180,10 +172,14 @@ def _parse_pdf_pades(raw: bytes, *, declared: EnvelopeFormat | None) -> ParsedEn
     # provider emits CMS directly and Дія returns CAdES-T which goes
     # via _parse_cms; PAdES support is wired but exercised in sprint-09
     # day-9 corner cases on real envelopes only.
-    raise EnvelopeParseError("PAdES PDF signature extraction not implemented for sprint-09 mock path")
+    raise EnvelopeParseError(
+        "PAdES PDF signature extraction not implemented for sprint-09 mock path"
+    )
 
 
-def _find_signer_cert(signer_info: cms.SignerInfo, certs: list[x509.Certificate]) -> x509.Certificate:
+def _find_signer_cert(
+    signer_info: cms.SignerInfo, certs: list[x509.Certificate]
+) -> x509.Certificate:
     sid = signer_info["sid"]
     if sid.name == "issuer_and_serial_number":
         issuer = sid.chosen["issuer"]
@@ -250,18 +246,15 @@ def _extract_signing_time(signer_info: cms.SignerInfo) -> datetime:
             if attr["type"].native == "signing_time":
                 v = attr["values"][0].native
                 if isinstance(v, datetime):
-                    return v.astimezone(timezone.utc) if v.tzinfo else v.replace(tzinfo=timezone.utc)
-    return datetime.now(timezone.utc)
+                    return v.astimezone(UTC) if v.tzinfo else v.replace(tzinfo=UTC)
+    return datetime.now(UTC)
 
 
 def _has_tsa_token(signer_info: cms.SignerInfo) -> bool:
     unsigned_attrs = signer_info["unsigned_attrs"]
     if unsigned_attrs is None:
         return False
-    for attr in unsigned_attrs:
-        if attr["type"].native == "signature_time_stamp_token":
-            return True
-    return False
+    return any(attr["type"].native == "signature_time_stamp_token" for attr in unsigned_attrs)
 
 
 def _has_ocsp_responses(signed_data: cms.SignedData) -> bool:
@@ -271,7 +264,10 @@ def _has_ocsp_responses(signed_data: cms.SignedData) -> bool:
         for ri in revocation_infos or []:
             if ri.name == "other":
                 inner = ri.chosen
-                if hasattr(inner, "native") and "ocsp" in str(inner["other_rev_info_format"].native).lower():
+                if (
+                    hasattr(inner, "native")
+                    and "ocsp" in str(inner["other_rev_info_format"].native).lower()
+                ):
                     return True
     except Exception:  # noqa: BLE001
         return False

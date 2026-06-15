@@ -11,7 +11,7 @@ tests that exercise the surrounding framing.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -95,8 +95,7 @@ class OpusDecoder:
         if len(pcm_bytes) != SAMPLES_PER_FRAME * 2:
             self._stats.frames_failed += 1
             raise OpusDecodeError(
-                f"opus decode produced {len(pcm_bytes)} bytes, expected "
-                f"{SAMPLES_PER_FRAME * 2}",
+                f"opus decode produced {len(pcm_bytes)} bytes, expected {SAMPLES_PER_FRAME * 2}",
             )
 
         pcm = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0

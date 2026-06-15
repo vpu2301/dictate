@@ -8,7 +8,6 @@ three GUC keys for the ``write_user_phrases`` policy).
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from typing import Any
@@ -79,13 +78,17 @@ async def insert_phrase(
         VALUES ($1, $2, $3, $4, $5, $6, $7::autocomplete_source)
         RETURNING id
         """,
-        tenant_id, owner_user_id, phrase, language, specialty, section_hint, source,
+        tenant_id,
+        owner_user_id,
+        phrase,
+        language,
+        specialty,
+        section_hint,
+        source,
     )
 
 
-async def soft_delete_phrase(
-    conn: asyncpg.Connection, *, phrase_id: UUID
-) -> bool:
+async def soft_delete_phrase(conn: asyncpg.Connection, *, phrase_id: UUID) -> bool:
     row = await conn.fetchrow(
         "UPDATE autocomplete_phrases SET enabled = FALSE, updated_at = now() "
         "WHERE id = $1 RETURNING id",
@@ -102,9 +105,11 @@ async def list_phrases(
     source: str | None,
     limit: int,
 ) -> list[asyncpg.Record]:
-    sql_parts = ["SELECT id, phrase, language, specialty, section_hint, source, "
-                 "impression_count, acceptance_count, enabled, created_at "
-                 "FROM autocomplete_phrases WHERE enabled = TRUE"]
+    sql_parts = [
+        "SELECT id, phrase, language, specialty, section_hint, source, "
+        "impression_count, acceptance_count, enabled, created_at "
+        "FROM autocomplete_phrases WHERE enabled = TRUE"
+    ]
     args: list[Any] = []
     if language:
         args.append(language)
@@ -147,7 +152,8 @@ async def fetch_snippet(
             END
         LIMIT 1
         """,
-        trigger, language,
+        trigger,
+        language,
     )
 
 
@@ -169,19 +175,23 @@ async def insert_snippet(
         VALUES ($1, $2, $3, $4, $5, $6, $7::autocomplete_source)
         RETURNING id
         """,
-        tenant_id, owner_user_id, trigger, expansion, cursor_position, language, source,
+        tenant_id,
+        owner_user_id,
+        trigger,
+        expansion,
+        cursor_position,
+        language,
+        source,
     )
 
 
 # ── Telemetry ──────────────────────────────────────────────────────
 
 
-async def insert_telemetry_batch(
-    conn: asyncpg.Connection, rows: list[tuple]
-) -> int:
+async def insert_telemetry_batch(conn: asyncpg.Connection, rows: list[tuple]) -> int:
     if not rows:
         return 0
-    out = await conn.executemany(
+    await conn.executemany(
         """
         INSERT INTO autocomplete_telemetry
             (tenant_id, user_id, request_id, event_type,
@@ -206,7 +216,8 @@ async def rollup_tenant_day(
     """
     row = await conn.fetchrow(
         "SELECT 1 FROM autocomplete_rollup_progress WHERE rollup_date = $1::date AND tenant_id = $2",
-        day_iso, tenant_id,
+        day_iso,
+        tenant_id,
     )
     if row is not None:
         return 0
@@ -224,7 +235,8 @@ async def rollup_tenant_day(
           AND created_at <  ($2::date + interval '1 day')
         GROUP BY phrase_id
         """,
-        tenant_id, day_iso,
+        tenant_id,
+        day_iso,
     )
     updated = 0
     for r in impressions:
@@ -237,14 +249,19 @@ async def rollup_tenant_day(
                 updated_at       = now()
             WHERE id = $1
             """,
-            r["phrase_id"], int(r["impressions"]), int(r["accepts"]), r["last_acc"],
+            r["phrase_id"],
+            int(r["impressions"]),
+            int(r["accepts"]),
+            r["last_acc"],
         )
         updated += 1
 
     await conn.execute(
         "INSERT INTO autocomplete_rollup_progress (rollup_date, tenant_id, events_processed) "
         "VALUES ($1::date, $2, $3)",
-        day_iso, tenant_id, sum(int(r["impressions"]) for r in impressions),
+        day_iso,
+        tenant_id,
+        sum(int(r["impressions"]) for r in impressions),
     )
     return updated
 

@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import asyncpg
+from medical_kep import TrustStore
 
 from audit import AuditWriter
 from auth import JwksCache
 from db import create_pool
-from medical_kep import TrustStore
 
 from .config import settings
 from .providers import ProviderRegistry, build_registry
@@ -34,9 +34,7 @@ class ServiceState:
 
 
 async def build_state() -> ServiceState:
-    jwks_cache = JwksCache(
-        issuer_to_url={settings.auth_issuer: settings.auth_jwks_url}
-    )
+    jwks_cache = JwksCache(issuer_to_url={settings.auth_issuer: settings.auth_jwks_url})
     app_pool = await create_pool(
         settings.db_app_role_dsn,
         application_name=f"{settings.service_name}/app",
@@ -70,9 +68,7 @@ async def build_state() -> ServiceState:
     from redis.asyncio import Redis
 
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
-    rate_limiter = PublicVerifyRateLimiter(
-        redis, per_minute=settings.public_verify_rate_per_minute
-    )
+    rate_limiter = PublicVerifyRateLimiter(redis, per_minute=settings.public_verify_rate_per_minute)
 
     providers = build_registry()
 

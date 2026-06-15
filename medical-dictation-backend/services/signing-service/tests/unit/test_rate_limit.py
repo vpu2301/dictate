@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
+import fakeredis.aioredis
 import pytest
 import pytest_asyncio
-import fakeredis.aioredis
-
 from signing_service.rate_limit import PublicVerifyRateLimiter
-
 
 pytestmark = pytest.mark.asyncio
 

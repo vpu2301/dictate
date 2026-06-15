@@ -12,12 +12,12 @@ from audit import AuditWriter, Severity
 from auth import JwksCache
 from db import create_pool
 
+from . import audit_kinds
 from .config import settings
 from .domain.autosave_rate_limit import AutosaveRateLimiter
 from .domain.cache import TemplateCache
 from .domain.diff_cache import DiffCache
 from .domain.draft_audit_buffer import DraftAuditBuffer
-from . import audit_kinds
 
 logger = logging.getLogger(__name__)
 _meter = metrics.get_meter("mdx.report")
@@ -40,9 +40,7 @@ class ServiceState:
 
 
 async def build_state() -> ServiceState:
-    jwks_cache = JwksCache(
-        issuer_to_url={settings.auth_issuer: settings.auth_jwks_url}
-    )
+    jwks_cache = JwksCache(issuer_to_url={settings.auth_issuer: settings.auth_jwks_url})
     app_pool = await create_pool(
         settings.db_app_role_dsn,
         application_name=f"{settings.service_name}/app",

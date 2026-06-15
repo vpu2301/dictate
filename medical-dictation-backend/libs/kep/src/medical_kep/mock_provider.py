@@ -13,26 +13,23 @@ difference is the trust anchor.
 
 from __future__ import annotations
 
-import asyncio
-import base64
 import hashlib
 import json
 import logging
 import os
-import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from asn1crypto import cms as cms_asn1
-from asn1crypto import core, x509
+from asn1crypto import x509
 from cryptography import x509 as crypto_x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.x509.oid import NameOID
 
-from medical_kep.envelope import EnvelopeFormat, ParsedEnvelope
+from medical_kep.envelope import EnvelopeFormat
 from medical_kep.provider import (
     DocumentDisplayMetadata,
     InvalidCallbackError,
@@ -64,7 +61,10 @@ class MockProvider(SigningProvider):
         environment: str | None = None,
         test_ca_dir: Path | None = None,
     ) -> None:
-        env = (environment or os.environ.get("ENVIRONMENT", "development")).lower()
+        # noqa justified: this is a library-level fail-safe, not app config —
+        # callers pass `environment` from their typed settings; the env read is
+        # only the fallback that refuses to construct a mock signer in prod.
+        env = (environment or os.environ.get("ENVIRONMENT", "development")).lower()  # noqa: ENV001
         if env in ("production", "prod"):
             raise RuntimeError(
                 "MockProvider may NOT run in production "
@@ -95,7 +95,7 @@ class MockProvider(SigningProvider):
         return SigningSessionInit(
             provider=ProviderName.MOCK,
             provider_session_id=sid,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            expires_at=datetime.now(UTC) + timedelta(minutes=10),
             redirect_url=url,
             qr_payload=f"mock://{sid}",
         )
@@ -143,7 +143,7 @@ class MockProvider(SigningProvider):
             signer_cert_issuer_cn=self._ca.issuer_cn,
             cert_chain_pem=self._ca.chain_pem,
             document_hash_sha256=doc_hash,
-            signed_at=datetime.now(timezone.utc),
+            signed_at=datetime.now(UTC),
             tsa_token_present=False,
             ocsp_responses_present=False,
             signature_algorithm="sha256WithRSAEncryption",
@@ -159,9 +159,7 @@ class MockProvider(SigningProvider):
         )
 
     async def health(self) -> ProviderHealthSnapshot:
-        return ProviderHealthSnapshot(
-            provider=ProviderName.MOCK, healthy=True, latency_ms=0
-        )
+        return ProviderHealthSnapshot(provider=ProviderName.MOCK, healthy=True, latency_ms=0)
 
     async def aclose(self) -> None:
         self._sessions.clear()
@@ -210,12 +208,14 @@ def _ensure_test_ca(dir_path: Path) -> _TestCA:
         return _load_test_ca(dir_path)
 
     ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    ca_subject = crypto_x509.Name([
-        crypto_x509.NameAttribute(NameOID.COUNTRY_NAME, "UA"),
-        crypto_x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Medical Dictation Test CA"),
-        crypto_x509.NameAttribute(NameOID.COMMON_NAME, "Medical Dictation Test CA"),
-    ])
-    now = datetime.now(timezone.utc)
+    ca_subject = crypto_x509.Name(
+        [
+            crypto_x509.NameAttribute(NameOID.COUNTRY_NAME, "UA"),
+            crypto_x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Medical Dictation Test CA"),
+            crypto_x509.NameAttribute(NameOID.COMMON_NAME, "Medical Dictation Test CA"),
+        ]
+    )
+    now = datetime.now(UTC)
     ca_cert = (
         crypto_x509.CertificateBuilder()
         .subject_name(ca_subject)
@@ -227,10 +227,15 @@ def _ensure_test_ca(dir_path: Path) -> _TestCA:
         .add_extension(crypto_x509.BasicConstraints(ca=True, path_length=1), critical=True)
         .add_extension(
             crypto_x509.KeyUsage(
-                digital_signature=False, content_commitment=False, key_encipherment=False,
-                data_encipherment=False, key_agreement=False,
-                key_cert_sign=True, crl_sign=True,
-                encipher_only=False, decipher_only=False,
+                digital_signature=False,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=True,
+                crl_sign=True,
+                encipher_only=False,
+                decipher_only=False,
             ),
             critical=True,
         )
@@ -238,11 +243,13 @@ def _ensure_test_ca(dir_path: Path) -> _TestCA:
     )
 
     leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    leaf_subject = crypto_x509.Name([
-        crypto_x509.NameAttribute(NameOID.COUNTRY_NAME, "UA"),
-        crypto_x509.NameAttribute(NameOID.COMMON_NAME, "Test Clinician Leaf"),
-        crypto_x509.NameAttribute(NameOID.SERIAL_NUMBER, "1234567890"),
-    ])
+    leaf_subject = crypto_x509.Name(
+        [
+            crypto_x509.NameAttribute(NameOID.COUNTRY_NAME, "UA"),
+            crypto_x509.NameAttribute(NameOID.COMMON_NAME, "Test Clinician Leaf"),
+            crypto_x509.NameAttribute(NameOID.SERIAL_NUMBER, "1234567890"),
+        ]
+    )
     leaf_cert = (
         crypto_x509.CertificateBuilder()
         .subject_name(leaf_subject)
@@ -253,10 +260,15 @@ def _ensure_test_ca(dir_path: Path) -> _TestCA:
         .not_valid_after(now + timedelta(days=730))
         .add_extension(
             crypto_x509.KeyUsage(
-                digital_signature=True, content_commitment=True, key_encipherment=False,
-                data_encipherment=False, key_agreement=False,
-                key_cert_sign=False, crl_sign=False,
-                encipher_only=False, decipher_only=False,
+                digital_signature=True,
+                content_commitment=True,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
             ),
             critical=True,
         )
@@ -290,9 +302,7 @@ def _load_test_ca(dir_path: Path) -> _TestCA:
     leaf_key = serialization.load_pem_private_key(
         (dir_path / "leaf.key.pem").read_bytes(), password=None
     )
-    leaf_cert = crypto_x509.load_pem_x509_certificate(
-        (dir_path / "leaf.cert.pem").read_bytes()
-    )
+    leaf_cert = crypto_x509.load_pem_x509_certificate((dir_path / "leaf.cert.pem").read_bytes())
     return _TestCA(ca_cert, ca_key, leaf_cert, leaf_key)
 
 
@@ -310,50 +320,62 @@ def _sign_with_test_ca(
     leaf_x = x509.Certificate.load(leaf_der)
     ca_x = x509.Certificate.load(ca_der)
 
-    signed_attrs = cms_asn1.CMSAttributes([
-        cms_asn1.CMSAttribute({"type": "content_type", "values": ["data"]}),
-        cms_asn1.CMSAttribute({"type": "message_digest", "values": [doc_hash]}),
-        cms_asn1.CMSAttribute({
-            "type": "signing_time",
-            "values": [cms_asn1.Time({"utc_time": datetime.now(timezone.utc)})],
-        }),
-    ])
+    signed_attrs = cms_asn1.CMSAttributes(
+        [
+            cms_asn1.CMSAttribute({"type": "content_type", "values": ["data"]}),
+            cms_asn1.CMSAttribute({"type": "message_digest", "values": [doc_hash]}),
+            cms_asn1.CMSAttribute(
+                {
+                    "type": "signing_time",
+                    "values": [cms_asn1.Time({"utc_time": datetime.now(UTC)})],
+                }
+            ),
+        ]
+    )
 
     tbs = signed_attrs.dump()
     signature = ca.leaf_key.sign(tbs, padding.PKCS1v15(), hashes.SHA256())
 
-    signer_info = cms_asn1.SignerInfo({
-        "version": "v1",
-        "sid": cms_asn1.SignerIdentifier(
-            "issuer_and_serial_number",
-            cms_asn1.IssuerAndSerialNumber({
-                "issuer": leaf_x.issuer,
-                "serial_number": leaf_x.serial_number,
-            }),
-        ),
-        "digest_algorithm": {"algorithm": "sha256"},
-        "signed_attrs": signed_attrs,
-        "signature_algorithm": {"algorithm": "sha256_rsa"},
-        "signature": signature,
-    })
+    signer_info = cms_asn1.SignerInfo(
+        {
+            "version": "v1",
+            "sid": cms_asn1.SignerIdentifier(
+                "issuer_and_serial_number",
+                cms_asn1.IssuerAndSerialNumber(
+                    {
+                        "issuer": leaf_x.issuer,
+                        "serial_number": leaf_x.serial_number,
+                    }
+                ),
+            ),
+            "digest_algorithm": {"algorithm": "sha256"},
+            "signed_attrs": signed_attrs,
+            "signature_algorithm": {"algorithm": "sha256_rsa"},
+            "signature": signature,
+        }
+    )
 
-    signed_data = cms_asn1.SignedData({
-        "version": "v1",
-        "digest_algorithms": [{"algorithm": "sha256"}],
-        "encap_content_info": {
-            "content_type": "data",
-            # detached: content omitted
-        },
-        "certificates": [
-            cms_asn1.CertificateChoices("certificate", leaf_x),
-            cms_asn1.CertificateChoices("certificate", ca_x),
-        ],
-        "signer_infos": [signer_info],
-    })
-    content_info = cms_asn1.ContentInfo({
-        "content_type": "signed_data",
-        "content": signed_data,
-    })
+    signed_data = cms_asn1.SignedData(
+        {
+            "version": "v1",
+            "digest_algorithms": [{"algorithm": "sha256"}],
+            "encap_content_info": {
+                "content_type": "data",
+                # detached: content omitted
+            },
+            "certificates": [
+                cms_asn1.CertificateChoices("certificate", leaf_x),
+                cms_asn1.CertificateChoices("certificate", ca_x),
+            ],
+            "signer_infos": [signer_info],
+        }
+    )
+    content_info = cms_asn1.ContentInfo(
+        {
+            "content_type": "signed_data",
+            "content": signed_data,
+        }
+    )
     return content_info.dump()
 
 

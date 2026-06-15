@@ -62,33 +62,21 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     # System HMAC keys (rotated yearly; sprint-17 will rotate via KMS).
-    signer_ipn_hmac_key_hex: str = Field(
-        default="00" * 32, alias="SIGNER_IPN_HMAC_KEY"
-    )
-    public_verify_ip_hmac_key_hex: str = Field(
-        default="11" * 32, alias="PUBLIC_VERIFY_IP_HMAC_KEY"
-    )
+    signer_ipn_hmac_key_hex: str = Field(default="00" * 32, alias="SIGNER_IPN_HMAC_KEY")
+    public_verify_ip_hmac_key_hex: str = Field(default="11" * 32, alias="PUBLIC_VERIFY_IP_HMAC_KEY")
 
     # Trust store directory (PEM bundles).
-    trust_store_dir: Path = Field(
-        default=Path("infra/trust-store"), alias="TRUST_STORE_DIR"
-    )
-    trust_store_include_test_ca: bool = Field(
-        default=False, alias="TRUST_STORE_INCLUDE_TEST_CA"
-    )
+    trust_store_dir: Path = Field(default=Path("infra/trust-store"), alias="TRUST_STORE_DIR")
+    trust_store_include_test_ca: bool = Field(default=False, alias="TRUST_STORE_INCLUDE_TEST_CA")
 
     # Provider config.
     diia_base_url: str = Field(default="", alias="DIIA_BASE_URL")
     diia_api_token: str = Field(default="", alias="DIIA_API_TOKEN")
     iit_helper_health_url: str = Field(default="", alias="IIT_HELPER_HEALTH_URL")
-    iit_callback_hmac_key_hex: str = Field(
-        default="22" * 32, alias="IIT_CALLBACK_HMAC_KEY"
-    )
+    iit_callback_hmac_key_hex: str = Field(default="22" * 32, alias="IIT_CALLBACK_HMAC_KEY")
 
     # Public verify rate limit.
-    public_verify_rate_per_minute: int = Field(
-        default=60, alias="PUBLIC_VERIFY_RATE_PER_MINUTE"
-    )
+    public_verify_rate_per_minute: int = Field(default=60, alias="PUBLIC_VERIFY_RATE_PER_MINUTE")
 
     # Allow mock provider — refused in production by libs/kep, but
     # this flag controls whether we even wire it.

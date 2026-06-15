@@ -1,9 +1,9 @@
 """Wire protocol for `medical-dictation.v1`. See docs/api/dictation-ws-v1.md."""
 
 from .codec import (
-    BadMessageError,
     PROTOCOL_VERSION,
     SUBPROTOCOL,
+    BadMessageError,
     decode_binary,
     decode_text,
     encode_server,
@@ -28,7 +28,7 @@ from .messages import (
     SwitchSection,
     TokenExpiring,
     VoiceCommand,
-    Warning_,
+    WarningMessage,
 )
 
 __all__ = [
@@ -54,7 +54,7 @@ __all__ = [
     "SwitchSection",
     "TokenExpiring",
     "VoiceCommand",
-    "Warning_",
+    "WarningMessage",
     "decode_binary",
     "decode_text",
     "encode_server",

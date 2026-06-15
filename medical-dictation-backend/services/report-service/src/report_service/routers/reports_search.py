@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from audit import Severity
 from auth import Action, Claims, TargetKind
@@ -16,7 +16,6 @@ from db import tenant_connection
 
 from .. import audit_kinds
 from ..deps import get_state, requires
-from ..domain import reports_repository as repo
 from ..domain import search as searchmod
 from ..domain.pii_redactor import is_treatment_team, redact_snippet
 
@@ -133,7 +132,9 @@ async def search_reports(
             "filters": {
                 "status": status_filter or [],
                 "icd10": icd10 or [],
-                "encounter_date_from": encounter_date_from.isoformat() if encounter_date_from else None,
+                "encounter_date_from": encounter_date_from.isoformat()
+                if encounter_date_from
+                else None,
                 "encounter_date_to": encounter_date_to.isoformat() if encounter_date_to else None,
             },
         },

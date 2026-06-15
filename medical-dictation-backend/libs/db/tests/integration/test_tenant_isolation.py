@@ -11,8 +11,8 @@ Skipped unless RUN_DB_INTEGRATION=1 and the dev stack is up. The test:
 
 from __future__ import annotations
 
-import os
 import asyncio
+import os
 from uuid import UUID, uuid4
 
 import pytest

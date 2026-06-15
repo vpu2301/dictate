@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import Claims
 
@@ -77,10 +77,9 @@ async def list_events(
         f"ORDER BY seq LIMIT {limit}"
     )
 
-    async with state.audit_reader_pool.acquire() as conn:
-        async with conn.transaction(readonly=True):
-            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
-            rows = await conn.fetch(sql, *params)
+    async with state.audit_reader_pool.acquire() as conn, conn.transaction(readonly=True):
+        await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
+        rows = await conn.fetch(sql, *params)
 
     events = [
         {
@@ -112,9 +111,7 @@ async def verify_chain(
     ``expected_hash``/``actual_hash``.
     """
     state = get_state()
-    report = await state.audit_verifier.verify_chain(
-        claims.tid, from_seq=from_seq, to_seq=to_seq
-    )
+    report = await state.audit_verifier.verify_chain(claims.tid, from_seq=from_seq, to_seq=to_seq)
     return {
         "ok": report.ok,
         "tenant_id": str(report.tenant_id),
@@ -124,9 +121,7 @@ async def verify_chain(
         "last_seq": report.last_seq,
         "last_hash": report.last_hash.hex() if report.last_hash else None,
         "first_divergence_seq": report.first_divergence_seq,
-        "divergence_reason": (
-            report.divergence_reason.value if report.divergence_reason else None
-        ),
+        "divergence_reason": (report.divergence_reason.value if report.divergence_reason else None),
         "expected_hash": report.expected_hash.hex() if report.expected_hash else None,
         "actual_hash": report.actual_hash.hex() if report.actual_hash else None,
     }

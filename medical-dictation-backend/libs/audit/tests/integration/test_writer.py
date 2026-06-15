@@ -15,9 +15,8 @@ import pytest
 import pytest_asyncio
 
 from audit import (
-    AuditWriter,
     GENESIS_PREV_HASH,
-    Severity,
+    AuditWriter,
     canonicalize,
 )
 
@@ -31,7 +30,7 @@ POSTGRES_PORT = int(os.environ.get("POSTGRES_PORT", "5432"))
 DB_NAME = os.environ.get("POSTGRES_DB", "medical_dictation")
 
 WRITER_DSN = f"postgresql://audit_writer:audit_writer@{POSTGRES_HOST}:{POSTGRES_PORT}/{DB_NAME}"
-APP_DSN    = f"postgresql://app_role:app_role@{POSTGRES_HOST}:{POSTGRES_PORT}/{DB_NAME}"
+APP_DSN = f"postgresql://app_role:app_role@{POSTGRES_HOST}:{POSTGRES_PORT}/{DB_NAME}"
 SUPERUSER_DSN = f"postgresql://postgres:postgres@{POSTGRES_HOST}:{POSTGRES_PORT}/{DB_NAME}"
 
 
@@ -148,9 +147,7 @@ async def test_concurrent_writes_same_tenant_are_serialised(
     writer = AuditWriter(writer_pool)
 
     async def write(i: int) -> None:
-        await writer.write_event(
-            tenant_id=tenant, kind="test.race", payload={"i": i}
-        )
+        await writer.write_event(tenant_id=tenant, kind="test.race", payload={"i": i})
 
     await asyncio.gather(*(write(i) for i in range(50)))
 
@@ -194,16 +191,11 @@ async def test_jcs_stability_same_payload_different_key_order(
     # The user-supplied payload differs only in key order. The contribution
     # of the payload to JCS must be the same; the only thing that changes
     # the hash between two consecutive events is the seq + prev_hash.
-    await writer.write_event(
-        tenant_id=tenant, kind="test.k", payload={"x": 1, "y": 2, "z": 3}
-    )
-    await writer.write_event(
-        tenant_id=tenant, kind="test.k", payload={"z": 3, "y": 2, "x": 1}
-    )
+    await writer.write_event(tenant_id=tenant, kind="test.k", payload={"x": 1, "y": 2, "z": 3})
+    await writer.write_event(tenant_id=tenant, kind="test.k", payload={"z": 3, "y": 2, "x": 1})
 
     rows = await superuser_conn.fetch(
-        "SELECT seq, payload_jcs::text AS p FROM audit.events "
-        "WHERE tenant_id = $1 ORDER BY seq",
+        "SELECT seq, payload_jcs::text AS p FROM audit.events WHERE tenant_id = $1 ORDER BY seq",
         tenant,
     )
     # The stored payload_jcs values must be byte-identical except for the
@@ -257,9 +249,7 @@ async def test_delete_is_rejected_by_trigger(
     await writer.write_event(tenant_id=tenant, kind="t", payload={})
 
     with pytest.raises(asyncpg.PostgresError, match="immutable"):
-        await superuser_conn.execute(
-            "DELETE FROM audit.events WHERE tenant_id = $1", tenant
-        )
+        await superuser_conn.execute("DELETE FROM audit.events WHERE tenant_id = $1", tenant)
 
 
 async def test_thousand_events_form_continuous_verifiable_chain(

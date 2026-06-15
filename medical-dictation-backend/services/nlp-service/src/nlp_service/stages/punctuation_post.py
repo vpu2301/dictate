@@ -11,13 +11,34 @@ import re
 
 # Known medical units; lowercase canonical form.
 _UNITS_UK = {
-    "мг", "мл", "см", "м", "мм", "кг", "г", "л",
-    "мкг", "мкл", "ммоль", "од",
-    "хв", "сек",
+    "мг",
+    "мл",
+    "см",
+    "м",
+    "мм",
+    "кг",
+    "г",
+    "л",
+    "мкг",
+    "мкл",
+    "ммоль",
+    "од",
+    "хв",
+    "сек",
 }
 _UNITS_EN = {
-    "mg", "ml", "cm", "mm", "kg", "g", "l",
-    "ug", "mcg", "mmol", "iu", "bpm",
+    "mg",
+    "ml",
+    "cm",
+    "mm",
+    "kg",
+    "g",
+    "l",
+    "ug",
+    "mcg",
+    "mmol",
+    "iu",
+    "bpm",
 }
 _COMPOUND_UK = ["мм рт. ст.", "кг/м²", "м²", "г/л", "мг/кг"]
 _COMPOUND_EN = ["mm hg", "mmhg", "kg/m²", "m²", "g/l", "mg/kg"]

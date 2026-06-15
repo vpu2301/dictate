@@ -50,14 +50,21 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # NOTE (Sprint A1): this MinIO release ships without curl/wget, so the
+      # original curl-based healthcheck always failed even though the server is
+      # up. `mc ready local` is MinIO's bundled readiness probe.
+      test: ["CMD", "mc", "ready", "local"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 10s
 
   kafka:
-    image: bitnami/kafka:3.7
+    # NOTE (Sprint A1): upstream `bitnami/kafka:3.7` was removed from Docker Hub
+    # when Bitnami relocated its catalog (2025). `bitnamilegacy/kafka:3.7` is the
+    # relocated image — same KAFKA_CFG_* env, /bitnami/kafka volume, and
+    # kafka-topics.sh healthcheck. See docs/verification/batch-a-foundation.md.
+    image: bitnamilegacy/kafka:3.7
     restart: unless-stopped
     environment:
       # KRaft mode — no ZooKeeper

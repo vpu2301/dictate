@@ -34,7 +34,6 @@ from storage import EncryptedObjectStore
 from storage.object_store import header_metadata_for_row
 
 from .. import audit_kinds
-from ..config import settings
 from ..domain import repository
 from ..session.manager import SessionContext
 from ..session.state import SessionState
@@ -141,8 +140,10 @@ async def finalize_session(
             actor_sub=ctx.user_id,
             target_kind="dictation_session",
             target_id=str(ctx.session_id),
-            payload={"observed_ms": ctx.buffer.total_ms if ctx.buffer else 0,
-                     "stored_ms": duration_ms},
+            payload={
+                "observed_ms": ctx.buffer.total_ms if ctx.buffer else 0,
+                "stored_ms": duration_ms,
+            },
             severity=Severity.WARN,
         )
 
@@ -246,23 +247,25 @@ def _transcript_to_jsonb(ctx: SessionContext) -> list[dict[str, Any]]:
     """
     out: list[dict[str, Any]] = []
     for seg in ctx.finalized_segments:
-        out.append({
-            "text": seg.text,
-            "start_ms": seg.start_ms,
-            "end_ms": seg.end_ms,
-            "avg_confidence": float(seg.avg_confidence),
-            "words": [
-                {
-                    "text": w.text,
-                    "start_ms": w.start_ms,
-                    "end_ms": w.end_ms,
-                    "probability": float(w.probability),
-                }
-                for w in (seg.words or [])
-            ],
-            # sprint-05 will populate this from NLP; sprint-04 reserves the slot.
-            "voice_command": None,
-        })
+        out.append(
+            {
+                "text": seg.text,
+                "start_ms": seg.start_ms,
+                "end_ms": seg.end_ms,
+                "avg_confidence": float(seg.avg_confidence),
+                "words": [
+                    {
+                        "text": w.text,
+                        "start_ms": w.start_ms,
+                        "end_ms": w.end_ms,
+                        "probability": float(w.probability),
+                    }
+                    for w in (seg.words or [])
+                ],
+                # sprint-05 will populate this from NLP; sprint-04 reserves the slot.
+                "voice_command": None,
+            }
+        )
     return out
 
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run dev seed SQL against the local PostgreSQL instance."""
+
 import os
 import subprocess
 import sys

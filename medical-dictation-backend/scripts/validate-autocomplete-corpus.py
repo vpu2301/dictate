@@ -49,8 +49,10 @@ def _check_csv(path: Path) -> list[str]:
         for i, row in enumerate(reader, start=2):
             errs.extend(_check_phrase(row, i))
             key = (
-                row.get("phrase", ""), row.get("language", ""),
-                row.get("specialty", ""), row.get("section_hint", ""),
+                row.get("phrase", ""),
+                row.get("language", ""),
+                row.get("specialty", ""),
+                row.get("section_hint", ""),
             )
             if key in seen:
                 errs.append(f"line {i}: duplicate {key}")

@@ -55,7 +55,6 @@ def require_current_claims() -> Claims:
     claims = _current_claims.get()
     if claims is None:
         raise RuntimeError(
-            "current_claims is unset; this code path must run inside an "
-            "authenticated request scope"
+            "current_claims is unset; this code path must run inside an authenticated request scope"
         )
     return claims

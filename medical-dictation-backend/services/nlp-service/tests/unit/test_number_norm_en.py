@@ -8,10 +8,8 @@ from nlp_service.stages.number_norm_en import normalize_en
 
 CASES_EN: list[tuple[str, str]] = [
     # ── BP ─────────────────────────────────────────────────────
-    ("blood pressure one twenty over eighty",
-     "blood pressure 120/80"),
-    ("blood pressure one twenty over eighty millimeters of mercury",
-     "blood pressure 120/80 mmHg"),
+    ("blood pressure one twenty over eighty", "blood pressure 120/80"),
+    ("blood pressure one twenty over eighty millimeters of mercury", "blood pressure 120/80 mmHg"),
     ("BP 130 over 90", "BP 130/90"),
     # ── Decimal ────────────────────────────────────────────────
     ("seven point five", "7.5"),

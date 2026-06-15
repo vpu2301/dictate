@@ -14,7 +14,6 @@ import json
 import os
 import struct
 import time
-from statistics import median
 from typing import Any
 
 import pytest
@@ -64,7 +63,7 @@ async def _one_client(client_id: int, frames: int) -> dict[str, Any]:
         await ws.send(json.dumps({"type": "end_session"}))
         try:
             await asyncio.wait_for(c_task, timeout=15.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             c_task.cancel()
 
     return {

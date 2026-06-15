@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from asr_models import WordTiming
-
 from dictation_service.inference.committer import Committer
 
 

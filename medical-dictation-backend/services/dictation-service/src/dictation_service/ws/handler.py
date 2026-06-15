@@ -24,10 +24,8 @@ from contextlib import suppress
 from typing import Any
 from uuid import UUID, uuid4
 
-import numpy as np
 from fastapi import WebSocketDisconnect
 
-from asr_models import Segment
 from audit import Severity
 from db import tenant_connection
 
@@ -51,7 +49,6 @@ from ..protocol import (
     Error,
     ErrorCode,
     Final,
-    Heartbeat,
     Partial,
     Pause,
     RefreshToken,
@@ -61,7 +58,7 @@ from ..protocol import (
     SessionTerminated,
     StartSession,
     SwitchSection,
-    Warning_,
+    WarningMessage,
     decode_binary,
     decode_text,
     encode_server,
@@ -77,7 +74,6 @@ from ..session.manager import (
     CapacityError,
     DuplicateSessionError,
     SessionContext,
-    SessionManager,
 )
 from ..session.resume import (
     evaluate_resume,
@@ -130,7 +126,7 @@ async def _wait_for_start(
             websocket.receive_text(),
             timeout=settings.ws_idle_close_after_no_session_s,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await _send_and_close(
             websocket,
             Error(code=ErrorCode.BAD_MESSAGE, detail="no start_session received"),
@@ -235,9 +231,7 @@ async def _new_session(
     s2s_bearer = getattr(state, "s2s_bearer", None)
     if start.template_id is not None and template_client is not None and s2s_bearer:
         try:
-            tpl = await template_client.fetch(
-                template_id=start.template_id, bearer=s2s_bearer
-            )
+            tpl = await template_client.fetch(template_id=start.template_id, bearer=s2s_bearer)
             if tpl is not None:
                 ctx.template_doc = tpl
                 if tpl.sections:
@@ -409,10 +403,8 @@ async def _run_loop(ctx: SessionContext, websocket: Any, state: Any) -> None:
     stop = asyncio.Event()
 
     async def _on_idle(_ctx: SessionContext) -> None:
-        try:
+        with suppress(Exception):
             await websocket.close(code=1011)
-        except Exception:  # noqa: BLE001
-            pass
 
     hb_task = asyncio.create_task(heartbeat_loop(ctx))
     idle_task = asyncio.create_task(idle_watchdog(ctx, on_idle=_on_idle))
@@ -446,9 +438,8 @@ async def _run_loop(ctx: SessionContext, websocket: Any, state: Any) -> None:
                 await t
 
         # Hard 60-min cap finalize — handled inline in _on_binary too.
-        if ctx.state == SessionState.ACTIVE and ctx.buffer is not None:
-            if _exceeds_hard_cap(ctx):
-                await _finalize_normal(ctx, state, reason="cap_reached")
+        if ctx.state == SessionState.ACTIVE and ctx.buffer is not None and _exceeds_hard_cap(ctx):
+            await _finalize_normal(ctx, state, reason="cap_reached")
 
 
 # ── Frame handlers ───────────────────────────────────────────────────
@@ -483,9 +474,7 @@ async def _on_text(
     if isinstance(msg, Pause):
         if ctx.state != SessionState.ACTIVE:
             await websocket.send_text(
-                encode_server(
-                    Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True)
-                )
+                encode_server(Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True))
             )
             return True
         ctx.state = SessionState.PAUSED
@@ -495,9 +484,7 @@ async def _on_text(
     if isinstance(msg, Resume):
         if ctx.state != SessionState.PAUSED:
             await websocket.send_text(
-                encode_server(
-                    Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True)
-                )
+                encode_server(Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True))
             )
             return True
         ctx.state = SessionState.ACTIVE
@@ -598,10 +585,7 @@ async def _on_text(
             )
             return True
         # The new token must be for the same user + tenant.
-        if (
-            new_claims.sub != ctx.user_id
-            or new_claims.tid != ctx.tenant_id
-        ):
+        if new_claims.sub != ctx.user_id or new_claims.tid != ctx.tenant_id:
             await websocket.send_text(
                 encode_server(
                     Error(
@@ -632,9 +616,7 @@ async def _on_text(
     return True
 
 
-async def _on_binary(
-    ctx: SessionContext, websocket: Any, state: Any, data: bytes
-) -> None:
+async def _on_binary(ctx: SessionContext, websocket: Any, state: Any, data: bytes) -> None:
     """Process one binary audio frame."""
     if ctx.state == SessionState.PAUSED:
         await websocket.send_text(
@@ -653,9 +635,7 @@ async def _on_binary(
     except BadMessageError as exc:
         # Oversized or malformed binary → close.
         await websocket.send_text(
-            encode_server(
-                Error(code=exc.code, detail=exc.detail, recoverable=False)
-            )
+            encode_server(Error(code=exc.code, detail=exc.detail, recoverable=False))
         )
         with suppress(Exception):
             await websocket.close(code=1003)
@@ -724,7 +704,7 @@ async def _window_loop(
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval)
             return
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
         if ctx.state != SessionState.ACTIVE or ctx.buffer is None:
             continue
@@ -774,7 +754,7 @@ async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
         with suppress(Exception):
             await ctx.ws.send_text(
                 encode_server(
-                    Warning_(
+                    WarningMessage(
                         session_id=ctx.session_id,
                         code="low_confidence",
                         detail=f"boundary={tick.boundary_uncertainty:.2f}",
@@ -824,9 +804,7 @@ async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
 # ── Closure paths ────────────────────────────────────────────────────
 
 
-async def _send_and_close(
-    websocket: Any, error: Error, *, ws_code: int = 1008
-) -> None:
+async def _send_and_close(websocket: Any, error: Error, *, ws_code: int = 1008) -> None:
     with suppress(Exception):
         await websocket.send_text(encode_server(error))
     with suppress(Exception):
@@ -874,10 +852,8 @@ async def _on_client_disconnect(ctx: SessionContext, state: Any) -> None:
     """Move to reconnecting; the 30-min abandon timer takes it from there."""
     if ctx.state in {SessionState.FINALIZED, SessionState.ABANDONED, SessionState.FAILED}:
         return
-    try:
+    with suppress(Exception):
         assert_transition(ctx.state, SessionState.RECONNECTING)
-    except Exception:
-        pass
     ctx.state = SessionState.RECONNECTING
     ctx.ws = None
     async with tenant_connection(state.app_pool, ctx.tenant_id) as conn:
@@ -922,9 +898,7 @@ async def _abandon_after_idle(ctx: SessionContext, state: Any) -> None:
     await state.session_manager.unregister(ctx.session_id)
 
 
-async def _on_failed(
-    ctx: SessionContext, state: Any, *, kind: str, detail: str
-) -> None:
+async def _on_failed(ctx: SessionContext, state: Any, *, kind: str, detail: str) -> None:
     ctx.state = SessionState.FAILED
     async with tenant_connection(state.app_pool, ctx.tenant_id) as conn:
         await repository.update_status(

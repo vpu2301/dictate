@@ -142,9 +142,7 @@ async def process(
         abbreviation_snapshot=snapshot,
         pipeline_version=PIPELINE_VERSION,
         template_sections=tuple(
-            TemplateSection(
-                id=s.id, name=s.name, aliases=tuple(s.aliases or ())
-            )
+            TemplateSection(id=s.id, name=s.name, aliases=tuple(s.aliases or ()))
             for s in body.template_sections
         ),
         decimal_separator=body.decimal_separator or _default_decimal(body.language),
@@ -181,9 +179,7 @@ async def process(
             for w in out.words
         ],
         confidence_spans=[
-            ConfidenceSpanOut(
-                start_char=s.start_char, end_char=s.end_char, level=s.level
-            )
+            ConfidenceSpanOut(start_char=s.start_char, end_char=s.end_char, level=s.level)
             for s in out.confidence_spans
         ],
         voice_commands=[
@@ -197,10 +193,7 @@ async def process(
             for c in out.voice_commands
         ],
         operations=[OperationOut(op=o.op, arg=o.arg) for o in out.operations],
-        warnings=[
-            WarningOut(code=w.code, detail=w.detail, stage=w.stage)
-            for w in out.warnings
-        ],
+        warnings=[WarningOut(code=w.code, detail=w.detail, stage=w.stage) for w in out.warnings],
         pipeline_version=PIPELINE_VERSION,
         metadata=dict(out.metadata),
     )
@@ -303,9 +296,7 @@ async def process_batch(
                     for w in result.words
                 ],
                 confidence_spans=[
-                    ConfidenceSpanOut(
-                        start_char=s.start_char, end_char=s.end_char, level=s.level
-                    )
+                    ConfidenceSpanOut(start_char=s.start_char, end_char=s.end_char, level=s.level)
                     for s in result.confidence_spans
                 ],
                 voice_commands=[
@@ -318,19 +309,14 @@ async def process_batch(
                     )
                     for c in result.voice_commands
                 ],
-                operations=[
-                    OperationOut(op=o.op, arg=o.arg) for o in result.operations
-                ],
+                operations=[OperationOut(op=o.op, arg=o.arg) for o in result.operations],
                 warnings=[
-                    WarningOut(code=w.code, detail=w.detail, stage=w.stage)
-                    for w in result.warnings
+                    WarningOut(code=w.code, detail=w.detail, stage=w.stage) for w in result.warnings
                 ],
             )
         )
 
-    return BatchProcessResponse(
-        segments=out_segments, pipeline_version=PIPELINE_VERSION
-    )
+    return BatchProcessResponse(segments=out_segments, pipeline_version=PIPELINE_VERSION)
 
 
 # ── Defaults ────────────────────────────────────────────────────────

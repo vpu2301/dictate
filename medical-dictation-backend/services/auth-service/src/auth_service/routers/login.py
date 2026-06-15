@@ -27,9 +27,8 @@ import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Cookie, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
-
 from opentelemetry import metrics
+from pydantic import BaseModel
 
 from audit import Severity
 from auth import verify_token
@@ -60,15 +59,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class LoginRequest(BaseModel):
-    username: str = Field(min_length=1, max_length=200)
-    password: str = Field(min_length=1, max_length=200)
-
-
 class LoginResponse(BaseModel):
     access_token: str
     expires_in: int
     token_type: str = "Bearer"
+
+
+async def _extract_credentials(request: Request) -> tuple[str, str]:
+    """Parse login credentials from either a JSON body or an
+    application/x-www-form-urlencoded form (the SPA sends form). Accepts the
+    identifier under `email` or `username`. Raises 422 on a missing field."""
+    content_type = request.headers.get("content-type", "")
+    data: dict[str, Any]
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail="invalid JSON body") from exc
+    else:
+        # form-urlencoded (or multipart) — the SPA path.
+        form = await request.form()
+        data = {k: v for k, v in form.items() if isinstance(v, str)}
+
+    identifier = (data.get("email") or data.get("username") or "").strip()
+    password = data.get("password") or ""
+    if not identifier or not password:
+        raise HTTPException(
+            status_code=422,
+            detail="login requires `password` and one of `email`/`username`",
+        )
+    return identifier, password
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str, max_age: int) -> None:
@@ -78,7 +98,7 @@ def _set_refresh_cookie(response: Response, refresh_token: str, max_age: int) ->
         max_age=max_age,
         httponly=True,
         secure=settings.auth_cookie_secure,
-        samesite="strict",
+        samesite=settings.auth_cookie_samesite,  # type: ignore[arg-type]
         path=settings.auth_cookie_path,
     )
 
@@ -90,9 +110,7 @@ def _clear_refresh_cookie(response: Response) -> None:
     )
 
 
-async def _audit_login(
-    state: Any, *, access_token: str, kind: str, severity: Severity
-) -> None:
+async def _audit_login(state: Any, *, access_token: str, kind: str, severity: Severity) -> None:
     """Verify the access token to recover tid+sub, then emit an audit event."""
     try:
         claims = await verify_token(
@@ -126,12 +144,11 @@ async def _audit_login(
     status_code=status.HTTP_200_OK,
     summary="Exchange username + password for an access token",
 )
-async def login(body: LoginRequest, response: Response, request: Request) -> LoginResponse:
+async def login(request: Request, response: Response) -> LoginResponse:
     state = get_state()
+    username, password = await _extract_credentials(request)
     try:
-        tok = await state.keycloak.password_grant(
-            username=body.username, password=body.password
-        )
+        tok = await state.keycloak.password_grant(username=username, password=password)
     except KeycloakError as exc:
         # 401: invalid_grant (bad password / unknown user / disabled).
         # 400: malformed (shouldn't happen via this proxy).
@@ -148,7 +165,7 @@ async def login(body: LoginRequest, response: Response, request: Request) -> Log
         logger.info(
             "auth.login_failed",
             extra={
-                "username_hash": _hash_for_log(body.username),
+                "username_hash": _hash_for_log(username),
                 "kc_error": kc_error,
                 "kc_status": exc.status,
             },
@@ -207,9 +224,19 @@ async def refresh(
             # payload so we can audit + force-revoke their sessions.
             sub = _unverified_sub(refresh_token)
             tid = _unverified_tid(refresh_token)
-            _refresh_replay_counter.add(
-                1, {"tenant_id": str(tid) if tid else "unknown"}
-            )
+            # Keycloak refresh tokens do not carry the custom `tid` claim, so
+            # resolve the tenant from `sub` via the DB (SECURITY DEFINER
+            # `tenant_of_sub`); otherwise the security audit event below would be
+            # silently skipped (Sprint A1, DEF-A1-20).
+            if tid is None and sub is not None:
+                try:
+                    tid = await state.app_pool.fetchval("SELECT public.tenant_of_sub($1)", sub)
+                except Exception as resolve_exc:
+                    logger.warning(
+                        "auth.refresh_replay.tid_resolve_failed",
+                        extra={"error": str(resolve_exc)},
+                    )
+            _refresh_replay_counter.add(1, {"tenant_id": str(tid) if tid else "unknown"})
             if tid is not None:
                 try:
                     await state.audit_writer.write_event(
@@ -233,10 +260,14 @@ async def refresh(
                         extra={"sub": str(sub), "error": str(logout_exc)},
                     )
             _clear_refresh_cookie(response)
-            raise HTTPException(
+            replay_exc = HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="refresh token is no longer valid",
-            ) from exc
+            )
+            # Machine-readable code so the SPA can distinguish a replay (force
+            # clean re-login, do NOT retry) from an ordinary expired-token 401.
+            replay_exc.problem_extras = {"code": "auth_refresh_replay"}  # type: ignore[attr-defined]
+            raise replay_exc from exc
         # Other failure modes (5xx etc.) bubble as 503.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -315,9 +346,7 @@ async def logout(
                 severity=Severity.INFO,
             )
         except Exception as audit_exc:
-            logger.warning(
-                "audit.logout.write_failed", extra={"error": str(audit_exc)}
-            )
+            logger.warning("audit.logout.write_failed", extra={"error": str(audit_exc)})
 
     _logout_counter.add(1)
     # Build a fresh response so the Set-Cookie header is the only one we

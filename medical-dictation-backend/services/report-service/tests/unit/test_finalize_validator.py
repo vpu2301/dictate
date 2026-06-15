@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from report_models import Icd10Code, ReportContent, ReportSection
-
 from report_service.domain.finalize_validator import validate_finalize
 
 

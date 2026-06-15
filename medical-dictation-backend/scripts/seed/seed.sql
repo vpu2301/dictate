@@ -1,62 +1,42 @@
--- Dev seed data — one tenant, two users, sample dictation
--- Run via: psql -U postgres -d medical_dictation -f scripts/seed/seed.sql
+-- Dev seed data — aligns the DB with the Keycloak realm-export.
+-- Run via: psql "$DATABASE_URL" -f scripts/seed/seed.sql
+--          (or: make seed)
+--
+-- Authoritative schema lives in infra/postgres/migrations/0001..0002.
+--   tenants(id, name, display_name, locale, timezone, status, …)
+--   users(sub PK, tenant_id, email, display_name, role, status, …)
+-- Roles are the five real roles: tenant_admin, clinician, nurse, auditor, service.
+--
+-- Tenants `tenant-a` (…00a) and `tenant-b` (…00b) are created by migration
+-- 0005_seed_dev_tenants; we only (idempotently) ensure they exist here so this
+-- script is self-contained, then seed the users.
+--
+-- IMPORTANT: each user's `sub` MUST equal the Keycloak user id pinned in
+-- infra/keycloak/realm-export.json — that 1:1 mapping is what lets token `sub`
+-- claims join to DB rows (and lets auth-service resolve a tenant from a sub).
+-- Keep the two files in lockstep.
 
 BEGIN;
 
--- ── Schema (idempotent stub — real migrations via Alembic in S2.x) ──────────
+-- ── Tenants (idempotent; owned by migration 0005) ──────────────────────────
+INSERT INTO tenants (id, name, display_name, locale, timezone, status) VALUES
+    ('00000000-0000-0000-0000-00000000000a', 'tenant-a', 'Dev Hospital A', 'uk', 'Europe/Kyiv', 'active'),
+    ('00000000-0000-0000-0000-00000000000b', 'tenant-b', 'Dev Hospital B', 'uk', 'Europe/Kyiv', 'active')
+ON CONFLICT (id) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS tenants (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name        TEXT NOT NULL,
-    slug        TEXT NOT NULL UNIQUE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS users (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id   UUID NOT NULL REFERENCES tenants(id),
-    keycloak_id TEXT NOT NULL UNIQUE,
-    role        TEXT NOT NULL CHECK (role IN ('clinician', 'admin', 'reviewer')),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS dictations (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id   UUID NOT NULL REFERENCES tenants(id),
-    author_id   UUID NOT NULL REFERENCES users(id),
-    status      TEXT NOT NULL DEFAULT 'draft'
-                    CHECK (status IN ('draft', 'processing', 'review', 'approved')),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ── Seed data ─────────────────────────────────────────────────────────────────
-
-INSERT INTO tenants (id, name, slug) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'Dev Hospital', 'dev-hospital')
-ON CONFLICT (slug) DO NOTHING;
-
-INSERT INTO users (id, tenant_id, keycloak_id, role) VALUES
-    (
-        '00000000-0000-0000-0001-000000000001',
-        '00000000-0000-0000-0000-000000000001',
-        'dev-clinician',   -- matches Keycloak realm user
-        'clinician'
-    ),
-    (
-        '00000000-0000-0000-0001-000000000002',
-        '00000000-0000-0000-0000-000000000001',
-        'dev-admin',
-        'admin'
-    )
-ON CONFLICT (keycloak_id) DO NOTHING;
-
-INSERT INTO dictations (id, tenant_id, author_id, status) VALUES
-    (
-        '00000000-0000-0000-0002-000000000001',
-        '00000000-0000-0000-0000-000000000001',
-        '00000000-0000-0000-0001-000000000001',
-        'draft'
-    )
-ON CONFLICT DO NOTHING;
+-- ── Users (sub = Keycloak user id from realm-export.json) ───────────────────
+INSERT INTO users (sub, tenant_id, email, display_name, role, status) VALUES
+    ('0a000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'admin@tenant-a.example',     'Dev Admin A',     'tenant_admin', 'active'),
+    ('0c000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'clinician@tenant-a.example', 'Dev Clinician A', 'clinician',    'active'),
+    ('0d000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'nurse@tenant-a.example',     'Dev Nurse A',     'nurse',        'active'),
+    ('0e000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'auditor@tenant-a.example',   'Dev Auditor A',   'auditor',      'active'),
+    ('0c000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 'clinician@tenant-b.example', 'Dev Clinician B', 'clinician',    'active'),
+    ('0a000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 'admin@tenant-b.example',     'Dev Admin B',     'tenant_admin', 'active')
+ON CONFLICT (sub) DO UPDATE
+    SET tenant_id    = EXCLUDED.tenant_id,
+        email        = EXCLUDED.email,
+        display_name = EXCLUDED.display_name,
+        role         = EXCLUDED.role,
+        status       = EXCLUDED.status;
 
 COMMIT;

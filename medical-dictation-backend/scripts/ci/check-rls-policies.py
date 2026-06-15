@@ -31,10 +31,42 @@ import asyncpg
 DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/medical_dictation"
 
 # Tables that legitimately do not need RLS.
+#
+# Two kinds live here:
+#  1. No tenant dimension at all (global catalogues / system tables / public
+#     endpoints) — there is no cross-tenant data to leak.
+#  2. ADR-documented performance exceptions — these DO carry tenant_id and
+#     rely on application-level filtering. They are accepted risks pending
+#     security sign-off (see Sprint A1 report, OBS-A1-1x). Listed explicitly so
+#     the gate stays loud about any *new* unprotected table.
 EXEMPT: Final[frozenset[tuple[str, str]]] = frozenset(
     {
         ("public", "schema_migrations"),  # migration tracker
+        # ── global, no tenant_id ───────────────────────────────────────
+        ("public", "medical_prompts"),  # global prompt catalogue (ADR-0007 RLS exception)
+        (
+            "public",
+            "voice_commands",
+        ),  # global voice-command catalogue (per-tenant overrides: sprint 17)
+        (
+            "public",
+            "signing_provider_health",
+        ),  # global signing-provider health; no tenant dimension
+        ("audit", "eval_baseline"),  # global WER baseline singleton; no tenant dimension
+        (
+            "audit",
+            "public_verify_audit",
+        ),  # public/anonymous KEP verify audit; no tenant context by design
+        # ── ADR-0025 perf exception (has tenant_id; app-level filtering) ─
+        # FLAGGED for security/DPO sign-off — see Sprint A1 report.
+        ("public", "autocomplete_rollup_progress"),
     }
+)
+
+# Name-prefix exemptions within a schema — covers range-partition children whose
+# names carry a date suffix (e.g. autocomplete_telemetry_2026_05, _2026_06, …).
+EXEMPT_PREFIXES: Final[tuple[tuple[str, str], ...]] = (
+    ("public", "autocomplete_telemetry"),  # ADR-0025 perf exception (FLAGGED — see report)
 )
 
 # Schemas where we enforce. Extensions sometimes create their own schemas
@@ -72,10 +104,14 @@ async def main() -> int:
         key = (r["schema"], r["name"])
         if key in EXEMPT:
             continue
+        if any(r["schema"] == sch and r["name"].startswith(pfx) for sch, pfx in EXEMPT_PREFIXES):
+            continue
         checked += 1
         full = f"{r['schema']}.{r['name']}"
         if not r["relrowsecurity"]:
-            failures.append(f"{full}: RLS NOT enabled (ALTER TABLE {full} ENABLE ROW LEVEL SECURITY)")
+            failures.append(
+                f"{full}: RLS NOT enabled (ALTER TABLE {full} ENABLE ROW LEVEL SECURITY)"
+            )
             continue
         if not r["relforcerowsecurity"]:
             failures.append(

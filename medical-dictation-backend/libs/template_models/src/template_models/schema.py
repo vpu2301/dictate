@@ -22,8 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated, Final
-from uuid import UUID
+from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -133,13 +132,11 @@ class TemplateDefinition(_Strict):
     @classmethod
     def _validate_code_slug(cls, v: str) -> str:
         if not re.match(r"^[a-z][a-z0-9_]*$", v):
-            raise ValueError(
-                f"template.code {v!r} must be a URL-safe slug"
-            )
+            raise ValueError(f"template.code {v!r} must be a URL-safe slug")
         return v
 
     @model_validator(mode="after")
-    def _validate_aliases_unique(self) -> "TemplateDefinition":
+    def _validate_aliases_unique(self) -> TemplateDefinition:
         """Voice aliases must be unique across the template's sections.
 
         Two sections claiming alias "діагноз" would make the section
@@ -158,7 +155,7 @@ class TemplateDefinition(_Strict):
         return self
 
     @model_validator(mode="after")
-    def _validate_section_ids_unique(self) -> "TemplateDefinition":
+    def _validate_section_ids_unique(self) -> TemplateDefinition:
         seen: set[str] = set()
         for section in self.sections:
             if section.id in seen:
@@ -184,9 +181,7 @@ class EditClassification:
     reasons: tuple[str, ...]
 
 
-def classify_edit(
-    old: TemplateDefinition, new: TemplateDefinition
-) -> EditClassification:
+def classify_edit(old: TemplateDefinition, new: TemplateDefinition) -> EditClassification:
     """Decide whether ``new`` replaces ``old`` in place or as a new version.
 
     **Structural** triggers (any of):
@@ -223,17 +218,11 @@ def classify_edit(
         a = old_by_id[sid]
         b = new_by_id[sid]
         if a.field_type != b.field_type:
-            reasons.append(
-                f"section {sid!r}: field_type changed {a.field_type} → {b.field_type}"
-            )
+            reasons.append(f"section {sid!r}: field_type changed {a.field_type} → {b.field_type}")
         if a.required != b.required:
-            reasons.append(
-                f"section {sid!r}: required flipped {a.required} → {b.required}"
-            )
+            reasons.append(f"section {sid!r}: required flipped {a.required} → {b.required}")
         if b.min_chars > a.min_chars:
-            reasons.append(
-                f"section {sid!r}: min_chars increased {a.min_chars} → {b.min_chars}"
-            )
+            reasons.append(f"section {sid!r}: min_chars increased {a.min_chars} → {b.min_chars}")
 
     if reasons:
         return EditClassification(kind=EditKind.STRUCTURAL, reasons=tuple(reasons))

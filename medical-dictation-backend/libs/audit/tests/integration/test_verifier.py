@@ -83,9 +83,7 @@ async def _seed_chain(writer: AuditWriter, tenant: UUID, n: int) -> None:
 # ── happy-path ──────────────────────────────────────────────────────────
 
 
-async def test_clean_chain_verifies(
-    writer_pool: asyncpg.Pool, reader_pool: asyncpg.Pool
-) -> None:
+async def test_clean_chain_verifies(writer_pool: asyncpg.Pool, reader_pool: asyncpg.Pool) -> None:
     tenant = uuid4()
     writer = AuditWriter(writer_pool)
     verifier = AuditVerifier(reader_pool)
@@ -107,9 +105,7 @@ async def test_empty_chain_verifies_vacuously(reader_pool: asyncpg.Pool) -> None
     assert report.last_seq is None
 
 
-async def test_subrange_verifies(
-    writer_pool: asyncpg.Pool, reader_pool: asyncpg.Pool
-) -> None:
+async def test_subrange_verifies(writer_pool: asyncpg.Pool, reader_pool: asyncpg.Pool) -> None:
     """Walking a sub-range seeds the running hash from seq-1's payload_hash."""
     tenant = uuid4()
     writer = AuditWriter(writer_pool)

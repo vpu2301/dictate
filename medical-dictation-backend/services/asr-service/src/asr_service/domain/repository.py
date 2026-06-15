@@ -75,9 +75,7 @@ async def insert_job_row(
     )
 
 
-async def get_job(
-    conn: asyncpg.Connection, *, job_id: UUID
-) -> TranscriptionJobView | None:
+async def get_job(conn: asyncpg.Connection, *, job_id: UUID) -> TranscriptionJobView | None:
     row = await conn.fetchrow(
         "SELECT * FROM transcription_jobs WHERE id = $1",
         job_id,
@@ -116,9 +114,7 @@ async def list_jobs(
     return [_row_to_view(r) for r in rows]
 
 
-async def request_cancel(
-    conn: asyncpg.Connection, *, job_id: UUID
-) -> str | None:
+async def request_cancel(conn: asyncpg.Connection, *, job_id: UUID) -> str | None:
     """Mark the job for cancellation; return the new status or ``None``
     if it cannot be cancelled (already terminal).
     """
@@ -148,9 +144,7 @@ async def request_cancel(
     return None
 
 
-async def count_active_jobs(
-    conn: asyncpg.Connection, *, tenant_id: UUID
-) -> int:
+async def count_active_jobs(conn: asyncpg.Connection, *, tenant_id: UUID) -> int:
     """Return the number of queued + running jobs for the tenant.
 
     Used by the rate-limit check (per-tenant concurrent cap).

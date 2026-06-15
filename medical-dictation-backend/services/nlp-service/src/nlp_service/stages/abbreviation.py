@@ -28,7 +28,6 @@ from dataclasses import dataclass
 from ..pipeline.base import (
     AbbreviationEntry,
     ProcessingContext,
-    Stage,
     StageInput,
     StageOutput,
 )
@@ -49,9 +48,7 @@ class AbbreviationStage:
     name = "abbreviation"
     runs_on_partials: bool = False
 
-    async def process(
-        self, ctx: ProcessingContext, input: StageInput
-    ) -> StageOutput:
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
         t0 = time.monotonic()
         rules = _compile_rules(ctx)
         new_text = input.text
@@ -108,9 +105,7 @@ def _compile_rules(ctx: ProcessingContext) -> list[_CompiledRule]:
         flags = 0 if e.case_sensitive else re.IGNORECASE
         # Word-boundary on both sides; the Unicode flag matters for Cyrillic.
         pattern = re.compile(
-            r"(?<![\wА-ЯЁІЇЄҐа-яёіїєґ])"
-            + re.escape(src)
-            + r"(?![\wА-ЯЁІЇЄҐа-яёіїєґ])",
+            r"(?<![\wА-ЯЁІЇЄҐа-яёіїєґ])" + re.escape(src) + r"(?![\wА-ЯЁІЇЄҐа-яёіїєґ])",
             flags | re.UNICODE,
         )
         rules.append(_CompiledRule(pattern=pattern, replacement=dst, domain=e.domain))

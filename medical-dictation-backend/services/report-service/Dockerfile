@@ -17,7 +17,7 @@ COPY pyproject.toml uv.lock /build/
 COPY libs/ /build/libs/
 COPY services/report-service/ /build/services/report-service/
 
-RUN uv pip install --system --no-cache --no-dev \
+RUN uv pip install --system --no-cache \
     --target /deps \
     /build/services/report-service \
     /build/libs/observability \
@@ -26,6 +26,12 @@ RUN uv pip install --system --no-cache --no-dev \
     /build/libs/db \
     /build/libs/template_models \
     /build/libs/secret
+
+# Editable workspace libs install as .pth files, which Python only honors
+# in a site dir — not via PYTHONPATH. sitecustomize is auto-imported because
+# /deps is on PYTHONPATH; it re-registers /deps as a site dir so the editable
+# .pth files (asr_models, audit, observability, …) actually activate.
+RUN printf 'import site\nsite.addsitedir("/deps")\n' > /deps/sitecustomize.py
 
 ENV PYTHONPATH=/deps \
     PATH="/deps/bin:${PATH}"

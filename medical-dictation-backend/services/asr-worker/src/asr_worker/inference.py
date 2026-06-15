@@ -78,6 +78,15 @@ class WhisperEngine:
         """
         if self._loaded:
             return
+        # Engine selection (ADR-0021). Only faster_whisper is supported on the
+        # streaming + confidence-span paths; a vLLM spike is gated behind an
+        # ADR (Sprint B1 Day 3). Fail loud rather than silently load the wrong
+        # backend.
+        if settings.asr_engine != "faster_whisper":
+            raise RuntimeError(
+                f"unsupported MD_ASR_ENGINE={settings.asr_engine!r}; "
+                "only 'faster_whisper' is supported (see ADR-0021)"
+            )
         from faster_whisper import WhisperModel  # local import
 
         device = settings.asr_device
@@ -88,6 +97,12 @@ class WhisperEngine:
                 "model": settings.asr_model,
                 "device": device,
                 "compute_type": compute_type,
+                # Build-time provenance: which pinned repo@revision produced
+                # the baked weights this process is loading (ADR-0021).
+                "engine": settings.asr_engine,
+                "model_repo": settings.asr_model_repo,
+                "model_revision": settings.asr_model_revision or "(unpinned)",
+                "model_sha256": settings.asr_model_sha256 or "(unpinned)",
             },
         )
         t0 = time.monotonic()
@@ -132,9 +147,7 @@ class WhisperEngine:
         polls the DB for cancellation between chunks.
         """
         if not self._loaded:
-            raise RuntimeError(
-                "WhisperEngine.load() must be called before transcribe()"
-            )
+            raise RuntimeError("WhisperEngine.load() must be called before transcribe()")
         t_start = time.monotonic()
         speech = detect_speech(audio_pcm)
         vad_seconds_speech = sum((s.end_ms - s.start_ms) / 1000.0 for s in speech)
@@ -143,7 +156,7 @@ class WhisperEngine:
         segments_out: list[Segment] = []
         for s in speech:
             chunk = audio_pcm[
-                int(s.start_ms * 16): int(s.end_ms * 16)
+                int(s.start_ms * 16) : int(s.end_ms * 16)
             ]  # ms → samples (16 samples/ms @ 16kHz)
             if chunk.size == 0:
                 continue
@@ -167,9 +180,7 @@ class WhisperEngine:
             peak_gpu_mem_mb=_peak_gpu_mem_mb(),
             beam_size=settings.asr_beam_size,
         )
-        return TranscriptionOutput(
-            language=language, segments=segments_out, metadata=meta
-        )
+        return TranscriptionOutput(language=language, segments=segments_out, metadata=meta)
 
     async def transcribe_window(
         self,
@@ -190,9 +201,7 @@ class WhisperEngine:
         the sliding-window state.
         """
         if not self._loaded:
-            raise RuntimeError(
-                "WhisperEngine.load() must be called before transcribe_window()"
-            )
+            raise RuntimeError("WhisperEngine.load() must be called before transcribe_window()")
         loop = asyncio.get_running_loop()
         t0 = time.monotonic()
         combined_prompt = _combine_prompts(prompt, prev_text)
@@ -240,11 +249,7 @@ class WhisperEngine:
                             probability=float(getattr(w, "probability", 1.0)),
                         )
                     )
-            avg_conf = (
-                float(sum(w.probability for w in words)) / len(words)
-                if words
-                else 0.5
-            )
+            avg_conf = float(sum(w.probability for w in words)) / len(words) if words else 0.5
             segments.append(
                 Segment(
                     text=seg.text.strip(),

@@ -104,37 +104,34 @@ class AuditVerifier:
         if to_seq is not None and to_seq < from_seq:
             raise ValueError("to_seq must be ≥ from_seq")
 
-        async with self._pool.acquire() as conn:
-            async with conn.transaction(readonly=True):
-                await conn.execute(
-                    "SELECT set_config('app.tenant_id', $1, true)", str(tenant_id)
-                )
+        async with self._pool.acquire() as conn, conn.transaction(readonly=True):
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
 
-                if to_seq is None:
-                    rows = await conn.fetch(
-                        """
+            if to_seq is None:
+                rows = await conn.fetch(
+                    """
                         SELECT seq, payload_jcs::text AS payload_jcs,
                                prev_hash, payload_hash
                         FROM audit.events
                         WHERE tenant_id = $1 AND seq >= $2
                         ORDER BY seq
                         """,
-                        tenant_id,
-                        from_seq,
-                    )
-                else:
-                    rows = await conn.fetch(
-                        """
+                    tenant_id,
+                    from_seq,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
                         SELECT seq, payload_jcs::text AS payload_jcs,
                                prev_hash, payload_hash
                         FROM audit.events
                         WHERE tenant_id = $1 AND seq BETWEEN $2 AND $3
                         ORDER BY seq
                         """,
-                        tenant_id,
-                        from_seq,
-                        to_seq,
-                    )
+                    tenant_id,
+                    from_seq,
+                    to_seq,
+                )
 
         # Empty range = vacuously ok.
         if not rows:
@@ -171,7 +168,9 @@ class AuditVerifier:
                     divergence_reason=DivergenceReason.GAP,
                 )
 
-            stored_prev = bytes(row["prev_hash"]) if row["prev_hash"] is not None else GENESIS_PREV_HASH
+            stored_prev = (
+                bytes(row["prev_hash"]) if row["prev_hash"] is not None else GENESIS_PREV_HASH
+            )
 
             # 2. prev_hash continuity → ensures the row's stated lineage
             #    matches the chain we've walked so far.
@@ -229,19 +228,16 @@ class AuditVerifier:
         Wrapped in an explicit transaction so the ``set_config(..., true)``
         setting is visible to the subsequent SELECT (transaction-local).
         """
-        async with self._pool.acquire() as conn:
-            async with conn.transaction(readonly=True):
-                await conn.execute(
-                    "SELECT set_config('app.tenant_id', $1, true)", str(tenant_id)
-                )
-                row = await conn.fetchrow(
-                    """
+        async with self._pool.acquire() as conn, conn.transaction(readonly=True):
+            await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
+            row = await conn.fetchrow(
+                """
                     SELECT payload_hash FROM audit.events
                     WHERE tenant_id = $1 AND seq = $2
                     """,
-                    tenant_id,
-                    from_seq - 1,
-                )
+                tenant_id,
+                from_seq - 1,
+            )
         if row is None:
             # The caller asked for a range starting past the chain head, or
             # the seed row is missing (which is itself a divergence — we let

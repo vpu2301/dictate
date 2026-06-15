@@ -54,7 +54,7 @@ async def decode_to_pcm(
         stdout, stderr = await asyncio.wait_for(
             proc.communicate(input=audio_bytes), timeout=timeout_seconds
         )
-    except asyncio.TimeoutError as exc:
+    except TimeoutError as exc:
         proc.kill()
         await proc.wait()
         raise AudioDecodeError("ffmpeg decode timed out") from exc

@@ -25,9 +25,7 @@ from ..keycloak_client import KeycloakError
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-_ROLE_VALUES: frozenset[str] = frozenset(
-    {"tenant_admin", "clinician", "nurse", "auditor"}
-)
+_ROLE_VALUES: frozenset[str] = frozenset({"tenant_admin", "clinician", "nurse", "auditor"})
 
 
 class InviteRequest(BaseModel):
@@ -61,9 +59,7 @@ async def invite_user(
     claims: Annotated[Claims, Depends(requires("user.invite", "user"))],
 ) -> InviteResponse:
     if body.role not in _ROLE_VALUES:
-        raise HTTPException(
-            status_code=422, detail=f"role must be one of {sorted(_ROLE_VALUES)}"
-        )
+        raise HTTPException(status_code=422, detail=f"role must be one of {sorted(_ROLE_VALUES)}")
 
     state = get_state()
     tenant_id = claims.tid
@@ -127,17 +123,13 @@ async def deactivate_user(
     # 1. Verify the target user belongs to the caller's tenant (RLS will
     #    refuse to return it otherwise, but we want an explicit 404).
     async with tenant_connection(state.app_pool, tenant_id) as conn:
-        existing = await conn.fetchrow(
-            "SELECT sub, status FROM users WHERE sub = $1", sub
-        )
+        existing = await conn.fetchrow("SELECT sub, status FROM users WHERE sub = $1", sub)
     if existing is None:
         raise HTTPException(status_code=404, detail="user not found in this tenant")
 
     # 2. Flip status in the DB.
     async with tenant_connection(state.tenant_writer_pool, tenant_id) as conn:
-        await conn.execute(
-            "UPDATE users SET status = 'deactivated' WHERE sub = $1", sub
-        )
+        await conn.execute("UPDATE users SET status = 'deactivated' WHERE sub = $1", sub)
 
     # 3. Disable + revoke sessions in Keycloak.
     try:

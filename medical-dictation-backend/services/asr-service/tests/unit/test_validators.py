@@ -100,9 +100,7 @@ def test_duration_accepted() -> None:
         ("pcm_s16le", 16000, 5, "channels_exceeded"),
     ],
 )
-def test_codec_rejections(
-    codec: str, sample_rate: int, channels: int, code: str
-) -> None:
+def test_codec_rejections(codec: str, sample_rate: int, channels: int, code: str) -> None:
     probe = ProbeOutput(
         duration_ms=60000, sample_rate_hz=sample_rate, channels=channels, codec=codec
     )
@@ -112,9 +110,7 @@ def test_codec_rejections(
 
 
 def test_codec_accepted() -> None:
-    probe = ProbeOutput(
-        duration_ms=60000, sample_rate_hz=16000, channels=1, codec="pcm_s16le"
-    )
+    probe = ProbeOutput(duration_ms=60000, sample_rate_hz=16000, channels=1, codec="pcm_s16le")
     assert validate_codec(probe, min_sample_rate_hz=8000, max_channels=2).ok
 
 

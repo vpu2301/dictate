@@ -17,17 +17,11 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import replace
-from typing import Iterable
 
 from ..pipeline.base import (
-    CommandSlot,
-    Operation,
-    PipelineWarning,
     ProcessingContext,
-    Stage,
     StageInput,
     StageOutput,
-    Word,
 )
 from .operations import operations_for
 from .voice_command_matcher import CommandSpec, VoiceCommandMatcher
@@ -57,9 +51,7 @@ class VoiceCommandStage:
     def __init__(self, *, specs_by_language: dict[str, list[CommandSpec]]) -> None:
         self._specs_by_language = specs_by_language
 
-    async def process(
-        self, ctx: ProcessingContext, input: StageInput
-    ) -> StageOutput:
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
         t0 = time.monotonic()
         specs = self._specs_by_language.get(ctx.language, [])
         matcher = VoiceCommandMatcher(

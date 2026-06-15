@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+import contextlib
 
 import httpx
 import pytest
-import pytest_asyncio
 
 from auth.exceptions import JwksFetchError, KidNotFoundError
 from auth.jwks import JwksCache
 
 from ..conftest import ISSUER, JWKS_URL, FakeJwksServer, RSATestKey
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -132,11 +130,10 @@ async def test_storm_prevention_one_fetch_for_100_concurrent_misses(
         http_client=client,
     )
     try:
+
         async def fetch_unknown() -> None:
-            try:
+            with contextlib.suppress(KidNotFoundError):
                 await cache.get_key(ISSUER, "storm-test-kid")
-            except KidNotFoundError:
-                pass
 
         # Note: with the in-process MockTransport, calls return effectively
         # synchronously; the per-issuer lock still serialises them so only

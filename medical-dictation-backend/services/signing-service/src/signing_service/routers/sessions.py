@@ -7,22 +7,21 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
-
-from audit import Severity
-from auth import Action, Claims, TargetKind
-from db import tenant_connection
 from medical_kep import (
     DocumentDisplayMetadata,
     ProviderName,
     SignerHint,
 )
 from medical_kep.selection import select_providers
+from pydantic import BaseModel, ConfigDict, Field
+
+from audit import Severity
+from auth import Action, Claims, TargetKind
+from db import tenant_connection
 
 from .. import audit_kinds
 from .. import repository as repo
 from ..deps import get_state, requires
-from ..providers import ProviderRegistry
 
 logger = logging.getLogger(__name__)
 

@@ -13,6 +13,7 @@ from auth import JwksCache
 from db import create_pool
 
 from .config import settings
+from .domain import repository
 from .pipeline.orchestrator import Orchestrator
 from .stages import (
     AbbreviationStage,
@@ -23,7 +24,6 @@ from .stages import (
     VoiceCommandStage,
 )
 from .stages.voice_command_matcher import CommandSpec
-from .domain import repository
 
 logger = logging.getLogger(__name__)
 

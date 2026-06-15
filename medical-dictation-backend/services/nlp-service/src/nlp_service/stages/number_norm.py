@@ -10,11 +10,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Literal
 
 from ..pipeline.base import (
     ProcessingContext,
-    Stage,
     StageInput,
     StageOutput,
 )
@@ -30,9 +28,7 @@ class NumberNormStage:
     name = "number_norm"
     runs_on_partials: bool = False
 
-    async def process(
-        self, ctx: ProcessingContext, input: StageInput
-    ) -> StageOutput:
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
         t0 = time.monotonic()
         if ctx.language == "uk":
             new_text = normalize_uk(

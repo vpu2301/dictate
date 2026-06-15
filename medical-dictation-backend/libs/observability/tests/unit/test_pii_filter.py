@@ -13,9 +13,9 @@ from io import StringIO
 import pytest
 
 from observability.pii_filter import (
-    PIISafeFilter,
     _DROP_NAMES,
     _MASK_NAMES,
+    PIISafeFilter,
     scrub,
 )
 
@@ -25,6 +25,7 @@ LIVE_VALUE = "live-value-must-not-appear-in-output"
 # ──────────────────────────────────────────────────────────────────────
 # Pure scrub() — drop list
 # ──────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("field", sorted(_DROP_NAMES))
 def test_drop_list_removes_value(field: str) -> None:
@@ -45,6 +46,7 @@ def test_drop_list_case_insensitive(field: str) -> None:
 # Pure scrub() — mask list
 # ──────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("field", sorted(_MASK_NAMES))
 def test_mask_list_replaces_value(field: str) -> None:
     out = scrub({field: LIVE_VALUE})
@@ -60,6 +62,7 @@ def test_patient_prefix_is_masked() -> None:
 # ──────────────────────────────────────────────────────────────────────
 # Nested structures
 # ──────────────────────────────────────────────────────────────────────
+
 
 def test_nested_dict_is_scrubbed() -> None:
     payload = {
@@ -126,6 +129,7 @@ def test_max_depth_does_not_crash() -> None:
 # stdlib logging integration
 # ──────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def captured_logger() -> tuple[logging.Logger, StringIO]:
     stream = StringIO()
@@ -186,6 +190,7 @@ def test_log_message_string_with_embedded_json_is_masked(
 # ──────────────────────────────────────────────────────────────────────
 # False-positive guard: stdlib record attributes pass through.
 # ──────────────────────────────────────────────────────────────────────
+
 
 def test_logger_module_name_not_dropped() -> None:
     """``name`` is a stdlib record attribute; the filter must not break it."""

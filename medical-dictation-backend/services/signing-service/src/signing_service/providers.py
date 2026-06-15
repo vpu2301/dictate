@@ -11,8 +11,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-import httpx
-
 from medical_kep import MockProvider, ProviderName, SigningProvider
 from medical_kep.diia_provider import DiiaConfig, DiiaProvider
 from medical_kep.iit_provider import IitConfig, IitProvider

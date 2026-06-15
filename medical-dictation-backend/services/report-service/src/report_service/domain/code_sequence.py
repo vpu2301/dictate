@@ -14,7 +14,7 @@ Counter resets implicitly on first insert of a new year — a new
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Final
 from uuid import UUID
 
@@ -46,7 +46,7 @@ async def next_code(
     now: datetime | None = None,
 ) -> str:
     """Mint the next code for ``tenant_id`` in the current year."""
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     year = now.year
     lock_key = _advisory_lock_key(tenant_id)
     # pg_advisory_xact_lock auto-releases at txn end. tenant_connection

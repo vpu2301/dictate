@@ -5,8 +5,8 @@ The single sanctioned way to obtain a tenant-scoped DB connection is
 introduced in Sprint 02 explicitly for the audit writer.
 """
 
+from .engine import Base, make_engine
 from .pool import create_pool
 from .tenant import tenant_connection
-from .engine import Base, make_engine
 
 __all__ = ["create_pool", "tenant_connection", "Base", "make_engine"]

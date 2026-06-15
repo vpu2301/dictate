@@ -63,11 +63,9 @@ class PublicVerifySecurityHeadersMiddleware(BaseHTTPMiddleware):
             "default-src 'none'; frame-ancestors 'none'; sandbox; base-uri 'none';",
         )
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault(
-            "Cache-Control", "no-store, no-cache, must-revalidate"
-        )
+        response.headers.setdefault("Cache-Control", "no-store, no-cache, must-revalidate")
         # Strip any accidental Set-Cookie.
-        if "set-cookie" in {h.lower() for h in response.headers.keys()}:
+        if "set-cookie" in {h.lower() for h in response.headers}:
             del response.headers["set-cookie"]
         return response
 

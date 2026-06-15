@@ -51,36 +51,36 @@ class Settings(BaseSettings):
     # ── Redis cache (idempotence) ──────────────────────────────────────
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     cache_ttl_seconds: int = Field(default=3600, alias="MDX_NLP_CACHE_TTL_SECONDS")
-    cache_key_prefix: str = Field(
-        default="mdx:nlp:cache", alias="MDX_NLP_CACHE_KEY_PREFIX"
-    )
+    cache_key_prefix: str = Field(default="mdx:nlp:cache", alias="MDX_NLP_CACHE_KEY_PREFIX")
 
     # ── Input limits ────────────────────────────────────────────────────
     max_input_bytes: int = Field(default=8 * 1024, alias="MDX_NLP_MAX_INPUT_BYTES")
     max_input_words: int = Field(default=1000, alias="MDX_NLP_MAX_INPUT_WORDS")
 
     # ── Rate limits ────────────────────────────────────────────────────
-    rate_limit_per_tenant_rps: int = Field(
-        default=1000, alias="MDX_NLP_RATE_LIMIT_PER_TENANT_RPS"
-    )
-    rate_limit_per_ip_rps: int = Field(
-        default=50, alias="MDX_NLP_RATE_LIMIT_PER_IP_RPS"
-    )
+    rate_limit_per_tenant_rps: int = Field(default=1000, alias="MDX_NLP_RATE_LIMIT_PER_TENANT_RPS")
+    rate_limit_per_ip_rps: int = Field(default=50, alias="MDX_NLP_RATE_LIMIT_PER_IP_RPS")
 
     # ── Stage 2: punctuation ───────────────────────────────────────────
+    # `punctuation_model` is a HF id in dev (downloaded on first request) or
+    # the baked local dir "/opt/models/punctuation" in the pinned image, in
+    # which case the runtime is fully offline (ADR-0021, Sprint B1 Day 2).
     punctuation_model: str = Field(
         default="oliverguhr/fullstop-punctuation-multilang-large",
         alias="MDX_NLP_PUNCTUATION_MODEL",
     )
-    punctuation_timeout_ms: int = Field(
-        default=250, alias="MDX_NLP_PUNCTUATION_TIMEOUT_MS"
+    # Build-time provenance (no-op for the runtime; the dir above selects the
+    # weights). Lets a running service log which pinned revision it was built
+    # from.
+    punctuation_model_repo: str = Field(
+        default="oliverguhr/fullstop-punctuation-multilang-large",
+        alias="MDX_NLP_PUNCTUATION_MODEL_REPO",
     )
-    punctuation_token_budget: int = Field(
-        default=256, alias="MDX_NLP_PUNCTUATION_TOKEN_BUDGET"
-    )
-    punctuation_disabled: bool = Field(
-        default=False, alias="MDX_NLP_PUNCTUATION_DISABLED"
-    )
+    punctuation_model_revision: str = Field(default="", alias="MDX_NLP_PUNCTUATION_MODEL_REVISION")
+    punctuation_model_sha256: str = Field(default="", alias="MDX_NLP_PUNCTUATION_MODEL_SHA256")
+    punctuation_timeout_ms: int = Field(default=250, alias="MDX_NLP_PUNCTUATION_TIMEOUT_MS")
+    punctuation_token_budget: int = Field(default=256, alias="MDX_NLP_PUNCTUATION_TOKEN_BUDGET")
+    punctuation_disabled: bool = Field(default=False, alias="MDX_NLP_PUNCTUATION_DISABLED")
 
     # ── Abbreviation snapshot cache ────────────────────────────────────
     abbreviation_snapshot_cache_ttl_seconds: float = Field(

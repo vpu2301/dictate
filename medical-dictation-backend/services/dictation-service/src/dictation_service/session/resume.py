@@ -19,7 +19,6 @@ if TYPE_CHECKING:  # heavy / optional deps only at type-check time
     from redis.asyncio import Redis
 
 from ..config import settings
-from .state import SessionState
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +29,12 @@ class ResumeOutcome:
 
     allowed: bool
     reason: str = ""
-    row: "asyncpg.Record | None" = None
+    row: asyncpg.Record | None = None
 
 
 async def evaluate_resume(
-    conn: "asyncpg.Connection",
-    redis: "Redis",
+    conn: asyncpg.Connection,
+    redis: Redis,
     *,
     session_id: UUID,
     requesting_user: UUID,
@@ -86,13 +85,13 @@ async def evaluate_resume(
     return ResumeOutcome(allowed=True, reason="ok", row=row)
 
 
-async def _worker_alive(redis: "Redis", worker_id: str) -> bool:
+async def _worker_alive(redis: Redis, worker_id: str) -> bool:
     ttl_raw: object = await redis.ttl(f"mdx:dict:worker:{worker_id}:hb")
     ttl = int(ttl_raw) if isinstance(ttl_raw, (int, str)) else -2
     return ttl > 0
 
 
-async def heartbeat_worker(redis: "Redis") -> None:
+async def heartbeat_worker(redis: Redis) -> None:
     """Refresh the worker liveness key. Caller wires the cadence."""
     await redis.set(
         f"mdx:dict:worker:{settings.worker_id}:hb",

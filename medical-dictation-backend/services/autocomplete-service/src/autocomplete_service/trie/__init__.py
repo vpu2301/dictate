@@ -7,14 +7,14 @@ from autocomplete_service.trie.builder import (
 )
 from autocomplete_service.trie.cache import TrieCache
 from autocomplete_service.trie.serializer import (
-    SerializerVersionMismatch,
+    SerializerVersionMismatchError,
     deserialize_trie,
     serialize_trie,
 )
 
 __all__ = [
     "PhraseTrieEntry",
-    "SerializerVersionMismatch",
+    "SerializerVersionMismatchError",
     "TenantTrie",
     "TrieCache",
     "build_trie_from_phrases",

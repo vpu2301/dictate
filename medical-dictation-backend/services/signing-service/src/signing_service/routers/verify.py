@@ -93,8 +93,9 @@ async def verify_pdf(
     headers = {
         "Content-Disposition": f'attachment; filename="{safe_name}"',
     }
-    await _audit_public(token, request, "valid", len(pdf_bytes), state,
-                        kind=audit_kinds.PUBLIC_VERIFY_PDF_FETCH)
+    await _audit_public(
+        token, request, "valid", len(pdf_bytes), state, kind=audit_kinds.PUBLIC_VERIFY_PDF_FETCH
+    )
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 

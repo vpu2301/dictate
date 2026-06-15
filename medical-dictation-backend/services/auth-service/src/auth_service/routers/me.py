@@ -39,9 +39,7 @@ async def me(claims: Annotated[Claims, Depends(current_user)]) -> dict[str, Any]
             "mfa_enrolled_at": (
                 row["mfa_enrolled_at"].isoformat() if row["mfa_enrolled_at"] else None
             ),
-            "last_login_at": (
-                row["last_login_at"].isoformat() if row["last_login_at"] else None
-            ),
+            "last_login_at": (row["last_login_at"].isoformat() if row["last_login_at"] else None),
         }
     return {
         "claims": {

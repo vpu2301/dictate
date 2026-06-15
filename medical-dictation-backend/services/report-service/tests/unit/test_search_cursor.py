@@ -28,5 +28,5 @@ def test_roundtrip_with_no_date():
 
 
 def test_decode_corrupt_raises():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         decode_cursor("not_a_valid_cursor_!!!")
