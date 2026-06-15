@@ -15,6 +15,7 @@ from auth import JwksCache
 from db import create_pool
 
 from .config import settings
+from .jwks_metrics import instrument_jwks_cache
 from .keycloak_client import KeycloakClient
 
 
@@ -35,6 +36,7 @@ class ServiceState:
 async def build_state() -> ServiceState:
     """Construct every async resource the service needs."""
     jwks_cache = JwksCache(issuer_to_url={settings.auth_issuer: settings.auth_jwks_url})
+    instrument_jwks_cache(jwks_cache)
 
     app_pool = await create_pool(
         settings.db_app_role_dsn,
