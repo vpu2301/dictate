@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 from uuid import uuid4
 
@@ -117,6 +118,34 @@ async def test_decrypt_wrong_aad_raises(envelope: Envelope) -> None:
     blob = await envelope.encrypt(b"phi", tenant_id=tid, aad=b"audio-1")
     with pytest.raises(DecryptError):
         await envelope.decrypt(blob, tenant_id=tid, aad=b"audio-2")
+
+
+async def test_cross_tenant_blob_swap_fails_at_gcm(envelope: Envelope) -> None:
+    """E3 (spec §4.3): a ciphertext from tenant A, relabelled as tenant B so
+    the cheap :class:`TenantMismatchError` guard is satisfied, STILL fails — the
+    DEK is wrapped under A's KEK and the AAD is ``tenant_id || caller_aad``, so
+    a cross-tenant blob mixup dies at the GCM layer rather than the guard. This
+    proves the binding is cryptographic, not merely a recorded-tenant check."""
+    a = uuid4()
+    b = uuid4()
+    audio_id = uuid4()
+    blob = await envelope.encrypt(b"phi", tenant_id=a, aad=audio_id.bytes)
+    # Forge the recorded tenant so decrypt's pre-crypto guard passes for B.
+    swapped = dataclasses.replace(blob, tenant_id=b)
+    with pytest.raises(DecryptError):
+        await envelope.decrypt(swapped, tenant_id=b, aad=audio_id.bytes)
+
+
+async def test_same_tenant_cross_row_aad_fails(envelope: Envelope) -> None:
+    """Within one tenant, a blob bound to row X cannot be decrypted as row Y:
+    ``caller_aad`` (the row id) is part of the GCM AAD, so a blob mixup between
+    two of a tenant's own objects also fails the tag check."""
+    tid = uuid4()
+    row_x = uuid4()
+    row_y = uuid4()
+    blob = await envelope.encrypt(b"phi", tenant_id=tid, aad=row_x.bytes)
+    with pytest.raises(DecryptError):
+        await envelope.decrypt(blob, tenant_id=tid, aad=row_y.bytes)
 
 
 @settings(

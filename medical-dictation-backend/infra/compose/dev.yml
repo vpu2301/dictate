@@ -56,6 +56,10 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      # Buckets must exist before the object store is used; also tells
+      # `up --wait` this one-shot is expected to exit 0 (not a failure).
+      minio-init:
+        condition: service_completed_successfully
 
   asr-worker:
     build:
@@ -84,6 +88,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   dictation-service:
     build:
@@ -123,6 +129,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   nlp-service:
     build:

@@ -33,7 +33,12 @@ from fastapi import (
 )
 from opentelemetry import metrics
 
-from asr_models import JobEnqueuePayload, JobStatus, TranscriptionJobView
+from asr_models import (
+    JobEnqueuePayload,
+    JobResultView,
+    JobStatus,
+    TranscriptionJobView,
+)
 from audit import Severity
 from auth import Claims
 from db import tenant_connection
@@ -265,6 +270,48 @@ async def get_job(
         )
         view = view.model_copy(update={"result_url": url})
     return view
+
+
+@router.get(
+    "/jobs/{job_id}/result",
+    response_model=JobResultView,
+    summary="Fetch a completed job's pre-signed result URL (409 if not ready).",
+)
+async def get_job_result(
+    job_id: UUID,
+    claims: Annotated[Claims, Depends(requires("asr.read", "asr_job"))] = ...,  # type: ignore[assignment]
+) -> JobResultView:
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        view = await repository.get_job(conn, job_id=job_id)
+    if view is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if view.status != JobStatus.COMPLETE:
+        # RFC 9457 problem detail — the result isn't ready (still queued/running)
+        # or never will be (failed/cancelled). The client polls status and
+        # retries; see spec §2.5 + retro E10 (FE retry-on-403-then-refetch).
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "type": "urn:mdx:asr:result:not-ready",
+                "title": "Transcription result is not ready",
+                "status": status.HTTP_409_CONFLICT,
+                "detail": (
+                    f"job {job_id} is in status {view.status.value!r}, "
+                    "not 'complete'"
+                ),
+                "job_status": view.status.value,
+            },
+        )
+    url = await state.transcript_store.presigned_url(
+        key=f"{claims.tid}/{job_id}.json.enc",
+        expires_in=settings.s3_presigned_ttl_seconds,
+    )
+    return JobResultView(
+        job_id=job_id,
+        presigned_url=url,
+        expires_in=settings.s3_presigned_ttl_seconds,
+    )
 
 
 @router.get(

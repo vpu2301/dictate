@@ -1,7 +1,41 @@
 # ── CPU fallback for engineers without GPUs ────────────────────────────
 # Loads the `tiny` model at int8. Latency targets relax accordingly;
-# the protocol + reconnect paths exercise fully.
+# the protocol + reconnect paths exercise fully. Mirrors asr-worker's
+# pinned + checksum-verified + offline model bake (ADR-0021) so the
+# offline path is exercised identically — dictation shares asr-worker's
+# inference code, which loads MD_ASR_MODEL from a local dir under
+# HF_HUB_OFFLINE=1.
+#
+# Build (BuildKit required for the optional HF token secret):
+#   DOCKER_BUILDKIT=1 docker build \
+#     -f services/dictation-service/Dockerfile.cpu -t mdx-dictation:cpu .
+
+# ── Stage 1: fetch + verify the tiny weights (build-time only) ─────────
+FROM python:3.12-slim AS model-fetch
+
+# tiny pins resolved from the HF API on 2026-06-10 (match asr-worker).
+ARG MD_ASR_MODEL_REPO=Systran/faster-whisper-tiny
+ARG MD_ASR_MODEL_REVISION=d90ca5fe260221311c53c58e660288d3deb8d356
+ARG MD_ASR_MODEL_SHA256=dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1
+
+RUN pip install --no-cache-dir "huggingface_hub[cli]==0.25.2"
+
+RUN --mount=type=secret,id=hf_token \
+    set -eu; \
+    if [ -f /run/secrets/hf_token ]; then HF_TOKEN="$(cat /run/secrets/hf_token)"; export HF_TOKEN; fi; \
+    huggingface-cli download "$MD_ASR_MODEL_REPO" \
+      --revision "$MD_ASR_MODEL_REVISION" \
+      --local-dir /opt/models/whisper \
+      --local-dir-use-symlinks False; \
+    echo "${MD_ASR_MODEL_SHA256}  /opt/models/whisper/model.bin" | sha256sum -c -; \
+    echo "model.bin checksum verified against pinned digest"
+
+# ── Stage 2: runtime image ─────────────────────────────────────────────
 FROM python:3.12-slim
+
+ARG MD_ASR_MODEL_REPO=Systran/faster-whisper-tiny
+ARG MD_ASR_MODEL_REVISION=d90ca5fe260221311c53c58e660288d3deb8d356
+ARG MD_ASR_MODEL_SHA256=dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -38,6 +72,12 @@ RUN uv pip install --system --no-cache \
     /build/libs/asr_models \
     /build/libs/secret
 
+COPY --from=model-fetch /opt/models/whisper /opt/models/whisper-tiny
+
+LABEL mdx.model.repo="${MD_ASR_MODEL_REPO}" \
+      mdx.model.revision="${MD_ASR_MODEL_REVISION}" \
+      mdx.model.sha256="${MD_ASR_MODEL_SHA256}"
+
 # Editable workspace libs install as .pth files, which Python only honors
 # in a site dir — not via PYTHONPATH. sitecustomize is auto-imported because
 # /deps is on PYTHONPATH; it re-registers /deps as a site dir so the editable
@@ -45,7 +85,15 @@ RUN uv pip install --system --no-cache \
 RUN printf 'import site\nsite.addsitedir("/deps")\n' > /deps/sitecustomize.py
 
 ENV PYTHONPATH=/deps \
-    PATH="/deps/bin:${PATH}"
+    PATH="/deps/bin:${PATH}" \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    MD_ASR_DEVICE=cpu \
+    MD_ASR_COMPUTE_TYPE=int8 \
+    MD_ASR_MODEL=/opt/models/whisper-tiny \
+    MD_ASR_MODEL_REPO="${MD_ASR_MODEL_REPO}" \
+    MD_ASR_MODEL_REVISION="${MD_ASR_MODEL_REVISION}" \
+    MD_ASR_MODEL_SHA256="${MD_ASR_MODEL_SHA256}"
 
 USER nonroot
 WORKDIR /app

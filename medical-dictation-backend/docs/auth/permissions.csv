@@ -99,3 +99,13 @@ service,template.read,template,true,sprint 06 — dictation-service loads on ses
 service,template.clone,template,false,
 service,template.update,template,false,
 service,template.deprecate,template,false,
+tenant_admin,report.write,report,true,sprint 08 — create/edit/finalize/amend reports
+tenant_admin,report.read,report,true,sprint 08 — read tenant's reports (incl. diff/search)
+clinician,report.write,report,true,sprint 08 — authors own reports
+clinician,report.read,report,true,sprint 08 — reads own reports
+nurse,report.write,report,true,sprint 08 — authors reports
+nurse,report.read,report,true,sprint 08 — reads reports
+auditor,report.write,report,false,read-only role — no clinical content writes
+auditor,report.read,report,false,clinical content out of audit role (mirrors dictation)
+service,report.write,report,false,user-only authoring
+service,report.read,report,true,sprint 09 — signing-service S2S reads report to sign

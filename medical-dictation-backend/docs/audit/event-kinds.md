@@ -27,6 +27,7 @@ typos at import.
 | `asr.transcription_failed`        | error    | asr-worker processor             | Job failed with `error_kind` (gpu_oom, corrupt_audio, timeout, …)  |
 | `asr.job_cancelled`               | info     | asr-service DELETE / worker      | Job cancelled by user or by worker honouring cancel_requested      |
 | `asr.quota_exceeded`              | warn     | asr-service POST /asr/jobs       | Tenant hit the monthly upload cap                                  |
+| `asr.key.master_missing`          | error    | asr-worker startup (fail-closed) | Master key absent/malformed at boot. **System-wide, pre-tenant** — emitted as a CRITICAL structured log, NOT a per-tenant audit-chain row (no tenant context exists). Worker exits non-zero; see runbook § master-key-missing |
 | `dictation.session.started`       | info     | dictation-service WS handler     | New streaming session accepted (after auth + capacity)             |
 | `dictation.session.resumed`       | info     | dictation-service WS handler     | Existing session reattached after a network drop                   |
 | `dictation.session.finalized`     | info     | dictation-service finalize       | Session ended cleanly; transcript + audio persisted                |

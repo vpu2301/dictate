@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 from report_models import ReadPurpose, ReportContent
 
@@ -101,7 +101,7 @@ def _envelope(row: repo.ReportRow, *, content: ReportContent | None = None) -> R
 )
 async def create_report(
     body: CreateReportRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> ReportCreatedResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -142,7 +142,7 @@ async def create_report(
 @router.get("/{report_id}", response_model=ReportEnvelope)
 async def get_report(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.READ, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
     purpose: Annotated[
         ReadPurpose | None,
         Query(description="Required for non-author reads."),

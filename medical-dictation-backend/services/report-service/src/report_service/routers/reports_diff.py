@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 from report_models import DiffResponse
 
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/v1/reports", tags=["reports"])
 @router.get("/{report_id}/diff", response_model=DiffResponse)
 async def get_diff(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.READ, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
     from_: Annotated[str, Query(alias="from", description="version_id or version_number")],
     to: Annotated[str, Query(description="version_id or version_number")],
 ) -> DiffResponse:
