@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 from report_models import ReportStatus
 
@@ -49,7 +49,7 @@ class CancelRequest(BaseModel):
 @router.post("/{report_id}/finalize", response_model=FinalizeResponse)
 async def finalize_report(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> FinalizeResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -112,7 +112,7 @@ async def finalize_report(
 @router.post("/{report_id}/revert-to-draft", response_model=FinalizeResponse)
 async def revert_to_draft(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> FinalizeResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -153,7 +153,7 @@ async def revert_to_draft(
 async def cancel_report(
     report_id: UUID,
     body: CancelRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> FinalizeResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:

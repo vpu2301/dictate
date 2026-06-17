@@ -12,8 +12,10 @@ import contextlib
 import logging
 import signal
 
+from crypto import MasterKeyError
 from observability import bootstrap
 
+from . import audit_kinds
 from .config import settings
 from .main_deps import build_state, teardown_state
 from .processor import run_forever
@@ -30,7 +32,23 @@ async def _main() -> None:
         package_name="asr-worker",
         disable_otel=settings.testing or settings.otel_sdk_disabled,
     )
-    state = await build_state()
+    try:
+        state = await build_state()
+    except MasterKeyError as mk_exc:
+        # Fail closed (spec §6/§4.8): the master key is missing/malformed, so
+        # the crypto subsystem cannot operate. Emit the security signal and let
+        # the process exit non-zero — the orchestrator's restart policy will
+        # keep retrying until an operator restores the key per the runbook.
+        logger.critical(
+            audit_kinds.KEY_MASTER_MISSING,
+            extra={
+                "event": audit_kinds.KEY_MASTER_MISSING,
+                "error": str(mk_exc),
+                "master_key_path": settings.master_key_path,
+                "runbook": "docs/runbooks/asr-worker.md#master-key-missing",
+            },
+        )
+        raise
     logger.info(
         "asr-worker.started",
         extra={

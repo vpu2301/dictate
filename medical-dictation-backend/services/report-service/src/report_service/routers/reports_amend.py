@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 from report_models import ReportAmendmentType, ReportContent, ReportStatus
 
@@ -54,7 +54,7 @@ class AmendResponse(BaseModel):
 async def amend_report(
     report_id: UUID,
     body: AmendRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> AmendResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -129,7 +129,7 @@ async def amend_report(
 )
 async def sign_placeholder(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> dict[str, str]:
     """Sprint-09 implements; sprint-08 leaves the route shape locked."""
     raise HTTPException(

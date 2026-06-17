@@ -196,7 +196,10 @@ wer-eval-streaming: ## Run streaming WER harness against tests/fixtures/wer (spr
 	    --fail-on-regression
 
 chaos-dictation: ## Run dictation chaos scenarios (needs dev stack + token)
-	RUN_DICTATION_CHAOS=1 uv run --project services/dictation-service pytest tests/chaos/ -v
+	RUN_DICTATION_CHAOS=1 uv run --project services/dictation-service pytest tests/chaos/dictation_chaos.py -v
+
+chaos-asr: ## Run batch-ASR worker chaos (SIGKILL reclaim; needs dev stack + asr-service + CPU model + token)
+	RUN_ASR_CHAOS=1 uv run --project services/asr-service pytest tests/chaos/asr_chaos.py -v
 
 load-dictation: ## Run dictation load test (needs dev stack + token)
 	RUN_DICTATION_LOAD=1 uv run --project services/dictation-service pytest tests/load/ -v

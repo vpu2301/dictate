@@ -109,6 +109,28 @@
           "409": {"description": "Job already terminal"}
         }
       }
+    },
+    "/asr/jobs/{job_id}/result": {
+      "get": {
+        "tags": ["asr"],
+        "summary": "Fetch a completed job's pre-signed result URL (409 if not ready).",
+        "operationId": "get_job_result_asr_jobs__job_id__result_get",
+        "parameters": [
+          {"name": "job_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/JobResultView"}
+              }
+            }
+          },
+          "404": {"description": "Not found"},
+          "409": {"description": "Result not ready (job not in 'complete' status); RFC 9457 problem detail"}
+        }
+      }
     }
   },
   "components": {
@@ -149,6 +171,15 @@
           "started_at": {"type": "string", "format": "date-time", "nullable": true},
           "finished_at": {"type": "string", "format": "date-time", "nullable": true},
           "attempts": {"type": "integer", "default": 0}
+        }
+      },
+      "JobResultView": {
+        "type": "object",
+        "required": ["job_id", "presigned_url", "expires_in"],
+        "properties": {
+          "job_id": {"type": "string", "format": "uuid"},
+          "presigned_url": {"type": "string", "description": "Short-TTL pre-signed URL for the encrypted transcript object."},
+          "expires_in": {"type": "integer", "description": "Seconds until the pre-signed URL expires (matches the issue-time TTL)."}
         }
       }
     }

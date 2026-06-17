@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 from report_models import ReportContent, ReportStatus
 
@@ -48,7 +48,7 @@ class UpdateDraftResponse(BaseModel):
 async def update_draft(
     report_id: UUID,
     body: UpdateDraftRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> UpdateDraftResponse:
     state = get_state()
 

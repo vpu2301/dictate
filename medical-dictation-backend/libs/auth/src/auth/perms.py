@@ -39,6 +39,7 @@ KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
         "nlp_text",
         "abbreviation",
         "template",
+        "report",
     }
 )
 
@@ -112,6 +113,17 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("auditor", "template.read", "template"): True,
     # Service tokens read templates to load them for dictation/nlp:
     ("service", "template.read", "template"): True,
+    # ── Sprint 08: reports (versioning, diff, search) ────────────────
+    # Clinical document — mirrors dictation_session: authors (admin,
+    # clinician, nurse) read+write; auditors denied content; service
+    # tokens read-only (signing-service S2S reads a report to sign it).
+    ("tenant_admin", "report.write", "report"): True,
+    ("tenant_admin", "report.read", "report"): True,
+    ("clinician", "report.write", "report"): True,
+    ("clinician", "report.read", "report"): True,
+    ("nurse", "report.write", "report"): True,
+    ("nurse", "report.read", "report"): True,
+    ("service", "report.read", "report"): True,
 }
 
 
