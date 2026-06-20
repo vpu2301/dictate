@@ -5,9 +5,15 @@ their tests don't have to install numpy. Windower + concurrency + vad
 touch numpy and are lazy.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from .aligner import AlignResult, align_overlap, normalized_levenshtein
 from .committer import CommitDecision, Committer, words_to_final_segments
 from .prompt import build_prompt, truncate_to_tokens
+
+if TYPE_CHECKING:
+    from .concurrency import InferenceQueue, WorkerCapacityError
+    from .windower import StreamingWindower, WindowSlice
 
 __all__ = [
     "AlignResult",
@@ -25,7 +31,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name in {"InferenceQueue", "WorkerCapacityError"}:
         from .concurrency import InferenceQueue, WorkerCapacityError
 

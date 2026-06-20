@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import logging
 import struct
 from dataclasses import dataclass
@@ -31,7 +32,7 @@ from audit import AuditWriter, Severity
 from crypto import Envelope
 from db import tenant_connection
 from storage import EncryptedObjectStore
-from storage.object_store import header_metadata_for_row
+from storage.object_store import ObjectHeader, header_metadata_for_row
 
 from .. import audit_kinds
 from ..domain import repository
@@ -114,7 +115,10 @@ async def finalize_session(
                     len(wav_bytes),
                     duration_ms,
                     hashlib.sha256(wav_bytes).digest(),
-                    _header_to_json(header),
+                    # asyncpg binds jsonb from a JSON string, not a dict
+                    # (no dict→jsonb codec is registered on the pool) — see
+                    # asr-service's insert_audio_row for the same pattern.
+                    json.dumps(_header_to_json(header)),
                     f"minio://{audio_store.bucket}/{storage_key}",
                     ctx.encounter_id,
                 )
@@ -206,7 +210,8 @@ def _flush_buffer(ctx: SessionContext) -> np.ndarray:
     total = ctx.buffer.total_samples
     ring_samples = ctx.buffer._ring_samples  # private but stable
     start = max(0, total - ring_samples)
-    return ctx.buffer.read(start, total)
+    samples: np.ndarray = ctx.buffer.read(start, total)
+    return samples
 
 
 def _pcm_to_wav(pcm: np.ndarray) -> bytes:
@@ -269,8 +274,8 @@ def _transcript_to_jsonb(ctx: SessionContext) -> list[dict[str, Any]]:
     return out
 
 
-def _header_to_json(header: object) -> dict[str, str | int]:
-    return header_metadata_for_row(header)  # type: ignore[arg-type]
+def _header_to_json(header: ObjectHeader) -> dict[str, str | int]:
+    return header_metadata_for_row(header)
 
 
 def _avg(xs: list[int]) -> int | None:

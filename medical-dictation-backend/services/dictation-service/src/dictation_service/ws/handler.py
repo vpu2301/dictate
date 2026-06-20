@@ -346,7 +346,7 @@ async def _resume_session(
 
     row = outcome.row
     assert row is not None
-    ctx = state.session_manager.get(sid)
+    ctx: SessionContext | None = state.session_manager.get(sid)
     if ctx is None:
         # The session is in DB but no in-process context — worker
         # restart case. We don't recover the buffer; tell the client to
@@ -814,7 +814,7 @@ async def _send_and_close(websocket: Any, error: Error, *, ws_code: int = 1008) 
 def _exceeds_hard_cap(ctx: SessionContext) -> bool:
     if ctx.buffer is None:
         return False
-    return ctx.buffer.total_ms >= settings.session_hard_cap_minutes * 60 * 1000
+    return bool(ctx.buffer.total_ms >= settings.session_hard_cap_minutes * 60 * 1000)
 
 
 async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> None:

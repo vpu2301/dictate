@@ -4,7 +4,13 @@ Submodules are imported lazily so unit tests for one piece (e.g.,
 ``gap``) don't pay the numpy / cryptography cost of ``buffer``.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from .gap import GapDecision, GapPolicy, GapResult, gap_decision
+
+if TYPE_CHECKING:
+    from .buffer import RingFullError, SessionAudioBuffer, decode_pcm_view
+    from .decoder import OpusDecodeError, OpusDecoder
 
 __all__ = [
     "GapDecision",
@@ -19,7 +25,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name in {"OpusDecodeError", "OpusDecoder"}:
         from .decoder import OpusDecodeError, OpusDecoder
 
