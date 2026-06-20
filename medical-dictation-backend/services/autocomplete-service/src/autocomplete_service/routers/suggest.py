@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
 
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 
 from .. import repository as repo
@@ -54,7 +54,7 @@ class SuggestResponse(BaseModel):
 @router.post("/suggest", response_model=SuggestResponse)
 async def suggest(
     body: SuggestRequest,
-    claims: Annotated[Claims, Depends(requires(Action.READ, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
 ) -> SuggestResponse:
     state = get_state()
     request_id = uuid.uuid4()

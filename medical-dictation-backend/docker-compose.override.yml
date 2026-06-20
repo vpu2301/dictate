@@ -1,0 +1,338 @@
+# ══════════════════════════════════════════════════════════════════
+# Full-stack overlay — auto-merged with docker-compose.yml on a plain
+# `docker compose up`, so `docker compose build && docker compose up`
+# brings up the ENTIRE backend: infra (from docker-compose.yml) + DB
+# migrate/seed one-shots + all application services.
+#
+#   docker compose build      # builds every service image
+#   docker compose up         # infra → migrate → seed → services
+#
+# `make dev-up` uses `-f docker-compose.yml` explicitly, which disables
+# auto-loading of this override, so it stays infra-only (unchanged).
+#
+# Services (host → container :8000):
+#   auth-service          :8000   (the SPA expects this origin)
+#   asr-service           :8001
+#   dictation-service     :8002   (WebSocket streaming ASR)
+#   nlp-service           :8005
+#   report-service        :8006
+#   autocomplete-service  :8007
+#   signing-service       :8008
+#   asr-worker            (no port — Redis-stream consumer)
+#
+# NOTE: building asr-worker + dictation-service downloads the pinned
+# faster-whisper-tiny weights from Hugging Face at BUILD time (offline
+# at runtime). The first `docker compose build` therefore needs network.
+# ══════════════════════════════════════════════════════════════════
+name: medical-dictation
+
+# ── Shared snippets ────────────────────────────────────────────────
+x-postgres-dsns: &postgres-dsns
+  DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+  DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+
+x-auth-env: &auth-env
+  AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+  AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+
+x-common-env: &common-env
+  ENVIRONMENT: development
+  LOG_LEVEL: INFO
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+
+x-svc-healthcheck: &svc-healthcheck
+  test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else sys.exit(1)"]
+  interval: 15s
+  timeout: 5s
+  retries: 10
+  start_period: 30s
+
+services:
+  # ── MinIO bucket bootstrap (root compose only ships MinIO itself) ──
+  minio-init:
+    image: minio/mc:RELEASE.2024-04-18T16-45-29Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        mc alias set local http://minio:9000 "${MINIO_ROOT_USER:-minioadmin}" "${MINIO_ROOT_PASSWORD:-minioadmin}"
+        mc mb --ignore-existing local/mdx-audio
+        mc mb --ignore-existing local/mdx-transcripts
+        mc version enable local/mdx-audio || true
+        mc version enable local/mdx-transcripts || true
+        echo "minio-init: buckets ready"
+    restart: "no"
+
+  # ── DB schema migrations (one-shot, runs as the postgres superuser
+  #    because migrations CREATE ROLE / extensions) ──────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/medical_dictation
+    command: ["python", "scripts/db/migrate.py", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ── Dev data seed (one-shot, after migrate). Also grants LOGIN to the
+  #    signing-service's low-privilege roles (dev_role_logins.sql). ───
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/medical_dictation
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: medical_dictation
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        echo "seed: granting dev role logins"
+        psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/seed/dev_role_logins.sql
+        echo "seed: dev tenants/users (seed.sql)"
+        python scripts/seed/seed.py
+        echo "seed: medical_prompts"
+        psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/seed/medical_prompts.sql
+        echo "seed: global abbreviations"
+        psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/seed/abbreviations_global.sql
+        echo "seed: voice commands"
+        python scripts/seed/seed_voice_commands.py --dsn "$$DATABASE_URL"
+        echo "seed: system templates (16)"
+        python scripts/seed/seed_templates.py --dsn "$$DATABASE_URL"
+        echo "seed: complete"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # ── auth-service — identity, tenant CRUD, audit read (SPA :8000) ───
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env]
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_TENANT_WRITER_DSN: postgresql://tenant_writer:tenant_writer@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_AUDIT_READER_DSN: postgresql://audit_reader:audit_reader@postgres:5432/medical_dictation
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: medical-dictation
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000,https://vpu2301.github.io
+    ports:
+      - "8000:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # ── asr-service — batch ASR submission/status API ─────────────────
+  asr-service:
+    build:
+      context: .
+      dockerfile: services/asr-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns]
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+    volumes:
+      - ./infra/dev/master.key:/etc/mdx/master.key:ro
+    ports:
+      - "8001:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+
+  # ── asr-worker — batch Whisper inference (Redis-stream consumer) ──
+  asr-worker:
+    build:
+      context: .
+      dockerfile: services/asr-worker/Dockerfile.cpu
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *postgres-dsns]
+      MD_ASR_DEVICE: cpu
+      MD_ASR_MODEL: /opt/models/whisper-tiny
+      MD_ASR_COMPUTE_TYPE: int8
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+    volumes:
+      - ./infra/dev/master.key:/etc/mdx/master.key:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+
+  # ── dictation-service — real-time streaming ASR over WebSocket ────
+  dictation-service:
+    build:
+      context: .
+      dockerfile: services/dictation-service/Dockerfile.cpu
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns]
+      MD_ASR_DEVICE: cpu
+      MD_ASR_MODEL: /opt/models/whisper-tiny
+      MD_ASR_COMPUTE_TYPE: int8
+      MDX_WORKER_ID: dictation-dev-1
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      MDX_TMPFS_ROOT: /run/dictation
+      MDX_WS_ALLOWED_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://localhost:4173"]'
+    volumes:
+      - ./infra/dev/master.key:/etc/mdx/master.key:ro
+    tmpfs:
+      # Owned by the nonroot service user (uid/gid 65532) so it can create
+      # per-session 0700 dirs; RAM-backed so decrypted PCM never hits disk.
+      - /run/dictation:size=2g,mode=0700,uid=65532,gid=65532
+    ports:
+      - "8002:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+
+  # ── nlp-service — 6-stage post-processing pipeline ────────────────
+  nlp-service:
+    build:
+      context: .
+      dockerfile: services/nlp-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns]
+      REDIS_URL: redis://redis:6379/0
+      MDX_NLP_PUNCTUATION_DISABLED: "true"  # dev default — skip the heavy model
+    ports:
+      - "8005:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # ── report-service — templates + versioned reports + diff/FTS ─────
+  report-service:
+    build:
+      context: .
+      dockerfile: services/report-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns]
+    ports:
+      - "8006:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # ── autocomplete-service — clinical phrase suggestions ────────────
+  autocomplete-service:
+    build:
+      context: .
+      dockerfile: services/autocomplete-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns]
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8007:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # ── signing-service — Ukrainian KEP e-signature + public /verify ──
+  signing-service:
+    build:
+      context: .
+      dockerfile: services/signing-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns]
+      DB_PUBLIC_VERIFY_DSN: postgresql://app_public_verify:app_public_verify@postgres:5432/medical_dictation
+      DB_CALLBACK_WRITER_DSN: postgresql://app_callback_writer:app_callback_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      TRUST_STORE_DIR: /etc/mdx/trust-store
+      TRUST_STORE_INCLUDE_TEST_CA: "true"
+      ENABLE_MOCK_PROVIDER: "true"
+    volumes:
+      - ./infra/trust-store:/etc/mdx/trust-store:ro
+    ports:
+      - "8008:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      # `seed` (not just migrate): dev_role_logins.sql grants LOGIN to the
+      # app_public_verify / app_callback_writer roles this service connects as.
+      seed:
+        condition: service_completed_successfully

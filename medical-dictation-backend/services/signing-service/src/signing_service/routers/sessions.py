@@ -16,7 +16,7 @@ from medical_kep.selection import select_providers
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 
 from .. import audit_kinds
@@ -57,7 +57,7 @@ class InitiateSessionResponse(BaseModel):
 @router.post("/sessions", response_model=InitiateSessionResponse)
 async def initiate(
     body: InitiateSessionRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> InitiateSessionResponse:
     state = get_state()
 

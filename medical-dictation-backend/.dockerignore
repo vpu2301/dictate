@@ -1,0 +1,27 @@
+# Keep the Docker build context small & deterministic. The service
+# Dockerfiles only COPY pyproject.toml, uv.lock, libs/, services/<x>/,
+# (and the tools image scripts/ + infra/), so everything below is noise
+# that would otherwise be uploaded to the daemon on every build.
+.venv
+**/.venv
+.git
+.github
+**/__pycache__
+**/*.pyc
+.mypy_cache
+**/.mypy_cache
+.ruff_cache
+**/.ruff_cache
+.pytest_cache
+**/.pytest_cache
+.hypothesis
+.import_linter_cache
+.DS_Store
+**/.DS_Store
+node_modules
+**/node_modules
+# Never bake local secrets into an image — they are bind-mounted at runtime.
+infra/dev/master.key
+.env.local
+*.pem
+*.key

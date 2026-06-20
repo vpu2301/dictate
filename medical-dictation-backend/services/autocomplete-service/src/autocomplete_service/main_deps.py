@@ -40,7 +40,8 @@ async def build_state() -> ServiceState:
         application_name=f"{settings.service_name}/app",
         min_size=settings.db_pool_min_size,
         max_size=settings.db_pool_max_size,
-        statement_cache_size=settings.db_statement_cache_size,
+        # libs/db.create_pool always sets statement_cache_size=0 (transaction-
+        # pooler safe), so we don't pass it explicitly — it isn't a kwarg.
     )
     audit_writer_pool = await create_pool(
         settings.db_audit_writer_dsn,

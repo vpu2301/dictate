@@ -70,6 +70,7 @@ def setup_tracing(
 
 def _install_auto_instrumentation() -> None:
     """Best-effort auto-instrumentation; missing libs are not an error."""
+    _patch_fastapi_route_details()
     try:
         from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 
@@ -82,3 +83,34 @@ def _install_auto_instrumentation() -> None:
         HTTPXClientInstrumentor().instrument()
     except Exception as exc:  # pragma: no cover  — optional at runtime
         logger.debug("HTTPX instrumentation skipped: %s", exc)
+
+
+def _patch_fastapi_route_details() -> None:
+    """Work around an upstream crash in opentelemetry-instrumentation-fastapi
+    (through 0.62b1).
+
+    ``_get_route_details`` reads ``route.path`` on a ``Match.PARTIAL`` route
+    without the ``AttributeError`` guard the ``Match.FULL`` branch has. A CORS
+    preflight (``OPTIONS``) or any wrong-method request partial-matches an
+    ``_IncludedRouter`` that has no ``.path``, so the request 500s before it is
+    ever handled. We wrap the function so a missing path falls back to the raw
+    scope path (what the ``FULL`` branch already does on the same error).
+    """
+    try:
+        from opentelemetry.instrumentation import fastapi as _fastapi_instr
+    except Exception as exc:  # pragma: no cover  — optional at runtime
+        logger.debug("FastAPI route-details patch skipped: %s", exc)
+        return
+
+    original = getattr(_fastapi_instr, "_get_route_details", None)
+    if original is None or getattr(original, "_mdx_patched", False):
+        return
+
+    def _safe_get_route_details(scope: object) -> object:
+        try:
+            return original(scope)
+        except AttributeError:
+            return scope.get("path") if isinstance(scope, dict) else None
+
+    _safe_get_route_details._mdx_patched = True  # type: ignore[attr-defined]
+    _fastapi_instr._get_route_details = _safe_get_route_details

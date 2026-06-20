@@ -92,6 +92,53 @@ make smoke-test
 
 ---
 
+## Run the ENTIRE backend (infra + all services) in Docker
+
+`make dev-up` starts **infra only** (the documented dev loop runs services on
+the host via `make run-*`). To bring up the **whole backend** — every
+application service, plus a one-shot DB migrate and seed — in containers:
+
+```bash
+docker compose build      # builds all 8 service images (+ the migrate/seed tools image)
+docker compose up         # infra → migrate → seed → keycloak → all services
+```
+
+This works because `docker-compose.override.yml` is auto-merged on a plain
+`docker compose` invocation. `make dev-up` passes `-f docker-compose.yml`
+explicitly, which disables the override — so it stays infra-only, unchanged.
+
+Startup order is enforced with health/`service_completed_successfully` gates:
+Postgres (creates roles via `init.sql`) → **migrate** (27 SQL migrations) →
+**seed** (dev tenants/users, voice commands, abbreviations, medical prompts,
+16 system templates, dev role-logins) → Keycloak (realm import) → services.
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| auth-service | `http://localhost:8000` | the SPA expects this origin |
+| asr-service | `http://localhost:8001` | batch ASR submit/status |
+| dictation-service | `http://localhost:8002` | streaming ASR (WebSocket) |
+| nlp-service | `http://localhost:8005` | `/readyz` is 503 in dev — punctuation model disabled by config; `/healthz` is 200 and the pipeline is functional |
+| report-service | `http://localhost:8006` | |
+| autocomplete-service | `http://localhost:8007` | |
+| signing-service | `http://localhost:8008` | КЕП e-signature + public `/verify` |
+| asr-worker | — | Redis-stream consumer (no HTTP port) |
+
+> **First build downloads models.** `asr-worker` and `dictation-service` bake
+> the pinned `faster-whisper-tiny` weights from Hugging Face at build time
+> (offline at runtime), so the first `docker compose build` needs network and
+> takes longer. All services run CPU-only here; add `-f infra/compose/gpu.yml`
+> for the CUDA overlay.
+
+Health-check every service once up:
+
+```bash
+for p in 8000 8001 8005 8006 8007 8008; do
+  curl -s -o /dev/null -w "%{http_code}  :$p/healthz\n" http://localhost:$p/healthz
+done
+```
+
+---
+
 ## Running the template service locally
 
 ```bash
