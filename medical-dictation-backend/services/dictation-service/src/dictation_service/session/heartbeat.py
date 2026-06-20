@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 
 from ..config import settings
 from ..protocol import Heartbeat, TokenExpiring, encode_server
@@ -54,7 +55,7 @@ async def heartbeat_loop(ctx: SessionContext) -> None:
 async def idle_watchdog(
     ctx: SessionContext,
     *,
-    on_idle: object,
+    on_idle: Callable[[SessionContext], Awaitable[None]],
 ) -> None:
     """Close the WS if no client traffic for ``ws_idle_timeout_s``.
 
@@ -74,7 +75,7 @@ async def idle_watchdog(
                 },
             )
             try:
-                await on_idle(ctx)  # type: ignore[misc]
+                await on_idle(ctx)
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "idle_watchdog.on_idle_failed",

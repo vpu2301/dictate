@@ -117,7 +117,10 @@ services:
     volumes:
       - ../../infra/dev/master.key:/etc/mdx/master.key:ro
     tmpfs:
-      - /run/dictation:size=2g,mode=1700
+      # Owned by the nonroot service user (uid/gid 65532, see Dockerfile.cpu)
+      # so it can create per-session 0700 dirs. mode=0700 keeps the ring
+      # root private to the service; RAM-backed so decrypted PCM never hits disk.
+      - /run/dictation:size=2g,mode=0700,uid=65532,gid=65532
     ports:
       - "8002:8000"
     depends_on:
