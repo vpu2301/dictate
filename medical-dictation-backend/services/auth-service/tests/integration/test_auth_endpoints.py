@@ -466,3 +466,288 @@ async def test_deactivate_happy_path(client: AsyncClient, superuser_conn):
         TENANT_A,
     )
     assert sev == "sec"
+
+
+# ── helpers for the user-management suite ─────────────────────────────────
+
+
+async def _login(client: AsyncClient, username: str) -> str:
+    r = await client.post("/auth/login", json={"username": username, "password": "dev-password"})
+    assert r.status_code == 200, r.text
+    return r.json()["access_token"]  # type: ignore[no-any-return]
+
+
+async def _invite(client: AsyncClient, token: str, *, email: str, role: str = "clinician") -> str:
+    r = await client.post(
+        "/admin/users/invite",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"email": email, "display_name": "E2E User", "role": role},
+    )
+    assert r.status_code == 201, r.text
+    return r.json()["sub"]  # type: ignore[no-any-return]
+
+
+# ── GET /admin/users (list) ───────────────────────────────────────────────
+
+
+async def test_list_users_as_admin(client: AsyncClient):
+    token = await _login(client, "dev-admin")
+    await _invite(client, token, email="lister@e2e.test")
+
+    r = await client.get("/admin/users", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    emails = {u["email"] for u in r.json()}
+    assert "lister@e2e.test" in emails
+    # Pagination params are accepted.
+    r2 = await client.get(
+        "/admin/users?limit=1&offset=0", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert r2.status_code == 200
+    assert len(r2.json()) == 1
+
+
+async def test_list_users_denied_for_clinician(client: AsyncClient):
+    token = await _login(client, "dev-clinician")
+    r = await client.get("/admin/users", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 403
+
+
+async def test_list_users_allowed_for_auditor(client: AsyncClient):
+    """auditor has read-only user.read visibility (CSV: auditor,user.read=true)."""
+    token = await _login(client, "dev-auditor")
+    r = await client.get("/admin/users", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+
+
+# ── GET /admin/users/{sub} ────────────────────────────────────────────────
+
+
+async def test_get_user_happy_and_404(client: AsyncClient):
+    token = await _login(client, "dev-admin")
+    sub = await _invite(client, token, email="readme@e2e.test")
+
+    r = await client.get(f"/admin/users/{sub}", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["email"] == "readme@e2e.test"
+    assert body["role"] == "clinician"
+    assert body["status"] == "invited"
+    assert "created_at" in body
+
+    # A sub that is not in this tenant → 404 (no existence leak).
+    r2 = await client.get(
+        f"/admin/users/{uuid.uuid4()}", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert r2.status_code == 404
+
+
+# ── POST /admin/users/{sub}/reactivate ────────────────────────────────────
+
+
+async def test_reactivate_happy_path(client: AsyncClient, superuser_conn):
+    token = await _login(client, "dev-admin")
+    sub = await _invite(client, token, email="phoenix@e2e.test")
+
+    # Deactivate then reactivate.
+    d = await client.post(
+        f"/admin/users/{sub}/deactivate", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert d.status_code == 200
+    r = await client.post(
+        f"/admin/users/{sub}/reactivate", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "active"
+
+    row = await superuser_conn.fetchrow(
+        "SELECT status FROM users WHERE sub = $1", uuid.UUID(sub)
+    )
+    assert row["status"] == "active"
+
+    sev = await superuser_conn.fetchval(
+        "SELECT severity FROM audit.events WHERE tenant_id=$1 AND kind='user.reactivated'",
+        TENANT_A,
+    )
+    assert sev == "sec"
+
+
+async def test_reactivate_denied_for_clinician(client: AsyncClient):
+    token = await _login(client, "dev-clinician")
+    r = await client.post(
+        f"/admin/users/{uuid.uuid4()}/reactivate", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert r.status_code == 403
+
+
+# ── PUT /admin/users/{sub}/roles ──────────────────────────────────────────
+
+
+async def test_set_roles_happy_path(client: AsyncClient, superuser_conn):
+    token = await _login(client, "dev-admin")
+    sub = await _invite(client, token, email="rolechange@e2e.test", role="clinician")
+
+    r = await client.put(
+        f"/admin/users/{sub}/roles",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"roles": ["nurse"]},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["roles"] == ["nurse"]
+
+    # DB primary role reflects the change.
+    db_role = await superuser_conn.fetchval(
+        "SELECT role FROM users WHERE sub = $1", uuid.UUID(sub)
+    )
+    assert db_role == "nurse"
+
+    # Keycloak realm roles now hold nurse, not clinician.
+    admin = await _kc_admin_token()
+    names = {role["name"] for role in await _kc_admin_get(admin, f"users/{sub}/role-mappings/realm")}
+    assert "nurse" in names
+    assert "clinician" not in names
+
+    # Audit: user.role_changed at severity sec with old → new.
+    row = await superuser_conn.fetchrow(
+        "SELECT severity, payload_jcs::text AS payload FROM audit.events "
+        "WHERE tenant_id=$1 AND kind='user.role_changed' ORDER BY seq DESC LIMIT 1",
+        TENANT_A,
+    )
+    assert row is not None, "no user.role_changed audit row"
+    assert row["severity"] == "sec"
+    import json as _json
+
+    payload = _json.loads(row["payload"])["payload"]
+    assert payload["old_roles"] == ["clinician"]
+    assert payload["new_roles"] == ["nurse"]
+
+
+async def test_set_roles_multi_role_primary_is_highest_privilege(client: AsyncClient, superuser_conn):
+    token = await _login(client, "dev-admin")
+    sub = await _invite(client, token, email="multirole@e2e.test", role="clinician")
+
+    r = await client.put(
+        f"/admin/users/{sub}/roles",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"roles": ["clinician", "tenant_admin"]},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["roles"] == ["clinician", "tenant_admin"]
+
+    db_role = await superuser_conn.fetchval(
+        "SELECT role FROM users WHERE sub = $1", uuid.UUID(sub)
+    )
+    assert db_role == "tenant_admin"  # highest-privilege wins for the single column
+
+    admin = await _kc_admin_token()
+    names = {role["name"] for role in await _kc_admin_get(admin, f"users/{sub}/role-mappings/realm")}
+    assert {"clinician", "tenant_admin"} <= names
+
+
+async def test_set_roles_denied_for_clinician(client: AsyncClient):
+    token = await _login(client, "dev-clinician")
+    r = await client.put(
+        f"/admin/users/{uuid.uuid4()}/roles",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"roles": ["nurse"]},
+    )
+    assert r.status_code == 403
+
+
+async def test_set_roles_unknown_role_422(client: AsyncClient):
+    token = await _login(client, "dev-admin")
+    sub = await _invite(client, token, email="wizard@e2e.test")
+    r = await client.put(
+        f"/admin/users/{sub}/roles",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"roles": ["wizard"]},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_user_crud_audit_coverage(client: AsyncClient, superuser_conn):
+    """C2: every mutation across the user CRUD surface lands an audit event of
+    the right kind + severity in the hash-linked chain. Walks
+    invite → role-change → deactivate → reactivate in one pass."""
+    token = await _login(client, "dev-admin")
+    sub = await _invite(client, token, email="audited@e2e.test", role="clinician")
+
+    pr = await client.put(
+        f"/admin/users/{sub}/roles",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"roles": ["nurse"]},
+    )
+    assert pr.status_code == 200, pr.text
+    d = await client.post(
+        f"/admin/users/{sub}/deactivate", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert d.status_code == 200, d.text
+    ra = await client.post(
+        f"/admin/users/{sub}/reactivate", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert ra.status_code == 200, ra.text
+
+    expected = {
+        "user.invited": "info",
+        "user.role_changed": "sec",
+        "user.deactivated": "sec",
+        "user.reactivated": "sec",
+    }
+    for kind, want_sev in expected.items():
+        row = await superuser_conn.fetchrow(
+            "SELECT severity FROM audit.events "
+            "WHERE tenant_id=$1 AND kind=$2 AND target_id=$3 ORDER BY seq DESC LIMIT 1",
+            TENANT_A,
+            kind,
+            sub,
+        )
+        assert row is not None, f"no audit row for {kind}"
+        assert row["severity"] == want_sev, (
+            f"{kind}: expected severity {want_sev!r}, got {row['severity']!r}"
+        )
+
+
+async def test_set_roles_last_admin_409(client: AsyncClient, superuser_conn):
+    """Demoting the *last* active tenant_admin of a tenant is refused with 409.
+
+    The seed has more than one tenant_admin in tenant A, so we promote a fresh
+    user to tenant_admin and temporarily deactivate every other admin (restored
+    in ``finally``) to create the last-admin condition deterministically. The
+    guard fires before any Keycloak/DB mutation, so the target is unharmed."""
+    token = await _login(client, "dev-admin")
+    sub = await _invite(client, token, email="lastadmin@e2e.test", role="clinician")
+    promote = await client.put(
+        f"/admin/users/{sub}/roles",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"roles": ["tenant_admin"]},
+    )
+    assert promote.status_code == 200, promote.text
+
+    others = await superuser_conn.fetch(
+        "SELECT sub FROM users WHERE tenant_id=$1 AND role='tenant_admin' "
+        "AND status <> 'deactivated' AND sub <> $2",
+        TENANT_A,
+        uuid.UUID(sub),
+    )
+    other_subs = [r["sub"] for r in others]
+    try:
+        if other_subs:
+            await superuser_conn.execute(
+                "UPDATE users SET status='deactivated' WHERE sub = ANY($1::uuid[])", other_subs
+            )
+        # Our promoted user is now the sole active tenant_admin → demote = 409.
+        r = await client.put(
+            f"/admin/users/{sub}/roles",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"roles": ["clinician"]},
+        )
+        assert r.status_code == 409, r.text
+        # Target untouched: still tenant_admin (guard fired before mutation).
+        db_role = await superuser_conn.fetchval(
+            "SELECT role FROM users WHERE sub = $1", uuid.UUID(sub)
+        )
+        assert db_role == "tenant_admin"
+    finally:
+        if other_subs:
+            await superuser_conn.execute(
+                "UPDATE users SET status='active' WHERE sub = ANY($1::uuid[])", other_subs
+            )

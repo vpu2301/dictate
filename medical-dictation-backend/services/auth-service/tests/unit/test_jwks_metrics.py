@@ -19,6 +19,17 @@ from auth_service.jwks_metrics import instrument_jwks_cache
 _JWKS = {"keys": [{"kid": "k1", "kty": "RSA", "n": "x", "e": "AQAB"}]}
 
 
+@pytest.fixture(autouse=True)
+def _enable_otel_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests assert real OTel metric series surface, so the SDK must be
+    live. Other test modules (e.g. the integration suite) set
+    ``OTEL_SDK_DISABLED=true`` process-wide at import; that no-ops the
+    MeterProvider and makes ``get_metrics_data()`` return ``None``. Clear it
+    here so the metrics bridge is exercised regardless of collection order.
+    """
+    monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
+
+
 def _collect(reader: InMemoryMetricReader) -> dict[str, float]:
     """Flatten the latest collection into ``{metric_name: value}``."""
     data = reader.get_metrics_data()

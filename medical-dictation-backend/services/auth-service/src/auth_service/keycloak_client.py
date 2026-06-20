@@ -9,6 +9,8 @@ Only the endpoints auth-service actually calls are exposed:
 - :meth:`create_user`     — POST /admin/realms/{realm}/users
 - :meth:`logout_user`     — POST /admin/realms/{realm}/users/{sub}/logout (revoke all sessions)
 - :meth:`set_user_enabled` — PUT /admin/realms/{realm}/users/{sub}
+- :meth:`get_realm_roles`  — GET /admin/realms/{realm}/users/{sub}/role-mappings/realm
+- :meth:`set_realm_roles`  — diff add/remove realm roles for a user (manage-roles)
 
 Errors are surfaced as :class:`KeycloakError` with the HTTP status and the
 upstream body so callers can discriminate (e.g. 401 invalid creds vs 423
@@ -20,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -215,19 +218,63 @@ class KeycloakClient:
         await self._assign_realm_role(sub, realm_role)
         return sub
 
-    async def _assign_realm_role(self, sub: UUID, role_name: str) -> None:
-        # Fetch role representation first.
+    async def _get_role_rep(self, role_name: str) -> dict[str, Any]:
+        """Fetch a realm role representation by name (id, name, …)."""
         role_url = f"{self._base}/admin/realms/{self._realm}/roles/{role_name}"
-        role_resp = await self._client.get(role_url, headers=await self._admin_headers())
-        if role_resp.status_code != 200:
-            raise KeycloakError(status=role_resp.status_code, body=_body(role_resp))
-        role = role_resp.json()
+        resp = await self._client.get(role_url, headers=await self._admin_headers())
+        if resp.status_code != 200:
+            raise KeycloakError(status=resp.status_code, body=_body(resp))
+        return resp.json()
 
-        # Assign.
+    async def _assign_realm_role(self, sub: UUID, role_name: str) -> None:
+        role = await self._get_role_rep(role_name)
         assign_url = f"{self._admin_users_url(str(sub))}/role-mappings/realm"
         ar = await self._client.post(assign_url, json=[role], headers=await self._admin_headers())
         if ar.status_code not in (200, 204):
             raise KeycloakError(status=ar.status_code, body=_body(ar))
+
+    async def get_realm_roles(self, sub: UUID) -> list[str]:
+        """Return the names of every realm role currently mapped to ``sub``.
+
+        Includes Keycloak's built-in roles (``offline_access``,
+        ``uma_authorization``, ``default-roles-…``); callers that only care
+        about application roles should intersect with ``KNOWN_ROLES``.
+        """
+        url = f"{self._admin_users_url(str(sub))}/role-mappings/realm"
+        resp = await self._client.get(url, headers=await self._admin_headers())
+        if resp.status_code != 200:
+            raise KeycloakError(status=resp.status_code, body=_body(resp))
+        return [r["name"] for r in resp.json()]
+
+    async def set_realm_roles(
+        self, sub: UUID, *, desired: Sequence[str], managed: frozenset[str]
+    ) -> None:
+        """Make ``sub``'s realm roles equal ``desired`` within the ``managed``
+        universe of application roles.
+
+        Roles outside ``managed`` (Keycloak built-ins) are never touched. The
+        diff adds roles in ``desired`` that aren't mapped yet and removes
+        mapped ``managed`` roles that aren't in ``desired`` — so the call is
+        idempotent and safe to retry.
+        """
+        current = set(await self.get_realm_roles(sub))
+        desired_set = set(desired)
+        to_add = sorted(desired_set - current)
+        to_remove = sorted((current & managed) - desired_set)
+
+        url = f"{self._admin_users_url(str(sub))}/role-mappings/realm"
+        if to_add:
+            reps = [await self._get_role_rep(r) for r in to_add]
+            ar = await self._client.post(url, json=reps, headers=await self._admin_headers())
+            if ar.status_code not in (200, 204):
+                raise KeycloakError(status=ar.status_code, body=_body(ar))
+        if to_remove:
+            reps = [await self._get_role_rep(r) for r in to_remove]
+            dr = await self._client.request(
+                "DELETE", url, json=reps, headers=await self._admin_headers()
+            )
+            if dr.status_code not in (200, 204):
+                raise KeycloakError(status=dr.status_code, body=_body(dr))
 
     async def logout_user(self, sub: UUID) -> None:
         """Revoke every active session for ``sub`` (admin operation)."""

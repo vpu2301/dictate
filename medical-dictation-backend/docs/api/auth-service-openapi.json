@@ -105,6 +105,158 @@
         "title": "LoginResponse",
         "type": "object"
       },
+      "RolesRequest": {
+        "properties": {
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles"
+        ],
+        "title": "RolesRequest",
+        "type": "object"
+      },
+      "RolesResponse": {
+        "properties": {
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "sub": {
+            "title": "Sub",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sub",
+          "roles"
+        ],
+        "title": "RolesResponse",
+        "type": "object"
+      },
+      "UserDetail": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "mfa_enrolled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Enrolled At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "sub": {
+            "title": "Sub",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "sub",
+          "email",
+          "display_name",
+          "role",
+          "status"
+        ],
+        "title": "UserDetail",
+        "type": "object"
+      },
+      "UserSummary": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "sub": {
+            "title": "Sub",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sub",
+          "email",
+          "display_name",
+          "role",
+          "status"
+        ],
+        "title": "UserSummary",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -154,6 +306,82 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/admin/users": {
+      "get": {
+        "operationId": "list_users_admin_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserSummary"
+                  },
+                  "title": "Response List Users Admin Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List users in the caller's tenant (RLS-scoped, paginated)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/admin/users/invite": {
       "post": {
         "operationId": "invite_user_admin_users_invite_post",
@@ -208,6 +436,65 @@
           }
         },
         "summary": "Invite a new user; creates the Keycloak user and the DB row",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/users/{sub}": {
+      "get": {
+        "operationId": "get_user_admin_users__sub__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sub",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one user in the caller's tenant",
         "tags": [
           "admin"
         ]
@@ -269,6 +556,136 @@
           }
         },
         "summary": "Soft-deactivate a user and revoke their sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/users/{sub}/reactivate": {
+      "post": {
+        "operationId": "reactivate_user_admin_users__sub__reactivate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sub",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reactivate User Admin Users  Sub  Reactivate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reactivate a previously deactivated user",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/users/{sub}/roles": {
+      "put": {
+        "operationId": "set_user_roles_admin_users__sub__roles_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sub",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set a user's realm roles (tenant_admin only)",
         "tags": [
           "admin"
         ]

@@ -52,8 +52,11 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # tenant_admin: tenant-wide admin
     ("tenant_admin", "tenant.read", "tenant"): True,
     ("tenant_admin", "tenant.update", "tenant"): True,
+    ("tenant_admin", "user.read", "user"): True,
     ("tenant_admin", "user.invite", "user"): True,
+    ("tenant_admin", "user.manage_roles", "user"): True,
     ("tenant_admin", "user.deactivate", "user"): True,
+    ("tenant_admin", "user.reactivate", "user"): True,
     ("tenant_admin", "user.reset_mfa", "user"): True,
     ("tenant_admin", "audit.read", "audit"): True,
     ("tenant_admin", "audit.verify", "audit"): True,
@@ -61,8 +64,10 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("clinician", "tenant.read", "tenant"): True,
     # nurse: like clinician but with less write capability (sprint 4+)
     ("nurse", "tenant.read", "tenant"): True,
-    # auditor: read-only audit access + tenant context
+    # auditor: read-only audit access + tenant context. user.read gives the
+    # auditor read-only visibility of the tenant's user roster (CRUD task).
     ("auditor", "tenant.read", "tenant"): True,
+    ("auditor", "user.read", "user"): True,
     ("auditor", "audit.read", "audit"): True,
     ("auditor", "audit.verify", "audit"): True,
     # service: machine-to-machine identity (no human-facing perms today)

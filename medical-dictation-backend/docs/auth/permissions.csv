@@ -34,6 +34,21 @@ service,user.deactivate,user,false,
 service,user.reset_mfa,user,false,
 service,audit.read,audit,false,
 service,audit.verify,audit,false,
+tenant_admin,user.read,user,true,CRUD — list/read users in own tenant
+clinician,user.read,user,false,no admin authority
+nurse,user.read,user,false,no admin authority
+auditor,user.read,user,true,read-only visibility of the tenant user roster
+service,user.read,user,false,S2S has no user-facing perms today
+tenant_admin,user.manage_roles,user,true,CRUD — set a user's realm roles (PUT /admin/users/{sub}/roles)
+clinician,user.manage_roles,user,false,no admin authority
+nurse,user.manage_roles,user,false,no admin authority
+auditor,user.manage_roles,user,false,read-only role — cannot change roles
+service,user.manage_roles,user,false,
+tenant_admin,user.reactivate,user,true,CRUD — reactivate a deactivated user (mirror of deactivate)
+clinician,user.reactivate,user,false,no admin authority
+nurse,user.reactivate,user,false,no admin authority
+auditor,user.reactivate,user,false,read-only
+service,user.reactivate,user,false,
 tenant_admin,asr.write,asr_job,true,sprint 03 — submit batch ASR jobs
 tenant_admin,asr.read,asr_job,true,sprint 03 — read tenant's jobs
 tenant_admin,asr.cancel,asr_job,true,sprint 03 — cancel running/queued jobs

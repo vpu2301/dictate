@@ -117,12 +117,65 @@ def test_every_allow_entry_is_in_csv():
     assert not extra, f"CSV grants not in code: {extra}"
 
 
+def test_matrix_is_complete_every_role_has_explicit_row():
+    """Exhaustiveness: for every (action, target_kind) the CSV mentions,
+    there is an explicit row for *every* known role — true or false.
+
+    This makes deny a decision, never an accident. A new action that omits
+    even one role fails CI here, forcing the author to make the call.
+    """
+    rows = _csv_rows()
+    pairs = {(r["action"], r["target_kind"]) for r in rows}
+    seen = {(r["role"], r["action"], r["target_kind"]) for r in rows}
+    missing: list[str] = []
+    for action, target in sorted(pairs):
+        for role in sorted(KNOWN_ROLES):
+            if (role, action, target) not in seen:
+                missing.append(f"{role}/{action}/{target}")
+    assert not missing, (
+        "matrix incomplete — every (role × action × target_kind) needs an "
+        "explicit true/false row:\n" + "\n".join(missing)
+    )
+
+
 # ── can() ────────────────────────────────────────────────────────────────
 
 
 def test_can_default_is_deny():
     assert can("clinician", "audit.read", "audit") is False
     assert can("nurse", "user.invite", "user") is False
+
+
+def test_negative_space_explicit_denies():
+    """C4: things that MUST be denied across the CRUD surface. Each of these
+    is an explicit ``false`` row in the CSV; this pins the intent in code."""
+    # Only tenant_admin manages roles.
+    assert can("nurse", "user.manage_roles", "user") is False
+    assert can("clinician", "user.manage_roles", "user") is False
+    assert can("auditor", "user.manage_roles", "user") is False
+    assert can("service", "user.manage_roles", "user") is False
+    # Auditor is read-only — no template writes.
+    assert can("auditor", "template.update", "template") is False
+    assert can("auditor", "template.clone", "template") is False
+    assert can("auditor", "template.deprecate", "template") is False
+    # Service tokens are not human dictation actors.
+    assert can("service", "dictation.start", "dictation_session") is False
+    assert can("service", "dictation.finalize", "dictation_session") is False
+    # Reactivate is admin-only.
+    assert can("clinician", "user.reactivate", "user") is False
+    assert can("auditor", "user.reactivate", "user") is False
+    # user.read is admin + auditor only.
+    assert can("clinician", "user.read", "user") is False
+    assert can("nurse", "user.read", "user") is False
+    assert can("service", "user.read", "user") is False
+
+
+def test_new_user_crud_grants():
+    """The Part-A grants are present exactly where intended."""
+    assert can("tenant_admin", "user.read", "user") is True
+    assert can("auditor", "user.read", "user") is True
+    assert can("tenant_admin", "user.manage_roles", "user") is True
+    assert can("tenant_admin", "user.reactivate", "user") is True
 
 
 def test_can_grants_match_csv():

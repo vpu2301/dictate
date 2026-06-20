@@ -17,6 +17,8 @@ typos at import.
 | `authz.denied`                    | sec      | auth-service `requires()` dep    | Role/scope check failed. Payload carries action + target_kind + reason. |
 | `user.invited`                    | info     | auth-service /admin/users/invite | tenant_admin created a new user                                    |
 | `user.deactivated`                | sec      | auth-service /admin/users/{sub}/deactivate | Sessions revoked, status flipped                         |
+| `user.reactivated`                | sec      | auth-service /admin/users/{sub}/reactivate | Deactivated user re-enabled; status flipped back to active |
+| `user.role_changed`               | sec      | auth-service PUT /admin/users/{sub}/roles | Realm roles changed by tenant_admin. Payload carries old_roles → new_roles. |
 | `user.reset_mfa`                  | sec      | *(sprint 16+)*                   | MFA enrolment cleared by admin                                     |
 | `audit.chain_verified`            | info/sec | nightly verifier                 | One per tenant per verify run. severity flips to `sec` on divergence |
 | `asr.audio_uploaded`              | info     | asr-service POST /asr/jobs       | Audio file enveloped + persisted; row inserted in `audio_files`    |
