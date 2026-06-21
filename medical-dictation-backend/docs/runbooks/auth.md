@@ -1,9 +1,17 @@
-# Runbook — Auth & Audit (Sprint 02)
+# Runbook — Auth & Audit (Sprint 02; user-CRUD entries added in CRUD-by-role)
 
 Scope: incident-response procedures for the auth-service, libs/audit,
 the Keycloak realm, and the audit chain. Each section opens with a
 *signal* (what alert or symptom triggers this entry) and ends with the
 recovery state you're aiming for.
+
+The tenant-admin user-management surface these procedures call is:
+`GET /admin/users`, `GET /admin/users/{sub}`, `POST /admin/users/invite`,
+`POST /admin/users/{sub}/deactivate`, `POST /admin/users/{sub}/reactivate`,
+and `PUT /admin/users/{sub}/roles`. All are RLS-scoped to the caller's
+tenant (a cross-tenant `sub` returns 404, never an existence leak) and
+emit `sec`-severity audit events. The full role × action matrix lives in
+`docs/auth/permissions.csv`; the prose companion is `docs/auth/roles.md`.
 
 ---
 
@@ -50,6 +58,65 @@ runbook entry applies when `MDX_REQUIRE_MFA=true`.)
     the `mfa_enrolled_at` attribute.)*
 3. Audit row appears under `kind=user.reset_mfa`, severity `sec`.
 4. Tell the user to log in; they'll be prompted to re-enrol TOTP.
+
+---
+
+## Restoring a deactivated user (reactivation)
+
+**Signal:** A user reports they can no longer log in, and the audit log
+shows a `kind=user.deactivated` event for their `sub` — either an
+accidental deactivation or one done during a token-theft investigation
+that is now closed.
+
+**Steps:**
+1. Confirm the user *should* regain access (investigation closed / the
+   deactivation was a mistake). Verify identity out-of-band for the
+   latter.
+2. As a `tenant_admin` for the user's tenant, call:
+   ```
+   POST /admin/users/{sub}/reactivate
+   ```
+   This flips `users.status` back to `active` and re-enables the account
+   in Keycloak. It is the exact mirror of `/deactivate`.
+3. An audit row appears under `kind=user.reactivated`, severity `sec`.
+4. The user can log in immediately. (Reactivation does **not** restore
+   the old sessions revoked at deactivation — they log in fresh.)
+
+**Recovery state:** user `active` in both Postgres and Keycloak; a
+`user.deactivated` → `user.reactivated` pair is visible in the audit
+trail for the tenant.
+
+---
+
+## Forcing immediate role revocation / change
+
+**Signal:** A user's privileges must change *now* — over-provisioned
+account, role granted in error, or a need-to-know change.
+
+**Steps:**
+1. As a `tenant_admin`, set the user's full realm-role set:
+   ```
+   PUT /admin/users/{sub}/roles      body: {"roles": ["clinician"]}
+   ```
+   Unknown roles are rejected (422). The endpoint **refuses (409)** to
+   strip `tenant_admin` from the *last* active tenant_admin of a tenant,
+   so you can never lock a tenant out of its own administration — add a
+   second admin first, then demote.
+2. The change sets the role set in Keycloak (diffing add/remove within
+   the managed app-role universe; built-in Keycloak roles are left
+   untouched) and mirrors the highest-privilege role into the local
+   `users.role` column.
+3. An audit row appears under `kind=user.role_changed`, severity `sec`,
+   with the `old_roles → new_roles` set in the payload.
+4. **Propagation caveat:** existing access tokens keep their old roles
+   until they expire (≤15 min). The new role set is carried on the next
+   refresh. For *immediate* hard revocation (suspected compromise, not
+   just a routine demotion), `POST /admin/users/{sub}/deactivate`
+   instead — it calls `/logout` and kills active + refresh sessions at
+   once.
+
+**Recovery state:** Keycloak role set and `users.role` agree; the
+`user.role_changed` event records the transition.
 
 ---
 
