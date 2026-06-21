@@ -5,11 +5,16 @@ The realm defines five roles. The permission matrix lives at
 
 | Role           | Holds                                                   | Cannot                       |
 | -------------- | ------------------------------------------------------- | ---------------------------- |
-| `tenant_admin` | Onboarding, deactivation, MFA reset, audit read/verify, tenant settings | Cross-tenant operations      |
-| `clinician`    | Routine clinical user. Tenant-read. Reports (sprint 4+) | User admin; audit            |
-| `nurse`        | Limited clinical user. Same as clinician minus report sign | Most admin                |
-| `auditor`      | Read-only audit + tenant context                        | Any write                   |
+| `tenant_admin` | Onboarding, **user read/list, role management, deactivation/reactivation**, MFA reset, audit read/verify, tenant settings | Cross-tenant operations      |
+| `clinician`    | Routine clinical user. Tenant-read. Reports (sprint 4+) | User admin (incl. user read); audit |
+| `nurse`        | Limited clinical user. Same as clinician minus report sign | Most admin; user read     |
+| `auditor`      | Read-only audit + tenant context + **read-only user roster (`user.read`)** | Any write                   |
 | `service`      | Machine-to-machine token identity                       | Any user-facing operation today |
+
+The full machine-readable matrix (every role × action × target_kind, with an
+explicit `true|false` for each) lives in `docs/auth/permissions.csv`; the
+`libs/auth.perms.ALLOW` runtime gate mirrors it and a CI test fails on any
+drift or any missing (role × action) combination.
 
 There is **no global / cross-tenant super-admin role**. The DBA superuser
 exists in the database but is never used by service code (ADR-0007).
@@ -28,10 +33,23 @@ exists in the database but is never used by service code (ADR-0007).
 
 ## Changing a user's role
 
-For sprint 02 there is no `/admin/users/{sub}/role` endpoint — role
-changes go through the Keycloak admin console or via the Keycloak Admin
-API. A future sprint adds the endpoint + an `audit.role_changed` event
-(severity `sec`).
+`PUT /admin/users/{sub}/roles` (tenant_admin only, `user.manage_roles`)
+sets a user's realm roles. The body is `{ "roles": ["clinician", …] }`,
+validated against the known realm-role catalogue (unknown role → 422). The
+endpoint sets the full role set in Keycloak and mirrors the
+highest-privilege role into the local `users.role` column (which holds a
+single value). It emits a `user.role_changed` audit event (severity `sec`)
+recording the old → new role set.
+
+**Guardrail:** the endpoint refuses (409) to remove `tenant_admin` from the
+*last* active tenant_admin of a tenant, so a tenant can never be left
+without an administrator.
+
+Other user-management endpoints: `GET /admin/users` (list, paginated),
+`GET /admin/users/{sub}` (read one), `POST /admin/users/invite`,
+`POST /admin/users/{sub}/deactivate`, and
+`POST /admin/users/{sub}/reactivate`. All are RLS-scoped to the caller's
+tenant; a cross-tenant `sub` returns 404 (no existence leak).
 
 ## How role changes propagate
 
