@@ -8,6 +8,9 @@ traffic only lands on workers that have the model.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
+from typing import cast
+
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 
@@ -51,7 +54,7 @@ async def readyz(response: Response) -> ReadyResponse:
     except Exception as exc:  # noqa: BLE001
         db_ok = f"fail: {type(exc).__name__}"
     try:
-        pong = await state.redis.ping()
+        pong = await cast("Awaitable[bool]", state.redis.ping())
         if not pong:
             redis_ok = "fail: no pong"
     except Exception as exc:  # noqa: BLE001

@@ -25,6 +25,15 @@ CASES_EN: list[tuple[str, str]] = [
     ("three times a day", "3x/day"),
     # ── Pass-through ──────────────────────────────────────────
     ("one patient", "one patient"),
+    # ── Clinical-safety: no fabricated / wrong numbers (ADR-0015) ─
+    # Colloquial "one twenty" fusion must NOT fire outside a BP/range
+    # structure — "two ten" must not become 210.
+    ("two ten", "two ten"),
+    ("heart rate one ten", "heart rate one ten"),
+    # "over" outside a BP context must not become a slash.
+    ("five over four", "five over four"),
+    # Decimal fractions keep leading zeros — 5.05 must not collapse to 5.5.
+    ("five point zero five", "5.05"),
 ]
 
 

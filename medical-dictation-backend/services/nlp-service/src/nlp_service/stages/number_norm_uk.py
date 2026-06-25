@@ -245,6 +245,44 @@ def _parse_number_run(tokens: list[str], i: int) -> tuple[int | None, int]:
     return total, consumed
 
 
+def _parse_fraction_digits(tokens: list[str], i: int) -> tuple[str | None, int]:
+    """Parse a spoken decimal fraction as a literal digit string.
+
+    "нуль п'ять" → "05", "п'ять" → "5". The summing run-parser collapses
+    "нуль п'ять" to 0 and drops the trailing digit (2.05 → 2.0) — a dropped
+    digit in a dose decimal is patient harm — so the fractional part is
+    rendered digit-by-digit, preserving leading zeros.
+    """
+    digits: list[str] = []
+    cursor = i
+    while cursor < len(tokens):
+        v = _digit_value(tokens[cursor])
+        if v is None:
+            break
+        digits.append(str(v))
+        cursor += 1
+    if not digits:
+        return None, 0
+    return "".join(digits), cursor - i
+
+
+# Plausible BP ranges — gate the "NUM на NUM" → slash rewrite so the common
+# preposition "на" (dimensions, "for N days") is not turned into a slash.
+_BP_SYSTOLIC = range(60, 301)
+_BP_DIASTOLIC = range(30, 161)
+_BP_CUES_UK: Final[frozenset[str]] = frozenset(
+    {"тиск", "ат", "артеріальний", "артеріального", "артеріальним"}
+)
+
+
+def _looks_like_bp(v1: int, v2: int) -> bool:
+    return v1 in _BP_SYSTOLIC and v2 in _BP_DIASTOLIC
+
+
+def _has_bp_cue_uk(tokens: list[str], i: int) -> bool:
+    return any(t.lower() in _BP_CUES_UK for t in tokens[max(0, i - 3) : i])
+
+
 # ── Patterns ────────────────────────────────────────────────────────
 
 
@@ -260,7 +298,8 @@ def normalize_uk(text: str, *, decimal_separator: str, bp_separator: str) -> str
             v2, c2 = _parse_number_run(raw, i + c1 + 1)
             if v2 is not None:
                 consumed = c1 + 1 + c2
-                # Optional trailing BP unit phrase: "міліметрів ртутного стовпчика"
+                # Optional trailing BP unit phrase: "міліметрів ртутного
+                # стовпчика" — an explicit unit is the strongest BP signal.
                 if (
                     i + consumed + len(_BP_UNIT_SEQ) <= n
                     and tuple(
@@ -271,16 +310,20 @@ def normalize_uk(text: str, *, decimal_separator: str, bp_separator: str) -> str
                     out.append(f"{v1}{bp_separator}{v2} мм рт. ст.")
                     i += consumed + len(_BP_UNIT_SEQ)
                     continue
-                out.append(f"{v1}{bp_separator}{v2}")
-                i += consumed
-                continue
+                # No unit: emit the slash only when a BP cue precedes or both
+                # values are physiologically plausible — otherwise "три на
+                # чотири" must pass through unchanged (ADR-0015).
+                if _has_bp_cue_uk(raw, i) or _looks_like_bp(v1, v2):
+                    out.append(f"{v1}{bp_separator}{v2}")
+                    i += consumed
+                    continue
 
         # ── Decimal: NUM цілих NUM ─────────────────────────────────
         if v1 is not None and i + c1 < n and raw[i + c1].lower() in _CILIH:
-            v2, c2 = _parse_number_run(raw, i + c1 + 1)
-            if v2 is not None:
-                out.append(f"{v1}{decimal_separator}{v2}")
-                i += c1 + 1 + c2
+            frac, cf = _parse_fraction_digits(raw, i + c1 + 1)
+            if frac is not None:
+                out.append(f"{v1}{decimal_separator}{frac}")
+                i += c1 + 1 + cf
                 continue
 
         # ── Range: від NUM до NUM ──────────────────────────────────
@@ -342,11 +385,8 @@ def normalize_uk(text: str, *, decimal_separator: str, bp_separator: str) -> str
             and raw[i + c1 + 1].lower() == "на"
             and raw[i + c1 + 2].lower() in _OF_DAY
         ):
+            # Canonical frequency form: "X разів/добу" | "X разів/день".
             out.append(
-                f"{v1} {('раз' if v1 == 1 else 'рази')}/{raw[i + c1 + 2].lower()[:-1] + 'у' if v1 == 1 else 'добу' if raw[i + c1 + 2].lower() == 'добу' else 'день'}"
-            )
-            # Simpler canonical: "X разів/добу"
-            out[-1] = (
                 f"{v1} разів/добу" if raw[i + c1 + 2].lower() == "добу" else f"{v1} разів/день"
             )
             i += c1 + 3

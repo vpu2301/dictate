@@ -19,6 +19,7 @@ import time
 from dataclasses import replace
 
 from ..pipeline.base import (
+    PipelineWarning,
     ProcessingContext,
     StageInput,
     StageOutput,
@@ -102,13 +103,26 @@ class VoiceCommandStage:
         slots = tuple(r.slot for r in results)
         ops = tuple(operations_for(s) for s in slots)
 
+        # Surface ambiguous matches (a different command intent fit the same
+        # span) so the FE/clinician can confirm rather than trust the
+        # arbitrary longest-first winner.
+        ambiguity_warnings = tuple(
+            PipelineWarning(
+                code="ambiguous_command",
+                detail=f"{r.slot.intent} also matched: {', '.join(r.ambiguous_with)}",
+                stage=self.name,
+            )
+            for r in results
+            if r.ambiguous_with
+        )
+
         return StageOutput(
             text=non_command_text,
             words=new_words,
             confidence_spans=input.confidence_spans,
             voice_commands=input.voice_commands + slots,
             operations=input.operations + ops,
-            warnings=input.warnings,
+            warnings=input.warnings + ambiguity_warnings,
             metadata={
                 self.name + ".matches": len(results),
                 self.name + ".consumed_words": len(consumed),

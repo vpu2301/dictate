@@ -17,7 +17,11 @@ from nlp_service.pipeline.base import (
     StageInput,
     StageOutput,
 )
-from nlp_service.pipeline.orchestrator import Orchestrator, idempotence_key
+from nlp_service.pipeline.orchestrator import (
+    Orchestrator,
+    _encode_for_cache,
+    idempotence_key,
+)
 
 
 class _Identity:
@@ -34,6 +38,26 @@ class _Uppercase:
 
     async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
         return StageOutput(text=input.text.upper(), words=input.words)
+
+
+class _NondeterministicTelemetry:
+    """A stage that records a wall-clock-style metadata value that differs
+    every call — exactly what would break byte-equal replay if it leaked."""
+
+    name = "telemetry"
+    runs_on_partials = True
+    _tick = 0
+
+    async def process(self, ctx: ProcessingContext, input: StageInput) -> StageOutput:
+        type(self)._tick += 1
+        return StageOutput(
+            text=input.text,
+            words=input.words,
+            metadata={
+                f"{self.name}.latency_ms": float(self._tick),  # varies per call
+                f"{self.name}.path": "model",  # deterministic — must survive
+            },
+        )
 
 
 class _InMemoryCache:
@@ -98,6 +122,19 @@ def test_cache_hit_returns_cached_output() -> None:
     assert first.text == second.text == "HELLO"
     # Cache populated:
     assert len(cache.store) == 1
+
+
+def test_fresh_runs_are_byte_equal_despite_timing() -> None:
+    # Two fresh runs (no cache) with a stage that emits a different
+    # latency every call must still produce byte-equal output — the
+    # sprint-07 replay contract. Timing metadata must be stripped.
+    orch = Orchestrator(stages=[_NondeterministicTelemetry()])
+    first = asyncio.run(orch.run(_ctx(), StageInput(text="hello")))
+    second = asyncio.run(orch.run(_ctx(), StageInput(text="hello")))
+    assert _encode_for_cache(first) == _encode_for_cache(second)
+    # Deterministic flags survive; wall-clock telemetry does not.
+    assert "telemetry.path" in first.metadata
+    assert not any(k.endswith(".latency_ms") for k in first.metadata)
 
 
 def test_pipeline_version_change_invalidates_cache() -> None:

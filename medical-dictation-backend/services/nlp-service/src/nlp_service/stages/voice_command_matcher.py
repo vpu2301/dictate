@@ -62,6 +62,10 @@ class MatchResult:
     slot: CommandSlot
     consumed_word_indices: tuple[int, ...]
     after_index: int
+    # Other distinct intents that also matched this exact span — when
+    # non-empty the match is ambiguous and the caller should warn rather
+    # than silently committing to the (arbitrary longest-first) winner.
+    ambiguous_with: tuple[str, ...] = ()
 
 
 class VoiceCommandMatcher:
@@ -117,16 +121,25 @@ class VoiceCommandMatcher:
     def _try_match_at(self, words: list[Word], i: int) -> MatchResult | None:
         for phrase in self._phrases:
             n = len(phrase.words)
-            if i + n > len(words):
-                continue
-            if not self._matches_with_edit_distance(words, i, phrase.words):
-                continue
-            if not self._pause_ok(words, i, phrase.requires_pause_before_ms):
+            if not self._passes_gates(words, i, phrase):
                 continue
             window = words[i : i + n]
             avg_p = sum(w.probability for w in window) / n if n else 0.0
-            if avg_p < phrase.min_avg_probability:
-                continue
+
+            # Ambiguity: a different intent of the SAME length that also
+            # clears every gate at this position. The longest-first winner
+            # is otherwise arbitrary, so surface the collision.
+            ambiguous_with = tuple(
+                sorted(
+                    {
+                        other.intent
+                        for other in self._phrases
+                        if len(other.words) == n
+                        and other.intent != phrase.intent
+                        and self._passes_gates(words, i, other)
+                    }
+                )
+            )
 
             consumed = tuple(range(i, i + n))
             after = i + n
@@ -152,10 +165,28 @@ class VoiceCommandMatcher:
                 confidence=avg_p,
                 arg=arg,
             )
-            return MatchResult(slot=slot, consumed_word_indices=consumed, after_index=after)
+            return MatchResult(
+                slot=slot,
+                consumed_word_indices=consumed,
+                after_index=after,
+                ambiguous_with=ambiguous_with,
+            )
         return None
 
     # ── Gates ───────────────────────────────────────────────────────
+
+    def _passes_gates(self, words: list[Word], i: int, phrase: _PhraseSpec) -> bool:
+        """All three FP gates (length, edit-distance, pause, confidence)."""
+        n = len(phrase.words)
+        if i + n > len(words):
+            return False
+        if not self._matches_with_edit_distance(words, i, phrase.words):
+            return False
+        if not self._pause_ok(words, i, phrase.requires_pause_before_ms):
+            return False
+        window = words[i : i + n]
+        avg_p = sum(w.probability for w in window) / n if n else 0.0
+        return avg_p >= phrase.min_avg_probability
 
     def _matches_with_edit_distance(
         self, words: list[Word], i: int, expected: tuple[str, ...]
