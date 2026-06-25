@@ -35,6 +35,14 @@ CASES_UK: list[tuple[str, str]] = [
     ("один пацієнт", "один пацієнт"),
     # ── Frequency ───────────────────────────────────────────────
     ("три рази на добу", "3 разів/добу"),
+    # ── Clinical-safety: no dropped / wrong digits (ADR-0015) ────
+    # Decimal fraction with a leading zero must survive: 2.05, not 2.0.
+    ("два цілих нуль п'ять", "2,05"),
+    # "на" is a common preposition — only a plausible BP (or a BP cue)
+    # may become a slash, so "три на чотири" must pass through.
+    ("три на чотири", "три на чотири"),
+    # A plausible BP without an explicit cue word still normalizes.
+    ("сто двадцять на вісімдесят", "120/80"),
 ]
 
 

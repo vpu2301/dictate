@@ -16,8 +16,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Protocol
 
 from opentelemetry import metrics
 
@@ -54,7 +55,7 @@ _stage_latency_ms = _meter.create_histogram(
 )
 
 
-class CacheProtocol:
+class CacheProtocol(Protocol):
     """Tiny duck-typed cache surface; real impl in main_deps backed by Redis."""
 
     async def get(self, key: str) -> bytes | None: ...  # pragma: no cover
@@ -101,8 +102,6 @@ class Orchestrator:
             operations=initial.operations,
             warnings=initial.warnings,
         )
-
-        import time
 
         for stage in self._stages:
             if ctx.is_partial and not stage.runs_on_partials:
@@ -151,6 +150,22 @@ class Orchestrator:
                 warnings=out.warnings,
                 metadata={**current.metadata, **out.metadata},
             )
+
+        # Strip wall-clock telemetry before the value becomes part of the
+        # deterministic output: per-stage ``*.latency_ms`` keys vary run to
+        # run, which would break the sprint-07 byte-equal replay contract and
+        # poison the idempotence-violation detector. True per-stage latency is
+        # already recorded to the ``mdx_nlp_request_duration_ms`` histogram
+        # above; the response body and cache carry only deterministic metadata.
+        current = StageOutput(
+            text=current.text,
+            words=current.words,
+            confidence_spans=current.confidence_spans,
+            voice_commands=current.voice_commands,
+            operations=current.operations,
+            warnings=current.warnings,
+            metadata=_strip_nondeterministic(current.metadata),
+        )
 
         if self._cache is not None:
             await self._cache.set(key, _encode_for_cache(current), self._cache_ttl)
@@ -243,6 +258,24 @@ def _decode_cached(raw: bytes) -> StageOutput:
         warnings=tuple(PipelineWarning(**w) for w in doc.get("warnings", [])),
         metadata=dict(doc.get("metadata", {})),
     )
+
+
+_NONDETERMINISTIC_METADATA_SUFFIXES = (".latency_ms",)
+
+
+def _strip_nondeterministic(d: dict[str, Any]) -> dict[str, Any]:
+    """Drop wall-clock telemetry keys so the output is byte-stable.
+
+    Per-stage ``*.latency_ms`` values vary run to run; they must not reach
+    the cache or the response body, which are governed by the sprint-07
+    byte-equal replay contract. Deterministic flags (``*.path``,
+    ``*.skipped_partial``, ``*.error``, ``*.fallback``) are preserved.
+    """
+    return {
+        k: v
+        for k, v in d.items()
+        if not any(k.endswith(suffix) for suffix in _NONDETERMINISTIC_METADATA_SUFFIXES)
+    }
 
 
 def _coerce_jsonable(d: dict[str, Any]) -> dict[str, Any]:

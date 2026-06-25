@@ -51,6 +51,31 @@ def test_canonical_match_fires() -> None:
     results = m.detect(words)
     assert len(results) == 1
     assert results[0].slot.intent == "newparagraph"
+    assert results[0].ambiguous_with == ()  # only one command matches
+
+
+def test_ambiguous_match_is_flagged() -> None:
+    # Two distinct single-word intents whose phrases are within edit
+    # distance of the spoken token both clear the gates → ambiguous.
+    spec_a = CommandSpec(
+        intent="delete_that",
+        language="uk",
+        phrases=(("видалити",),),
+        requires_pause_before_ms=0,
+        min_avg_probability=0.5,
+    )
+    spec_b = CommandSpec(
+        intent="undo_that",
+        language="uk",
+        phrases=(("видалити",),),  # same surface form, different intent
+        requires_pause_before_ms=0,
+        min_avg_probability=0.5,
+    )
+    m = VoiceCommandMatcher([spec_a, spec_b], language="uk")
+    results = m.detect([_w("видалити", 0.0, 0.4)])
+    assert len(results) == 1
+    assert results[0].ambiguous_with  # non-empty: the other intent collided
+    assert "undo_that" in results[0].ambiguous_with or "delete_that" in results[0].ambiguous_with
 
 
 def test_pause_before_not_satisfied_rejects() -> None:

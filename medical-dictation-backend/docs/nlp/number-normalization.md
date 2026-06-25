@@ -44,6 +44,28 @@ parser's interpretation is unambiguous.
 between, treat as `head*100 + tens`. The standard form
 "one hundred twenty" still works through the regular parser.
 
+**The colloquial reading is trusted only inside an explicit BP (`over`)
+or range (`from … to`) structure.** A standalone "two ten" or "one
+twenty" is too ambiguous to fold and **passes through unchanged** — the
+heuristic must never fabricate a number (e.g. "two ten" → `210`) outside
+a clinical numeric context (ADR-0015).
+
+## Clinical-safety gating (ADR-0015)
+
+The safety mandate is *pass-through-on-doubt*: a wrong BP or dose is
+worse than an un-normalized one. Two rules carry the weight:
+
+- **BP slash (`NUM на NUM` / `NUM over NUM` → `N/M`)** is emitted only
+  when there is a real BP signal: a trailing unit (`мм рт. ст.` /
+  `mmHg`), a preceding BP cue word (`тиск`/`АТ` · `BP`/`blood pressure`),
+  **or** both numbers fall in plausible BP ranges (systolic 60–300,
+  diastolic 30–160). Otherwise `на`/`over` is left as text, so
+  "три на чотири" / "five over four" pass through unchanged.
+- **Decimal fractions** are rendered digit-by-digit, preserving leading
+  zeros: "два цілих нуль п'ять" → `2,05` (never `2,0`), "five point zero
+  five" → `5.05` (never `5.5`). A dropped fractional digit in a dose is
+  patient harm.
+
 ## Known limitations
 
 - Ukrainian genitive plural endings on units ("п'ять міліграмів")

@@ -33,6 +33,10 @@ defaults to server `now()` with a `missing_reference_date` warning).
 
 - Numeric: `01.05.2026` / `2026-05-01`.
 - Word-form UK: `1 травня 2026` (declined month).
+- Spelled ordinal day UK: `третього травня` → `03.05.2026`, including
+  compounds (`двадцять першого грудня` → `21.12.<year>`). Clinicians
+  dictate the day as a genitive ordinal, which Stage 3 (cardinals only)
+  leaves untouched, so Stage 4 maps `першого…тридцять першого` directly.
 - Word-form EN: `May 1, 2026` or `May first 2026`.
 
 Year defaults to `reference_date.year` if omitted.

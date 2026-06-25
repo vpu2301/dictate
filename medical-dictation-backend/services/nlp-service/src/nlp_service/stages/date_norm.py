@@ -126,6 +126,54 @@ _MONTHS_EN = {
 _MONTH_NAMES_EN = {v: k for k, v in _MONTHS_EN.items()}
 
 
+# Spelled-out Ukrainian ordinal days in the genitive case, as clinicians
+# dictate them: "третього травня" (the third of May). Number normalization
+# (Stage 3) only knows cardinals ("три"), so these ordinals reach Stage 4
+# as words and must be mapped here.
+_ORD_UNITS_UK = {
+    "першого": 1,
+    "другого": 2,
+    "третього": 3,
+    "четвертого": 4,
+    "п'ятого": 5,
+    "пятого": 5,
+    "шостого": 6,
+    "сьомого": 7,
+    "восьмого": 8,
+    "дев'ятого": 9,
+    "девятого": 9,
+}
+_ORD_TEENS_UK = {
+    "десятого": 10,
+    "одинадцятого": 11,
+    "дванадцятого": 12,
+    "тринадцятого": 13,
+    "чотирнадцятого": 14,
+    "п'ятнадцятого": 15,
+    "пятнадцятого": 15,
+    "шістнадцятого": 16,
+    "сімнадцятого": 17,
+    "вісімнадцятого": 18,
+    "дев'ятнадцятого": 19,
+    "девятнадцятого": 19,
+}
+
+
+def _build_ordinal_days_uk() -> dict[str, int]:
+    out: dict[str, int] = {}
+    out.update(_ORD_UNITS_UK)
+    out.update(_ORD_TEENS_UK)
+    out["двадцятого"] = 20
+    out["тридцятого"] = 30
+    for word, unit in _ORD_UNITS_UK.items():
+        out[f"двадцять {word}"] = 20 + unit
+    out["тридцять першого"] = 31
+    return out
+
+
+_ORD_DAYS_UK = _build_ordinal_days_uk()
+
+
 class DateNormStage:
     """Sprint-05 Stage 4."""
 
@@ -267,6 +315,16 @@ _ABS_UK = re.compile(
     r"\b(\d{1,2})\s+(" + "|".join(_MONTHS_UK) + r")(?:\s+(\d{4}))?\b",
     re.IGNORECASE | re.UNICODE,
 )
+# Spelled ordinal day + month genitive: "третього травня [2026]". Longest
+# phrase first so "двадцять першого" wins over a bare "першого".
+_ABS_UK_ORD = re.compile(
+    r"\b("
+    + "|".join(sorted(_ORD_DAYS_UK, key=len, reverse=True))
+    + r")\s+("
+    + "|".join(_MONTHS_UK)
+    + r")(?:\s+(\d{4}))?\b",
+    re.IGNORECASE | re.UNICODE,
+)
 _ABS_EN = re.compile(
     r"\b(" + "|".join(_MONTHS_EN) + r")\s+(\d{1,2})(?:,?\s+(\d{4}))?\b",
     re.IGNORECASE,
@@ -284,6 +342,15 @@ def _apply_absolute(text: str, ctx: ProcessingContext) -> tuple[str, list[Pipeli
             mo = _MONTHS_UK[m.group(2).lower()]
             y = int(m.group(3)) if m.group(3) else ctx.reference_date.year
             return _safe_format(d, mo, y, ctx, warnings)
+
+        # Spelled ordinal day form runs first (disjoint from the digit form).
+        def _conv_ord(m: re.Match[str]) -> str:
+            d = _ORD_DAYS_UK[m.group(1).lower()]
+            mo = _MONTHS_UK[m.group(2).lower()]
+            y = int(m.group(3)) if m.group(3) else ctx.reference_date.year
+            return _safe_format(d, mo, y, ctx, warnings)
+
+        text = _ABS_UK_ORD.sub(_conv_ord, text)
     else:
         pattern = _ABS_EN
 
