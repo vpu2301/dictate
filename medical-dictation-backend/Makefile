@@ -138,17 +138,17 @@ migrate-down: ## Roll back the most-recently-applied migration
 migrate-status: ## Show applied + pending migrations
 	uv run python scripts/db/migrate.py status
 
-openapi-dump: ## Refresh docs/api/auth-service-openapi.json from the running app
+openapi-dump: ## Refresh docs/api/*-openapi.json from the running apps
 	uv run python scripts/dev/dump-openapi.py
 
-openapi-check: ## CI gate — fail if the committed OpenAPI snapshot drifts
+openapi-check: ## CI gate — fail if any committed OpenAPI snapshot drifts
 	uv run python scripts/dev/dump-openapi.py >/dev/null
-	@if [ -n "$$(git status --porcelain docs/api/auth-service-openapi.json 2>/dev/null)" ]; then \
+	@if [ -n "$$(git status --porcelain docs/api/*-openapi.json 2>/dev/null)" ]; then \
 	    echo "OpenAPI snapshot is stale. Run: make openapi-dump"; \
-	    git diff --no-color docs/api/auth-service-openapi.json | head -50; \
+	    git diff --no-color docs/api/*-openapi.json | head -80; \
 	    exit 1; \
 	fi
-	@echo "OpenAPI snapshot is up to date."
+	@echo "OpenAPI snapshots are up to date."
 
 check-rls: ## CI gate — every user-schema table has RLS+FORCE enabled
 	uv run python scripts/ci/check-rls-policies.py

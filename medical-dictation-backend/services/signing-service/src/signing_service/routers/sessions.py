@@ -54,6 +54,32 @@ class InitiateSessionResponse(BaseModel):
     available_providers: list[ProviderName]
 
 
+class SessionStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: UUID
+    status: str  # backend enum verbatim; FE maps signed→complete, verifying→signing
+    provider: ProviderName
+    expires_at: str
+    redirect_url: str | None = None
+    qr_payload: str | None = None
+    signed_envelope_id: UUID | None = None
+    failure_reason: str | None = None
+    verification_token: str | None = None
+    signed_at: str | None = None
+    signer_full_name: str | None = None
+
+
+class CancelSessionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+
+
+# Only a session the user hasn't committed to a provider yet may be cancelled.
+_CANCELLABLE_FROM = ("awaiting_user", "initiating")
+
+
 @router.post("/sessions", response_model=InitiateSessionResponse)
 async def initiate(
     body: InitiateSessionRequest,
@@ -123,6 +149,7 @@ async def initiate(
             qr_payload=init.qr_payload,
             callback_completion_url=body.callback_completion_url,
             purpose_code=body.purpose_code,
+            document_pdf_hash=bytes.fromhex(body.document_pdf_hash_hex),
         )
 
     await state.audit_writer.write_event(
@@ -150,3 +177,98 @@ async def initiate(
         local_helper_payload=init.local_helper_payload,
         available_providers=selection.available,
     )
+
+
+@router.get("/sessions/{session_id}", response_model=SessionStatusResponse)
+async def get_session(
+    session_id: UUID,
+    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
+) -> SessionStatusResponse:
+    """Poll a signing session's status (M1·B1).
+
+    Status advances via the provider webhook callback — this just reads the
+    DB row (tenant-scoped, RLS enforces ownership → 404 cross-tenant).
+    """
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        row = await repo.fetch_session_by_id(conn, session_id=session_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="session not found")
+
+    signed_at = row["signed_at"]
+    return SessionStatusResponse(
+        session_id=row["id"],
+        status=row["status"],
+        provider=ProviderName(row["provider"]),
+        expires_at=row["expires_at"].isoformat(),
+        redirect_url=row["redirect_url"],
+        qr_payload=row["qr_payload"],
+        signed_envelope_id=row["signed_envelope_id"],
+        failure_reason=row["failure_reason"],
+        verification_token=row["verification_token"],
+        signed_at=signed_at.isoformat() if signed_at else None,
+        signer_full_name=row["signer_full_name"],
+    )
+
+
+@router.delete("/sessions/{session_id}", response_model=CancelSessionResponse)
+async def cancel_session(
+    session_id: UUID,
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+) -> CancelSessionResponse:
+    """Cancel an in-flight signing session (M1·B2).
+
+    Cancellable only from {initiating, awaiting_user}; never once the
+    document is verifying/signed. The optimistic ``transition_session``
+    races cleanly against ``jobs/reaper.py`` — if the session has already
+    moved on, the transition no-ops and we return 409.
+    """
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        row = await repo.fetch_session_by_id(conn, session_id=session_id)
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="session not found")
+        if row["status"] not in _CANCELLABLE_FROM:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={
+                    "type": "https://errors.medical-dictation/session-not-cancellable",
+                    "title": "Signing session cannot be cancelled",
+                    "status": status.HTTP_409_CONFLICT,
+                    "detail": (
+                        f"session {session_id} is in status {row['status']!r}; "
+                        "only initiating/awaiting_user sessions can be cancelled"
+                    ),
+                    "session_status": row["status"],
+                },
+            )
+        cancelled = await repo.transition_session(
+            conn,
+            session_id=session_id,
+            expected_from=row["status"],
+            to="cancelled",
+            failure_reason="user_cancelled",
+        )
+        if not cancelled:
+            # Raced with the reaper / a callback between fetch and update.
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={
+                    "type": "https://errors.medical-dictation/session-not-cancellable",
+                    "title": "Signing session cannot be cancelled",
+                    "status": status.HTTP_409_CONFLICT,
+                    "detail": f"session {session_id} changed state before it could be cancelled",
+                },
+            )
+
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.SIGNING_SESSION_CANCELLED,
+        actor_sub=claims.sub,
+        actor_role=(claims.roles[0] if claims.roles else None),
+        target_kind="signing_session",
+        target_id=session_id,
+        payload={"from_status": row["status"]},
+        severity=Severity.INFO,
+    )
+    return CancelSessionResponse(status="cancelled")

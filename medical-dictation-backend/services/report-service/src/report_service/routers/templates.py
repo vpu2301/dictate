@@ -82,6 +82,10 @@ class CloneResponse(_Strict):
     id: UUID
 
 
+class CreateResponse(_Strict):
+    id: UUID
+
+
 class UpdateResponse(_Strict):
     id: UUID
     kind: str  # 'cosmetic' | 'structural' | 'no_change'
@@ -255,6 +259,37 @@ async def get_section_prompt(
     prompt, language, section_name = result
     _section_lookups.add(1)
     return SectionPromptResponse(prompt=prompt, language=language, section_name=section_name)
+
+
+# ── Create (plain) ──────────────────────────────────────────────────
+
+
+@router.post(
+    "",
+    response_model=CreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new tenant template from scratch.",
+)
+async def create_template(
+    body: TemplateDefinition,
+    claims: Annotated[Claims, Depends(requires("template.update", "template"))],
+) -> CreateResponse:
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        new_id = await repository.create_template(
+            conn, tenant_id=claims.tid, definition=body
+        )
+
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.TEMPLATE_CREATED,
+        actor_sub=claims.sub,
+        target_kind="template",
+        target_id=str(new_id),
+        payload={"code": body.code, "specialty": body.specialty},
+        severity=Severity.INFO,
+    )
+    return CreateResponse(id=new_id)
 
 
 # ── Clone ───────────────────────────────────────────────────────────

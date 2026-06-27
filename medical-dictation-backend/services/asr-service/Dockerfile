@@ -8,6 +8,8 @@ COPY pyproject.toml uv.lock /build/
 COPY libs/ /build/libs/
 COPY services/asr-service/ /build/services/asr-service/
 
+# torch is a large wheel; bump uv's 30s default so slow links don't time out
+ENV UV_HTTP_TIMEOUT=600
 RUN uv pip install --system --no-cache \
     --target /deps \
     /build/services/asr-service \

@@ -180,6 +180,55 @@ async def fetch_version_by_number(
     return await fetch_version(conn, version_id=row)
 
 
+@dataclass(slots=True)
+class VersionSummaryRow:
+    """Lightweight version-list row — never decodes ``content_jsonb``."""
+
+    id: UUID
+    version_number: int
+    parent_version_id: UUID | None
+    created_by: UUID
+    created_at: datetime
+    is_amendment: bool
+    amendment_type: ReportAmendmentType | None
+    amendment_reason: str | None
+    signed_at: datetime | None
+    signed_by: UUID | None
+
+
+async def list_version_summaries(
+    conn: asyncpg.Connection, *, report_id: UUID
+) -> list[VersionSummaryRow]:
+    """All versions of a report as metadata-only summaries, oldest first."""
+    rows = await conn.fetch(
+        """
+        SELECT id, version_number, parent_version_id, created_by, created_at,
+               is_amendment, amendment_type, amendment_reason, signed_at, signed_by
+        FROM report_versions
+        WHERE report_id = $1
+        ORDER BY version_number
+        """,
+        report_id,
+    )
+    return [
+        VersionSummaryRow(
+            id=r["id"],
+            version_number=int(r["version_number"]),
+            parent_version_id=r["parent_version_id"],
+            created_by=r["created_by"],
+            created_at=r["created_at"],
+            is_amendment=bool(r["is_amendment"]),
+            amendment_type=(
+                ReportAmendmentType(r["amendment_type"]) if r["amendment_type"] else None
+            ),
+            amendment_reason=r["amendment_reason"],
+            signed_at=r["signed_at"],
+            signed_by=r["signed_by"],
+        )
+        for r in rows
+    ]
+
+
 # ── Create ──────────────────────────────────────────────────────────
 
 

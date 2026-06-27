@@ -21,6 +21,7 @@ dependencies = [
     "template_models",
     "report_models",
     "secret",
+    "medical_kep[pdf]",
 ]
 
 [tool.uv.sources]
@@ -31,6 +32,7 @@ db = { workspace = true }
 template_models = { workspace = true }
 report_models = { workspace = true }
 secret = { workspace = true }
+medical_kep = { workspace = true }
 
 [project.optional-dependencies]
 dev = [
