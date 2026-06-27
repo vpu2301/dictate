@@ -50,5 +50,8 @@ class Settings(BaseSettings):
     template_cache_maxsize: int = Field(default=5000, alias="MDX_TEMPLATE_CACHE_MAXSIZE")
     template_cache_ttl_seconds: int = Field(default=60, alias="MDX_TEMPLATE_CACHE_TTL_SECONDS")
 
+    # Issuing organisation printed on the unsigned PDF (M1·A3).
+    pdf_issuer_name: str = Field(default="Medical Dictation", alias="MDX_PDF_ISSUER_NAME")
+
 
 settings = Settings()

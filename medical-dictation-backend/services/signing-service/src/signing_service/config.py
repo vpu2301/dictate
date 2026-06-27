@@ -82,5 +82,8 @@ class Settings(BaseSettings):
     # this flag controls whether we even wire it.
     enable_mock_provider: bool = Field(default=True, alias="ENABLE_MOCK_PROVIDER")
 
+    # Max size of a locally-signed PDF upload (M1·B4).
+    max_upload_mb: int = Field(default=25, alias="SIGNING_MAX_UPLOAD_MB")
+
 
 settings = Settings()

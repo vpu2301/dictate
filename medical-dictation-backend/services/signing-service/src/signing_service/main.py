@@ -18,7 +18,7 @@ from .middleware import (
     PublicVerifySecurityHeadersMiddleware,
     RequestIDMiddleware,
 )
-from .routers import callbacks, health, sessions, verify
+from .routers import callbacks, certificates, health, sessions, uploads, verify
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,8 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(health.router)
     app.include_router(sessions.router)
+    app.include_router(certificates.router)
+    app.include_router(uploads.router)
     app.include_router(callbacks.router)
     app.include_router(verify.router)
     FastAPIInstrumentor.instrument_app(app)

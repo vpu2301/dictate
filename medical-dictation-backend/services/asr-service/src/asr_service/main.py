@@ -23,7 +23,7 @@ from .config import settings
 from .deps import install_state
 from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
-from .routers import health, jobs
+from .routers import health, jobs, prompts
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(health.router)
     app.include_router(jobs.router)
+    app.include_router(prompts.router)
     FastAPIInstrumentor.instrument_app(app)
     return app
 

@@ -140,6 +140,36 @@ async def clone_template(
     return row_id  # type: ignore[no-any-return]
 
 
+async def create_template(
+    conn: asyncpg.Connection,
+    *,
+    tenant_id: UUID,
+    definition: TemplateDefinition,
+) -> UUID:
+    """Insert a brand-new tenant template (M1·A4).
+
+    Mirrors the structural-edit INSERT but with no parent link: a
+    plain draft (``parent_template_id=NULL, is_system=FALSE,
+    status='draft', schema_version=1``). Returns the new id.
+    """
+    new_id = await conn.fetchval(
+        """
+        INSERT INTO templates
+            (tenant_id, parent_template_id, code, name, language, specialty,
+             schema_version, is_system, status, schema_jsonb)
+        VALUES ($1, NULL, $2, $3, $4, $5, 1, FALSE, 'draft', $6::jsonb)
+        RETURNING id
+        """,
+        tenant_id,
+        definition.code,
+        definition.name,
+        definition.language,
+        definition.specialty,
+        json.dumps(definition.model_dump(mode="json")),
+    )
+    return new_id  # type: ignore[no-any-return]
+
+
 # ── Update (cosmetic vs structural) ─────────────────────────────────
 
 
