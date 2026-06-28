@@ -17,3 +17,6 @@ AUDIO_TRUNCATED: Final = "dictation.audio.truncated"  # severity=warn
 
 # Upgrade rejections
 UPGRADE_FAILED: Final = "dictation.upgrade.failed"  # warn/sec by cause
+
+# Section-aware dictation (sprint 06)
+SECTION_SWITCHED: Final = "dictation.section_switched"

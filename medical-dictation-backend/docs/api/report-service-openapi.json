@@ -1394,6 +1394,12 @@
             "title": "Required",
             "type": "boolean"
           },
+          "synthesis_prompt": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Synthesis Prompt",
+            "type": "string"
+          },
           "voice_aliases": {
             "items": {
               "type": "string"
