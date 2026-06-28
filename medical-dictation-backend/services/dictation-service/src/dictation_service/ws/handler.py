@@ -547,7 +547,7 @@ async def _on_text(
             windower.base_prompt = new_prompt
         await state.audit_writer.write_event(
             tenant_id=ctx.tenant_id,
-            kind="dictation.section_switched",
+            kind=audit_kinds.SECTION_SWITCHED,
             actor_sub=ctx.user_id,
             target_kind="dictation_session",
             target_id=str(ctx.session_id),
