@@ -15,6 +15,7 @@ TEMPLATE_VIEWED_FULL: Final = "template.viewed_full"  # GET /templates/{id}
 REPORT_CREATED: Final = "report.created"
 REPORT_DRAFT_UPDATED: Final = "report.draft.updated"  # aggregated per session
 REPORT_FINALIZED: Final = "report.finalized"
+REPORT_COMPLETED: Final = "report.completed"  # finalize completion summary (M1·A5)
 REPORT_REVERTED: Final = "report.reverted"
 REPORT_CANCELLED: Final = "report.cancelled"
 REPORT_AMENDED: Final = "report.amended"  # post-sign (sprint-09)
@@ -23,3 +24,7 @@ REPORT_VIEWED_FULL: Final = "report.viewed_full"  # carries purpose
 REPORT_SEARCHED: Final = "report.searched"
 REPORT_CHAIN_INTEGRITY_FAILURE: Final = "report.chain_integrity_failure"
 REPORT_PDF_RENDERED: Final = "report.pdf_rendered"  # GET /reports/{id}/pdf (M1·A3)
+
+# Spec item 1: report synthesis (raw dictation → clean prose).
+REPORT_SYNTHESIS_STARTED: Final = "report.synthesis_started"
+REPORT_SYNTHESIS_COMPLETED: Final = "report.synthesis_completed"

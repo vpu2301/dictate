@@ -25,6 +25,7 @@ from .routers import (
     reports_lifecycle,
     reports_pdf,
     reports_search,
+    reports_synthesis,
     reports_versions,
     templates,
 )
@@ -93,6 +94,7 @@ def create_app() -> FastAPI:
     app.include_router(reports_diff.router)
     app.include_router(reports_versions.router)
     app.include_router(reports_pdf.router)
+    app.include_router(reports_synthesis.router)
     FastAPIInstrumentor.instrument_app(app)
     return app
 

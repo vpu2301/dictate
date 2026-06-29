@@ -341,6 +341,37 @@
         "title": "FieldType",
         "type": "string"
       },
+      "FinalizeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "dictation_session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dictation Session Id"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          }
+        },
+        "title": "FinalizeRequest",
+        "type": "object"
+      },
       "FinalizeResponse": {
         "additionalProperties": false,
         "properties": {
@@ -414,6 +445,25 @@
           "code"
         ],
         "title": "Icd10Code",
+        "type": "object"
+      },
+      "LocalizedText": {
+        "additionalProperties": false,
+        "properties": {
+          "en": {
+            "title": "En",
+            "type": "string"
+          },
+          "uk": {
+            "title": "Uk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uk",
+          "en"
+        ],
+        "title": "LocalizedText",
         "type": "object"
       },
       "MetadataDiff": {
@@ -704,6 +754,20 @@
             "format": "uuid",
             "title": "Primary Author Id",
             "type": "string"
+          },
+          "section_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SectionLabel"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Labels"
           },
           "signed_at": {
             "anyOf": [
@@ -1120,6 +1184,25 @@
         "title": "SearchResponse",
         "type": "object"
       },
+      "SectionLabel": {
+        "additionalProperties": false,
+        "description": "Human-readable, localized title for one report section.\n\nTemplates are per-language (a template row is either ``uk`` or ``en``),\nso the section ``name`` is a single string in the template's own\nlanguage. We mirror it into BOTH ``uk`` and ``en`` here \u2014 the same\nbehaviour the frontend's ``toStudioTemplate`` uses \u2014 so the SPA/PDF can\nrender section titles without re-fetching the template, and historical\nreports carry their labels even if the template later changes.",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "section_key": {
+            "title": "Section Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_key",
+          "name"
+        ],
+        "title": "SectionLabel",
+        "type": "object"
+      },
       "SectionPromptResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1142,6 +1225,112 @@
           "section_name"
         ],
         "title": "SectionPromptResponse",
+        "type": "object"
+      },
+      "SynthesisJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "sections"
+        ],
+        "title": "SynthesisJobResponse",
+        "type": "object"
+      },
+      "SynthesizeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "enum": [
+              "uk",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections"
+          }
+        },
+        "required": [
+          "language"
+        ],
+        "title": "SynthesizeRequest",
+        "type": "object"
+      },
+      "SynthesizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "sections"
+        ],
+        "title": "SynthesizeResponse",
+        "type": "object"
+      },
+      "SynthesizedSection": {
+        "additionalProperties": false,
+        "properties": {
+          "original": {
+            "title": "Original",
+            "type": "string"
+          },
+          "section_key": {
+            "title": "Section Key",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_key",
+          "original",
+          "text"
+        ],
+        "title": "SynthesizedSection",
         "type": "object"
       },
       "TemplateDefinition": {
@@ -2860,6 +3049,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FinalizeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -2921,6 +3127,44 @@
             }
           },
           {
+            "description": "'clean' is only honoured for signed reports; non-signed reports are always draft.",
+            "in": "query",
+            "name": "variant",
+            "required": false,
+            "schema": {
+              "default": "draft",
+              "description": "'clean' is only honoured for signed reports; non-signed reports are always draft.",
+              "enum": [
+                "draft",
+                "clean"
+              ],
+              "title": "Variant",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Render language; falls back to the report language, else 'uk'.",
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "uk",
+                    "en"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Render language; falls back to the report language, else 'uk'.",
+              "title": "Lang"
+            }
+          },
+          {
             "in": "header",
             "name": "Authorization",
             "required": false,
@@ -2958,7 +3202,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Render the current finalized version as an unsigned PDF (409 for drafts).",
+        "summary": "Render the current version as a PDF (draft watermark for non-signed reports; 409 only for cancelled).",
         "tags": [
           "reports"
         ]
@@ -3082,6 +3326,144 @@
           }
         },
         "summary": "Sign Placeholder",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/synthesize": {
+      "post": {
+        "operationId": "synthesize_report_v1_reports__report_id__synthesize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynthesizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Synthesize Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/synthesize/{job_id}": {
+      "get": {
+        "operationId": "get_synthesis_job_v1_reports__report_id__synthesize__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesisJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Synthesis Job",
         "tags": [
           "reports"
         ]
