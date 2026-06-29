@@ -247,3 +247,12 @@ name = "storage layers on crypto only — not auth/audit/db"
 type = "forbidden"
 source_modules = ["storage"]
 forbidden_modules = ["auth", "audit", "db", "messaging", "observability"]
+
+# Config for the workspace-root `tests/` tree (chaos, load) — invoked from the
+# repo root by `make chaos-dictation` / `make load-dictation`. Per-package test
+# config lives in each member's own pyproject; this only covers the cross-cutting
+# root suites, which are async and would otherwise be silently skipped under
+# pytest-asyncio's default strict mode.
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

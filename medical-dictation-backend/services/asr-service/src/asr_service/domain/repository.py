@@ -7,6 +7,7 @@ it. Every query is tenant-scoped via :func:`db.tenant_connection`.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -157,6 +158,53 @@ async def count_active_jobs(conn: asyncpg.Connection, *, tenant_id: UUID) -> int
         """,
     )
     return int(row["n"]) if row is not None else 0
+
+
+@dataclass(slots=True)
+class PromptRow:
+    """One ``medical_prompts`` catalogue entry (metadata only — no prompt_text)."""
+
+    id: UUID
+    language: str
+    specialty: str
+    is_default: bool
+
+
+async def list_prompts(
+    conn: asyncpg.Connection, *, language: str | None = None, specialty: str | None = None
+) -> list[PromptRow]:
+    """List the global ``medical_prompts`` catalogue (ADR-0007, no RLS).
+
+    The picker must surface the same UUIDs ``submit_job`` stores, so this
+    reads ``medical_prompts`` directly — not report-service section prompts.
+    """
+    clauses: list[str] = []
+    params: list[Any] = []
+    if language is not None:
+        params.append(language)
+        clauses.append(f"language = ${len(params)}")
+    if specialty is not None:
+        params.append(specialty)
+        clauses.append(f"specialty = ${len(params)}")
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = await conn.fetch(
+        f"""
+        SELECT id, language, specialty, is_default
+        FROM medical_prompts
+        {where}
+        ORDER BY specialty, is_default DESC
+        """,
+        *params,
+    )
+    return [
+        PromptRow(
+            id=r["id"],
+            language=r["language"],
+            specialty=r["specialty"],
+            is_default=bool(r["is_default"]),
+        )
+        for r in rows
+    ]
 
 
 def _row_to_view(row: asyncpg.Record) -> TranscriptionJobView:

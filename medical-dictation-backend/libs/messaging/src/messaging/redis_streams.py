@@ -33,6 +33,7 @@ from typing import Any, Final
 
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from .protocols import Message
 
@@ -203,6 +204,12 @@ class RedisStreamsConsumer:
                     count=1,
                     block=self._block_ms,
                 )
+            except RedisTimeoutError:
+                # The blocking XREADGROUP hit its BLOCK deadline with no new
+                # messages. redis-py >=8 raises here instead of returning
+                # None (older versions returned an empty reply). This is the
+                # idle path, not an error — keep polling.
+                continue
             except ResponseError as exc:
                 logger.warning(
                     "redis_streams.xreadgroup_error",

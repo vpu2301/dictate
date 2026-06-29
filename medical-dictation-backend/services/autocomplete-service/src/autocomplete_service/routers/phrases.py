@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 
 from .. import audit_kinds
@@ -50,7 +50,7 @@ class PhraseDTO(BaseModel):
 @router.post("/phrases", response_model=PhraseDTO, status_code=status.HTTP_201_CREATED)
 async def create_phrase(
     body: CreatePhraseRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> PhraseDTO:
     state = get_state()
     pii_hits = contains_pii(body.phrase)
@@ -118,7 +118,7 @@ async def create_phrase(
 @router.delete("/phrases/{phrase_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_phrase(
     phrase_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> None:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:

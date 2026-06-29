@@ -23,6 +23,7 @@ def _section(
     aliases: tuple[str, ...] = ("анамнез",),
     min_chars: int = 0,
     prompt: str = "коротка історія хвороби",
+    synthesis_prompt: str = "",
 ) -> TemplateSection:
     return TemplateSection(
         id=id,
@@ -32,6 +33,7 @@ def _section(
         field_type=field_type,
         asr_prompt=prompt,
         min_chars=min_chars,
+        synthesis_prompt=synthesis_prompt,
     )
 
 
@@ -137,6 +139,22 @@ def test_metadata_defaults_empty() -> None:
     assert t.metadata == TemplateMetadata()
 
 
+def test_synthesis_prompt_defaults_empty() -> None:
+    """synthesis_prompt is optional; sprint-12 treats empty as no guidance."""
+    s = _section()
+    assert s.synthesis_prompt == ""
+
+
+def test_synthesis_prompt_roundtrips() -> None:
+    s = _section(synthesis_prompt="Опиши анамнез у форматі SOAP, третя особа.")
+    assert s.synthesis_prompt == "Опиши анамнез у форматі SOAP, третя особа."
+
+
+def test_synthesis_prompt_max_length_enforced() -> None:
+    with pytest.raises(ValidationError):
+        _section(synthesis_prompt="а" * 2001)
+
+
 # ── Edit classification tests ───────────────────────────────────────
 
 
@@ -204,4 +222,11 @@ def test_cosmetic_min_chars_decreased() -> None:
     """Loosening the constraint is cosmetic — old reports stay valid."""
     a = _template(sections=(_section(min_chars=50),))
     b = _template(sections=(_section(min_chars=10),))
+    assert classify_edit(a, b).kind == EditKind.COSMETIC
+
+
+def test_cosmetic_synthesis_prompt_changed() -> None:
+    """Synthesis prompt drives sprint-12 prose, not report shape → cosmetic."""
+    a = _template(sections=(_section(synthesis_prompt="old guidance"),))
+    b = _template(sections=(_section(synthesis_prompt="new guidance"),))
     assert classify_edit(a, b).kind == EditKind.COSMETIC

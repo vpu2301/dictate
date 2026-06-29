@@ -39,6 +39,7 @@ async def insert_session(
     qr_payload: str | None,
     callback_completion_url: str | None,
     purpose_code: str | None,
+    document_pdf_hash: bytes | None = None,
 ) -> UUID:
     return await conn.fetchval(
         """
@@ -46,9 +47,9 @@ async def insert_session(
             (tenant_id, initiated_by, resource_type, resource_id,
              resource_version_id, provider, provider_session_id,
              status, expires_at, redirect_url, qr_payload,
-             callback_completion_url, purpose_code)
+             callback_completion_url, purpose_code, document_pdf_hash)
         VALUES ($1, $2, $3, $4, $5, $6::signing_provider, $7,
-                'awaiting_user', $8, $9, $10, $11, $12)
+                'awaiting_user', $8, $9, $10, $11, $12, $13)
         RETURNING id
         """,
         tenant_id,
@@ -63,6 +64,7 @@ async def insert_session(
         qr_payload,
         callback_completion_url,
         purpose_code,
+        document_pdf_hash,
     )
 
 
@@ -82,6 +84,32 @@ async def fetch_session_by_provider_id(
         """,
         provider.value,
         provider_session_id,
+    )
+
+
+async def fetch_session_by_id(
+    conn: asyncpg.Connection,
+    *,
+    session_id: UUID,
+) -> asyncpg.Record | None:
+    """Poll a session by *our* id (M1·B1).
+
+    Left-joins ``signed_envelopes`` so a signed session surfaces the
+    verification token + signer name the FE shows on completion.
+    """
+    return await conn.fetchrow(
+        """
+        SELECT s.id, s.tenant_id, s.status, s.provider, s.expires_at,
+               s.redirect_url, s.qr_payload, s.signed_envelope_id,
+               s.failure_reason, s.initiated_by, s.resource_type,
+               s.resource_id, s.resource_version_id, s.provider_session_id,
+               s.document_pdf_hash,
+               se.verification_token, se.signed_at, se.signer_full_name
+        FROM signing_sessions s
+        LEFT JOIN signed_envelopes se ON se.id = s.signed_envelope_id
+        WHERE s.id = $1
+        """,
+        session_id,
     )
 
 

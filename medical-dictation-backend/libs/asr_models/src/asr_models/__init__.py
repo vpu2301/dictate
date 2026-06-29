@@ -5,7 +5,7 @@ the NLP postprocessor in sprint 05). Pinning them in their own lib means
 a schema bump is a single PR with cross-service review.
 """
 
-from .job import JobEnqueuePayload, JobStatus, TranscriptionJobView
+from .job import JobEnqueuePayload, JobResultView, JobStatus, TranscriptionJobView
 from .output import (
     Segment,
     TranscriptionMetadata,
@@ -15,6 +15,7 @@ from .output import (
 
 __all__ = [
     "JobEnqueuePayload",
+    "JobResultView",
     "JobStatus",
     "Segment",
     "TranscriptionJobView",

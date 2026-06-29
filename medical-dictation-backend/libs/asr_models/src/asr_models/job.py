@@ -52,3 +52,16 @@ class TranscriptionJobView(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     attempts: int = 0
+
+
+class JobResultView(BaseModel):
+    """Pre-signed result fetch for a COMPLETE job.
+
+    Returned by ``GET /asr/jobs/{id}/result``. The dedicated endpoint exists so
+    a client can fetch the (short-TTL) URL without polling the whole job view,
+    and so "not ready yet" is an explicit 409 rather than a 200 with a null URL.
+    """
+
+    job_id: UUID
+    presigned_url: str
+    expires_in: int  # seconds until the URL expires (matches the TTL on issue)

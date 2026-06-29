@@ -65,6 +65,7 @@ class ReportRow:
     finalized_at: datetime | None
     signed_at: datetime | None
     cancelled_at: datetime | None
+    source_session_id: UUID | None = None
 
 
 @dataclass(slots=True)
@@ -96,7 +97,7 @@ async def fetch_report(conn: asyncpg.Connection, *, report_id: UUID) -> ReportRo
                r.primary_author_id, r.co_author_ids,
                r.title, r.icd10_codes, r.encounter_date,
                r.created_at, r.updated_at, r.finalized_at,
-               r.signed_at, r.cancelled_at
+               r.signed_at, r.cancelled_at, r.source_session_id
         FROM reports r
         LEFT JOIN report_versions v ON v.id = r.current_version_id
         WHERE r.id = $1
@@ -122,6 +123,26 @@ async def fetch_report(conn: asyncpg.Connection, *, report_id: UUID) -> ReportRo
         finalized_at=row["finalized_at"],
         signed_at=row["signed_at"],
         cancelled_at=row["cancelled_at"],
+        source_session_id=row["source_session_id"],
+    )
+
+
+async def set_source_session_id_if_absent(
+    conn: asyncpg.Connection, *, report_id: UUID, session_id: UUID
+) -> None:
+    """Backfill ``source_session_id`` only when it is still NULL.
+
+    Used by finalize to link a dictation session to its report. A report
+    that already carries a source session is left untouched (no-op).
+    """
+    await conn.execute(
+        """
+        UPDATE reports
+        SET source_session_id = $2, updated_at = now()
+        WHERE id = $1 AND source_session_id IS NULL
+        """,
+        report_id,
+        session_id,
     )
 
 
@@ -178,6 +199,55 @@ async def fetch_version_by_number(
     if row is None:
         return None
     return await fetch_version(conn, version_id=row)
+
+
+@dataclass(slots=True)
+class VersionSummaryRow:
+    """Lightweight version-list row — never decodes ``content_jsonb``."""
+
+    id: UUID
+    version_number: int
+    parent_version_id: UUID | None
+    created_by: UUID
+    created_at: datetime
+    is_amendment: bool
+    amendment_type: ReportAmendmentType | None
+    amendment_reason: str | None
+    signed_at: datetime | None
+    signed_by: UUID | None
+
+
+async def list_version_summaries(
+    conn: asyncpg.Connection, *, report_id: UUID
+) -> list[VersionSummaryRow]:
+    """All versions of a report as metadata-only summaries, oldest first."""
+    rows = await conn.fetch(
+        """
+        SELECT id, version_number, parent_version_id, created_by, created_at,
+               is_amendment, amendment_type, amendment_reason, signed_at, signed_by
+        FROM report_versions
+        WHERE report_id = $1
+        ORDER BY version_number
+        """,
+        report_id,
+    )
+    return [
+        VersionSummaryRow(
+            id=r["id"],
+            version_number=int(r["version_number"]),
+            parent_version_id=r["parent_version_id"],
+            created_by=r["created_by"],
+            created_at=r["created_at"],
+            is_amendment=bool(r["is_amendment"]),
+            amendment_type=(
+                ReportAmendmentType(r["amendment_type"]) if r["amendment_type"] else None
+            ),
+            amendment_reason=r["amendment_reason"],
+            signed_at=r["signed_at"],
+            signed_by=r["signed_by"],
+        )
+        for r in rows
+    ]
 
 
 # ── Create ──────────────────────────────────────────────────────────

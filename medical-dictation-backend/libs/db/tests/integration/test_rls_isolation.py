@@ -279,3 +279,137 @@ async def test_cross_tenant_probe_threshold(
     # Clean up so we don't leave tenants+users behind for the next test file's
     # _wipe (which deletes tenants before users and would hit the FK otherwise).
     await _wipe(writer_pool)
+
+
+# ── Per-entity isolation sweep (CRUD task, Part C1) ────────────────────────
+#
+# The property tests above cover `users` and `audio_files` exhaustively. This
+# deterministic sweep extends the proof to *every* remaining domain entity
+# table: insert one row per table under tenant A, then assert a tenant-B
+# connection reads zero of them. (`nlp_text` has no table — NLP annotations
+# live in `dictation_sessions.transcript_jsonb` — so there is nothing to probe
+# for that entity.)
+
+# Tenant-scoped entity tables (have a tenant_id column + RLS + FORCE).
+_ENTITY_TABLES: tuple[str, ...] = (
+    "audio_files",  # asr_job (audio side)
+    "transcription_jobs",  # asr_job
+    "dictation_sessions",  # dictation_session
+    "abbreviation_dictionary",  # abbreviation
+    "templates",  # template
+    "reports",  # report
+)
+
+
+@pytest.mark.asyncio
+async def test_every_entity_table_isolates_tenants(
+    app_pool: asyncpg.Pool, writer_pool: asyncpg.Pool
+) -> None:
+    """For every domain entity table, a tenant-B connection reads zero of
+    tenant-A's rows; tenant A still sees its own. Covers asr_job,
+    dictation_session, abbreviation, template and report (incl. the
+    tenant_id-less ``report_versions``, isolated via its parent report)."""
+    su_dsn = f"postgresql://postgres:postgres@{POSTGRES_HOST}:{POSTGRES_PORT}/{DB_NAME}"
+    a, b = uuid4(), uuid4()
+
+    # A seeded system prompt satisfies the prompt_id FK on dictation_sessions /
+    # transcription_jobs; use its language so the CHECK constraint passes.
+    su = await asyncpg.connect(su_dsn)
+    try:
+        prompt = await su.fetchrow("SELECT id, language FROM medical_prompts LIMIT 1")
+        assert prompt is not None, "no medical_prompts seeded — run `make seed`"
+        prompt_id, lang = prompt["id"], prompt["language"]
+    finally:
+        await su.close()
+
+    # Tenants + one user each (writer-scoped, like the users property test).
+    await _insert_tenant_and_users(writer_pool, a, 1)
+    await _insert_tenant_and_users(writer_pool, b, 1)
+
+    async with tenant_connection(app_pool, a) as c:
+        author_a = (await c.fetchrow("SELECT sub FROM users LIMIT 1"))["sub"]
+
+    report_id = uuid4()
+    try:
+        # One row per entity table, all under tenant A's scoped connection.
+        async with tenant_connection(app_pool, a) as c:
+            audio_id = uuid4()
+            await c.execute(
+                "INSERT INTO audio_files (id, tenant_id, uploader_sub, mime_type, "
+                "size_bytes, sha256, envelope_metadata, storage_uri) "
+                "VALUES ($1,$2,$3,'audio/wav',1024,$4,'{\"v\":1}'::jsonb,$5)",
+                audio_id, a, author_a, b"\x00" * 32, f"minio://mdx-audio/{a}/{audio_id}.enc",
+            )
+            await c.execute(
+                "INSERT INTO transcription_jobs (id, tenant_id, audio_id, requester_sub, "
+                "prompt_id, language) VALUES ($1,$2,$3,$4,$5,$6)",
+                uuid4(), a, audio_id, author_a, prompt_id, lang,
+            )
+            await c.execute(
+                "INSERT INTO dictation_sessions (id, tenant_id, user_id, language, prompt_id) "
+                "VALUES ($1,$2,$3,$4,$5)",
+                uuid4(), a, author_a, lang, prompt_id,
+            )
+            await c.execute(
+                "INSERT INTO abbreviation_dictionary (id, tenant_id, language, expanded, "
+                "abbreviated, direction) VALUES ($1,$2,'en','myocardial infarction','MI','compact')",
+                uuid4(), a,
+            )
+            await c.execute(
+                "INSERT INTO templates (id, tenant_id, code, name, language, specialty, "
+                "schema_jsonb) VALUES ($1,$2,$3,'Iso Test','en','cardiology','{\"version\":\"1\"}'::jsonb)",
+                uuid4(), a, f"iso-{a.hex[:8]}",
+            )
+            await c.execute(
+                "INSERT INTO reports (id, tenant_id, code, primary_author_id) "
+                "VALUES ($1,$2,$3,$4)",
+                report_id, a, f"REP-2026-{a.hex[:5]}", author_a,
+            )
+            await c.execute(
+                "INSERT INTO report_versions (id, report_id, version_number, created_by, "
+                "content_jsonb) VALUES ($1,$2,1,$3,'{}'::jsonb)",
+                uuid4(), report_id, author_a,
+            )
+
+        # Tenant B sees none of tenant A's rows.
+        async with tenant_connection(app_pool, b) as c:
+            for tbl in _ENTITY_TABLES:
+                leaked = await c.fetch(f"SELECT 1 FROM {tbl} WHERE tenant_id = $1 LIMIT 1", a)
+                assert leaked == [], f"{tbl}: tenant B leaked tenant A rows"
+            # report_versions has no tenant_id; RLS is via the parent report.
+            leaked_rv = await c.fetch(
+                "SELECT 1 FROM report_versions WHERE report_id = $1 LIMIT 1", report_id
+            )
+            assert leaked_rv == [], "report_versions: tenant B leaked tenant A's version"
+
+        # Tenant A sees its own rows.
+        async with tenant_connection(app_pool, a) as c:
+            for tbl in _ENTITY_TABLES:
+                n = await c.fetchval(f"SELECT count(*) FROM {tbl} WHERE tenant_id = $1", a)
+                assert n >= 1, f"{tbl}: tenant A cannot see its own row"
+            own_rv = await c.fetch(
+                "SELECT 1 FROM report_versions WHERE report_id = $1 LIMIT 1", report_id
+            )
+            assert own_rv != [], "report_versions: tenant A cannot see its own version"
+    finally:
+        # Remove only the rows this test created — never the seed data.
+        su = await asyncpg.connect(su_dsn)
+        try:
+            await su.execute(
+                "DELETE FROM report_versions WHERE report_id IN "
+                "(SELECT id FROM reports WHERE tenant_id = ANY($1::uuid[]))",
+                [a, b],
+            )
+            await su.execute("DELETE FROM reports WHERE tenant_id = ANY($1::uuid[])", [a, b])
+            for tbl in (
+                "transcription_jobs",
+                "dictation_sessions",
+                "abbreviation_dictionary",
+                "templates",
+                "audio_files",
+            ):
+                await su.execute(f"DELETE FROM {tbl} WHERE tenant_id = ANY($1::uuid[])", [a, b])
+            await su.execute("DELETE FROM users WHERE tenant_id = ANY($1::uuid[])", [a, b])
+            await su.execute("DELETE FROM tenants WHERE id = ANY($1::uuid[])", [a, b])
+        finally:
+            await su.close()

@@ -1,267 +1,3639 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "Report Service",
-    "description": "Sprint-06 templates slice. Sprint-08 will add reports.",
-    "version": "0.6.0"
+  "components": {
+    "schemas": {
+      "AmendRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "amendment_reason": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Amendment Reason",
+            "type": "string"
+          },
+          "amendment_type": {
+            "$ref": "#/components/schemas/ReportAmendmentType"
+          },
+          "content": {
+            "$ref": "#/components/schemas/ReportContent"
+          }
+        },
+        "required": [
+          "amendment_type",
+          "amendment_reason",
+          "content"
+        ],
+        "title": "AmendRequest",
+        "type": "object"
+      },
+      "AmendResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "amendment_type": {
+            "$ref": "#/components/schemas/ReportAmendmentType"
+          },
+          "diff_summary": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Diff Summary",
+            "type": "object"
+          },
+          "is_amendment": {
+            "title": "Is Amendment",
+            "type": "boolean"
+          },
+          "parent_version_id": {
+            "format": "uuid",
+            "title": "Parent Version Id",
+            "type": "string"
+          },
+          "report_status": {
+            "title": "Report Status",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_id",
+          "version_number",
+          "parent_version_id",
+          "is_amendment",
+          "amendment_type",
+          "report_status",
+          "diff_summary"
+        ],
+        "title": "AmendResponse",
+        "type": "object"
+      },
+      "CancelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "CancelRequest",
+        "type": "object"
+      },
+      "CloneRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "new_code": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Code"
+          },
+          "new_name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Name"
+          },
+          "system_template_id": {
+            "format": "uuid",
+            "title": "System Template Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "system_template_id"
+        ],
+        "title": "CloneRequest",
+        "type": "object"
+      },
+      "CloneResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "CloneResponse",
+        "type": "object"
+      },
+      "CreateReportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "co_author_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Co Author Ids",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/ReportContent"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "source_session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Session Id"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "CreateReportRequest",
+        "type": "object"
+      },
+      "CreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "CreateResponse",
+        "type": "object"
+      },
+      "DiffResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cached": {
+            "default": false,
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "from_version_id": {
+            "title": "From Version Id",
+            "type": "string"
+          },
+          "from_version_number": {
+            "title": "From Version Number",
+            "type": "integer"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDiff"
+          },
+          "report_id": {
+            "title": "Report Id",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/DiffSectionEntry"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "to_version_id": {
+            "title": "To Version Id",
+            "type": "string"
+          },
+          "to_version_number": {
+            "title": "To Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "report_id",
+          "from_version_id",
+          "from_version_number",
+          "to_version_id",
+          "to_version_number"
+        ],
+        "title": "DiffResponse",
+        "type": "object"
+      },
+      "DiffSectionEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "added",
+              "removed",
+              "modified",
+              "unchanged"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "section_key": {
+            "title": "Section Key",
+            "type": "string"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/DiffSegment"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "text_from": {
+            "default": "",
+            "title": "Text From",
+            "type": "string"
+          },
+          "text_to": {
+            "default": "",
+            "title": "Text To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_key",
+          "kind"
+        ],
+        "title": "DiffSectionEntry",
+        "type": "object"
+      },
+      "DiffSegment": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": [
+              "equal",
+              "insert",
+              "delete",
+              "replace"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "text_from": {
+            "default": "",
+            "title": "Text From",
+            "type": "string"
+          },
+          "text_to": {
+            "default": "",
+            "title": "Text To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "title": "DiffSegment",
+        "type": "object"
+      },
+      "FieldType": {
+        "description": "Sprint-06 ships these five. Sprint 13 will extend.",
+        "enum": [
+          "free_text",
+          "structured_diagnosis",
+          "date",
+          "date_with_note",
+          "numeric_with_unit"
+        ],
+        "title": "FieldType",
+        "type": "string"
+      },
+      "FinalizeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "dictation_session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dictation Session Id"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          }
+        },
+        "title": "FinalizeRequest",
+        "type": "object"
+      },
+      "FinalizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "FinalizeResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "Icd10Code": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 8,
+            "minLength": 3,
+            "pattern": "^[A-Z][0-9]{2}(\\.[0-9A-Z]{1,4})?$",
+            "title": "Code",
+            "type": "string"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "Icd10Code",
+        "type": "object"
+      },
+      "LocalizedText": {
+        "additionalProperties": false,
+        "properties": {
+          "en": {
+            "title": "En",
+            "type": "string"
+          },
+          "uk": {
+            "title": "Uk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uk",
+          "en"
+        ],
+        "title": "LocalizedText",
+        "type": "object"
+      },
+      "MetadataDiff": {
+        "additionalProperties": false,
+        "properties": {
+          "encounter_date_changed": {
+            "default": false,
+            "title": "Encounter Date Changed",
+            "type": "boolean"
+          },
+          "encounter_date_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Date From"
+          },
+          "encounter_date_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Date To"
+          },
+          "icd10_added": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Icd10 Added",
+            "type": "array"
+          },
+          "icd10_removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Icd10 Removed",
+            "type": "array"
+          },
+          "title_changed": {
+            "default": false,
+            "title": "Title Changed",
+            "type": "boolean"
+          },
+          "title_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title From"
+          },
+          "title_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title To"
+          }
+        },
+        "title": "MetadataDiff",
+        "type": "object"
+      },
+      "ReadPurpose": {
+        "enum": [
+          "clinical_continuity",
+          "audit",
+          "legal",
+          "qa_review",
+          "consultation"
+        ],
+        "title": "ReadPurpose",
+        "type": "string"
+      },
+      "ReadyResponse": {
+        "properties": {
+          "db": {
+            "title": "Db",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "db"
+        ],
+        "title": "ReadyResponse",
+        "type": "object"
+      },
+      "ReportAmendmentType": {
+        "enum": [
+          "correction",
+          "addition",
+          "clarification"
+        ],
+        "title": "ReportAmendmentType",
+        "type": "string"
+      },
+      "ReportContent": {
+        "additionalProperties": false,
+        "description": "The full content_jsonb body for one version.",
+        "properties": {
+          "encounter_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Date"
+          },
+          "icd10_codes": {
+            "items": {
+              "$ref": "#/components/schemas/Icd10Code"
+            },
+            "title": "Icd10 Codes",
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "template_id": {
+            "format": "uuid",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "template_schema_version": {
+            "minimum": 1.0,
+            "title": "Template Schema Version",
+            "type": "integer"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id",
+          "template_schema_version"
+        ],
+        "title": "ReportContent",
+        "type": "object"
+      },
+      "ReportCreatedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version_id",
+          "version_number",
+          "status"
+        ],
+        "title": "ReportCreatedResponse",
+        "type": "object"
+      },
+      "ReportEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "co_author_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Co Author Ids",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportContent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_version_id": {
+            "format": "uuid",
+            "title": "Current Version Id",
+            "type": "string"
+          },
+          "current_version_number": {
+            "title": "Current Version Number",
+            "type": "integer"
+          },
+          "encounter_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Date"
+          },
+          "finalized_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finalized At"
+          },
+          "icd10_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Icd10 Codes",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "primary_author_id": {
+            "format": "uuid",
+            "title": "Primary Author Id",
+            "type": "string"
+          },
+          "section_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SectionLabel"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Labels"
+          },
+          "signed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "status",
+          "current_version_id",
+          "current_version_number",
+          "primary_author_id",
+          "co_author_ids",
+          "title",
+          "icd10_codes",
+          "encounter_date",
+          "created_at",
+          "updated_at",
+          "finalized_at",
+          "signed_at",
+          "cancelled_at"
+        ],
+        "title": "ReportEnvelope",
+        "type": "object"
+      },
+      "ReportSection": {
+        "additionalProperties": false,
+        "properties": {
+          "field_specific_metadata": {
+            "additionalProperties": true,
+            "title": "Field Specific Metadata",
+            "type": "object"
+          },
+          "icd10": {
+            "items": {
+              "$ref": "#/components/schemas/Icd10Code"
+            },
+            "title": "Icd10",
+            "type": "array"
+          },
+          "section_key": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Section Key",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          },
+          "transcript_segment_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Transcript Segment Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "section_key"
+        ],
+        "title": "ReportSection",
+        "type": "object"
+      },
+      "ReportVersionDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "amendment_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amendment Reason"
+          },
+          "amendment_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportAmendmentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content": {
+            "$ref": "#/components/schemas/ReportContent"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "format": "uuid",
+            "title": "Created By",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_amendment": {
+            "title": "Is Amendment",
+            "type": "boolean"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "rendered_text": {
+            "title": "Rendered Text",
+            "type": "string"
+          },
+          "signed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed At"
+          },
+          "signed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed By"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_number",
+          "parent_version_id",
+          "created_by",
+          "created_at",
+          "is_amendment",
+          "amendment_type",
+          "amendment_reason",
+          "signed_at",
+          "signed_by",
+          "content",
+          "rendered_text"
+        ],
+        "title": "ReportVersionDetail",
+        "type": "object"
+      },
+      "ReportVersionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "amendment_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amendment Reason"
+          },
+          "amendment_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportAmendmentType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "format": "uuid",
+            "title": "Created By",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_amendment": {
+            "title": "Is Amendment",
+            "type": "boolean"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "signed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed At"
+          },
+          "signed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed By"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_number",
+          "parent_version_id",
+          "created_by",
+          "created_at",
+          "is_amendment",
+          "amendment_type",
+          "amendment_reason",
+          "signed_at",
+          "signed_by"
+        ],
+        "title": "ReportVersionSummary",
+        "type": "object"
+      },
+      "SearchHitDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "co_author_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Co Author Ids",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "encounter_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Date"
+          },
+          "icd10_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Icd10 Codes",
+            "type": "array"
+          },
+          "primary_author_id": {
+            "format": "uuid",
+            "title": "Primary Author Id",
+            "type": "string"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "code",
+          "title",
+          "status",
+          "encounter_date",
+          "primary_author_id",
+          "co_author_ids",
+          "icd10_codes",
+          "snippet",
+          "updated_at"
+        ],
+        "title": "SearchHitDTO",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHitDTO"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total_estimated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Estimated"
+          },
+          "total_exact": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Exact"
+          }
+        },
+        "required": [
+          "hits",
+          "next_cursor",
+          "total_estimated"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "SectionLabel": {
+        "additionalProperties": false,
+        "description": "Human-readable, localized title for one report section.\n\nTemplates are per-language (a template row is either ``uk`` or ``en``),\nso the section ``name`` is a single string in the template's own\nlanguage. We mirror it into BOTH ``uk`` and ``en`` here \u2014 the same\nbehaviour the frontend's ``toStudioTemplate`` uses \u2014 so the SPA/PDF can\nrender section titles without re-fetching the template, and historical\nreports carry their labels even if the template later changes.",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "section_key": {
+            "title": "Section Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_key",
+          "name"
+        ],
+        "title": "SectionLabel",
+        "type": "object"
+      },
+      "SectionPromptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "section_name": {
+            "title": "Section Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt",
+          "language",
+          "section_name"
+        ],
+        "title": "SectionPromptResponse",
+        "type": "object"
+      },
+      "SynthesisJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "sections"
+        ],
+        "title": "SynthesisJobResponse",
+        "type": "object"
+      },
+      "SynthesizeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "enum": [
+              "uk",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections"
+          }
+        },
+        "required": [
+          "language"
+        ],
+        "title": "SynthesizeRequest",
+        "type": "object"
+      },
+      "SynthesizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedSection"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "sections"
+        ],
+        "title": "SynthesizeResponse",
+        "type": "object"
+      },
+      "SynthesizedSection": {
+        "additionalProperties": false,
+        "properties": {
+          "original": {
+            "title": "Original",
+            "type": "string"
+          },
+          "section_key": {
+            "title": "Section Key",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_key",
+          "original",
+          "text"
+        ],
+        "title": "SynthesizedSection",
+        "type": "object"
+      },
+      "TemplateDefinition": {
+        "additionalProperties": false,
+        "description": "Full template definition. Stored as ``templates.schema_jsonb``.\n\nThe top-level ``code`` + ``language`` pair is the human-readable\nidentifier; the row's UUID is the system identifier. Sprint 8\nreports persist the UUID + ``schema_version`` at finalization.",
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "language": {
+            "pattern": "^(uk|en)$",
+            "title": "Language",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/TemplateMetadata"
+          },
+          "name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateSection"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Sections",
+            "type": "array"
+          },
+          "specialty": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Specialty",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "language",
+          "specialty",
+          "sections"
+        ],
+        "title": "TemplateDefinition",
+        "type": "object"
+      },
+      "TemplateDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_system": {
+            "title": "Is System",
+            "type": "boolean"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_template_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Template Id"
+          },
+          "schema_jsonb": {
+            "additionalProperties": true,
+            "title": "Schema Jsonb",
+            "type": "object"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "specialty": {
+            "title": "Specialty",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "parent_template_id",
+          "code",
+          "name",
+          "language",
+          "specialty",
+          "schema_version",
+          "is_system",
+          "status",
+          "schema_jsonb",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TemplateDetail",
+        "type": "object"
+      },
+      "TemplateMetadata": {
+        "additionalProperties": false,
+        "description": "Optional metadata. Sprint-17 FHIR / Composition emission reads these.",
+        "properties": {
+          "billing_code": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Code"
+          },
+          "fhir_template": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fhir Template"
+          },
+          "moh_order_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moh Order Ref"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "title": "TemplateMetadata",
+        "type": "object"
+      },
+      "TemplateSection": {
+        "additionalProperties": false,
+        "description": "One section of a template. Each section is dictated separately\nin sprint-06 section-aware mode.",
+        "properties": {
+          "asr_prompt": {
+            "maxLength": 896,
+            "minLength": 1,
+            "title": "Asr Prompt",
+            "type": "string"
+          },
+          "default_content": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Default Content",
+            "type": "string"
+          },
+          "field_type": {
+            "$ref": "#/components/schemas/FieldType",
+            "default": "free_text"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "min_chars": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Min Chars",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "order": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "synthesis_prompt": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Synthesis Prompt",
+            "type": "string"
+          },
+          "voice_aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Voice Aliases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "asr_prompt"
+        ],
+        "title": "TemplateSection",
+        "type": "object"
+      },
+      "TemplateSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_system": {
+            "title": "Is System",
+            "type": "boolean"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_template_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Template Id"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "specialty": {
+            "title": "Specialty",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "parent_template_id",
+          "code",
+          "name",
+          "language",
+          "specialty",
+          "schema_version",
+          "is_system",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TemplateSummary",
+        "type": "object"
+      },
+      "UpdateDraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ReportContent"
+          },
+          "dictation_session_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dictation Session Id"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version",
+          "content"
+        ],
+        "title": "UpdateDraftRequest",
+        "type": "object"
+      },
+      "UpdateDraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "diff_summary": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Diff Summary",
+            "type": "object"
+          },
+          "idempotent_replay": {
+            "default": false,
+            "title": "Idempotent Replay",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_id",
+          "version_number",
+          "status",
+          "diff_summary"
+        ],
+        "title": "UpdateDraftResponse",
+        "type": "object"
+      },
+      "UpdateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "UpdateResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
   },
+  "info": {
+    "description": "Sprint-06 templates + sprint-08 reports / versions / diff / search.",
+    "title": "Report Service",
+    "version": "0.8.0"
+  },
+  "openapi": "3.1.0",
   "paths": {
     "/healthz": {
       "get": {
-        "tags": ["health"],
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
         "summary": "Liveness probe",
-        "responses": {"200": {"description": "OK"}}
+        "tags": [
+          "health"
+        ]
       }
     },
     "/readyz": {
       "get": {
-        "tags": ["health"],
-        "summary": "Readiness probe — DB",
+        "operationId": "readyz_readyz_get",
         "responses": {
-          "200": {"description": "ready"},
-          "503": {"description": "not ready"}
-        }
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness probe \u2014 DB",
+        "tags": [
+          "health"
+        ]
       }
     },
     "/templates": {
       "get": {
-        "tags": ["templates"],
-        "summary": "List visible templates (own-tenant + system).",
+        "operationId": "list_templates_templates_get",
         "parameters": [
-          {"name": "specialty", "in": "query", "schema": {"type": "string", "maxLength": 64}},
-          {"name": "language", "in": "query", "schema": {"type": "string", "enum": ["uk", "en"]}},
-          {"name": "tenant_only", "in": "query", "schema": {"type": "boolean", "default": false}},
-          {"name": "include_deprecated", "in": "query", "schema": {"type": "boolean", "default": false}},
-          {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}}
+          {
+            "in": "query",
+            "name": "specialty",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Specialty"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(uk|en)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Tenant Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deprecated",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Deprecated",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
         ],
         "responses": {
           "200": {
-            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {"$ref": "#/components/schemas/TemplateSummary"}
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateSummary"
+                  },
+                  "title": "Response List Templates Templates Get",
+                  "type": "array"
                 }
               }
-            }
-          }
-        }
-      }
-    },
-    "/templates/{template_id}": {
-      "get": {
-        "tags": ["templates"],
-        "summary": "Fetch full template definition (cached).",
-        "parameters": [
-          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
+            },
+            "description": "Successful Response"
+          },
+          "422": {
             "content": {
               "application/json": {
-                "schema": {"$ref": "#/components/schemas/TemplateDetail"}
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
-            }
-          },
-          "404": {"description": "Not visible / not found"}
-        }
-      },
-      "put": {
-        "tags": ["templates"],
-        "summary": "Update a tenant template. Structural edits create a new version.",
-        "parameters": [
-          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {"$ref": "#/components/schemas/TemplateDefinition"}
-            }
+            },
+            "description": "Validation Error"
           }
         },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {"$ref": "#/components/schemas/UpdateResponse"}
-              }
-            }
-          },
-          "404": {"description": "Not visible / not found"}
-        }
+        "summary": "List visible templates (own-tenant + system).",
+        "tags": [
+          "templates"
+        ]
       },
-      "delete": {
-        "tags": ["templates"],
-        "summary": "Soft-delete (deprecate) a tenant template.",
+      "post": {
+        "operationId": "create_template_templates_post",
         "parameters": [
-          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
         ],
-        "responses": {
-          "200": {"description": "deprecated"},
-          "404": {"description": "Not visible / not found"},
-          "409": {"description": "In use by reports — re-bind via sprint-17 admin"}
-        }
-      }
-    },
-    "/templates/{template_id}/sections/{section_id}/prompt": {
-      "get": {
-        "tags": ["templates"],
-        "summary": "Fetch a section's ASR prompt (cached; dictation hot path).",
-        "parameters": [
-          {"name": "template_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
-          {"name": "section_id", "in": "path", "required": true, "schema": {"type": "string"}}
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {"$ref": "#/components/schemas/SectionPromptResponse"}
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateDefinition"
               }
             }
           },
-          "404": {"description": "Template or section not found"}
-        }
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a new tenant template from scratch.",
+        "tags": [
+          "templates"
+        ]
       }
     },
     "/templates/clone": {
       "post": {
-        "tags": ["templates"],
-        "summary": "Clone a visible template into the caller's tenant.",
+        "operationId": "clone_template_templates_clone_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
-              "schema": {"$ref": "#/components/schemas/CloneRequest"}
+              "schema": {
+                "$ref": "#/components/schemas/CloneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloneResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clone a visible template into the caller's tenant.",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/templates/{template_id}": {
+      "delete": {
+        "operationId": "deprecate_template_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Deprecate Template Templates  Template Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Soft-delete (deprecate) a tenant template.",
+        "tags": [
+          "templates"
+        ]
+      },
+      "get": {
+        "operationId": "get_template_templates__template_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch full template definition (cached).",
+        "tags": [
+          "templates"
+        ]
+      },
+      "put": {
+        "operationId": "update_template_templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update a tenant template. Structural edits create a new version.",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/templates/{template_id}/sections/{section_id}/prompt": {
+      "get": {
+        "operationId": "get_section_prompt_templates__template_id__sections__section_id__prompt_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section_id",
+            "required": true,
+            "schema": {
+              "title": "Section Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionPromptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch a section's ASR prompt (cached; dictation hot path).",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/v1/reports": {
+      "post": {
+        "operationId": "create_report_v1_reports_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/search": {
+      "get": {
+        "operationId": "search_reports_v1_reports_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "patient_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Patient Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "author_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Author Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "encounter_date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Encounter Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "encounter_date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Encounter Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "icd10",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Icd10"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "set to 'exact' for full count",
+            "in": "query",
+            "name": "total",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "set to 'exact' for full count",
+              "title": "Total"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Reports",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}": {
+      "get": {
+        "operationId": "get_report_v1_reports__report_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required for non-author reads.",
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReadPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for non-author reads.",
+              "title": "Purpose"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_content",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Content",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/amend": {
+      "post": {
+        "operationId": "amend_report_v1_reports__report_id__amend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmendResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Amend Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/cancel": {
+      "post": {
+        "operationId": "cancel_report_v1_reports__report_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/diff": {
+      "get": {
+        "operationId": "get_diff_v1_reports__report_id__diff_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "version_id or version_number",
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "description": "version_id or version_number",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "description": "version_id or version_number",
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "description": "version_id or version_number",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Diff",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/draft": {
+      "put": {
+        "operationId": "update_draft_v1_reports__report_id__draft_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Draft",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/finalize": {
+      "post": {
+        "operationId": "finalize_report_v1_reports__report_id__finalize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FinalizeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
             "content": {
               "application/json": {
-                "schema": {"$ref": "#/components/schemas/CloneResponse"}
+                "schema": {
+                  "$ref": "#/components/schemas/FinalizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/pdf": {
+      "get": {
+        "operationId": "get_report_pdf_v1_reports__report_id__pdf_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required for non-author reads.",
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReadPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for non-author reads.",
+              "title": "Purpose"
+            }
+          },
+          {
+            "description": "'clean' is only honoured for signed reports; non-signed reports are always draft.",
+            "in": "query",
+            "name": "variant",
+            "required": false,
+            "schema": {
+              "default": "draft",
+              "description": "'clean' is only honoured for signed reports; non-signed reports are always draft.",
+              "enum": [
+                "draft",
+                "clean"
+              ],
+              "title": "Variant",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Render language; falls back to the report language, else 'uk'.",
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "uk",
+                    "en"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Render language; falls back to the report language, else 'uk'.",
+              "title": "Lang"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/pdf": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Render the current version as a PDF (draft watermark for non-signed reports; 409 only for cancelled).",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/revert-to-draft": {
+      "post": {
+        "operationId": "revert_to_draft_v1_reports__report_id__revert_to_draft_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revert To Draft",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/sign": {
+      "post": {
+        "description": "Sprint-09 implements; sprint-08 leaves the route shape locked.",
+        "operationId": "sign_placeholder_v1_reports__report_id__sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Sign Placeholder V1 Reports  Report Id  Sign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sign Placeholder",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/synthesize": {
+      "post": {
+        "operationId": "synthesize_report_v1_reports__report_id__synthesize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynthesizeRequest"
               }
             }
           },
-          "404": {"description": "Source template not visible"}
-        }
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Synthesize Report",
+        "tags": [
+          "reports"
+        ]
       }
-    }
-  },
-  "components": {
-    "schemas": {
-      "TemplateSummary": {
-        "type": "object",
-        "required": ["id", "code", "name", "language", "specialty", "schema_version", "is_system", "status", "created_at", "updated_at"],
-        "properties": {
-          "id": {"type": "string", "format": "uuid"},
-          "tenant_id": {"type": "string", "format": "uuid", "nullable": true},
-          "parent_template_id": {"type": "string", "format": "uuid", "nullable": true},
-          "code": {"type": "string"},
-          "name": {"type": "string"},
-          "language": {"type": "string"},
-          "specialty": {"type": "string"},
-          "schema_version": {"type": "integer"},
-          "is_system": {"type": "boolean"},
-          "status": {"type": "string", "enum": ["draft", "active", "deprecated"]},
-          "created_at": {"type": "string", "format": "date-time"},
-          "updated_at": {"type": "string", "format": "date-time"}
-        }
-      },
-      "TemplateDetail": {
-        "allOf": [
-          {"$ref": "#/components/schemas/TemplateSummary"},
+    },
+    "/v1/reports/{report_id}/synthesize/{job_id}": {
+      "get": {
+        "operationId": "get_synthesis_job_v1_reports__report_id__synthesize__job_id__get",
+        "parameters": [
           {
-            "type": "object",
-            "required": ["schema_jsonb"],
-            "properties": {
-              "schema_jsonb": {"$ref": "#/components/schemas/TemplateDefinition"}
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
-        ]
-      },
-      "TemplateDefinition": {
-        "type": "object",
-        "required": ["code", "name", "language", "specialty", "sections"],
-        "additionalProperties": false,
-        "properties": {
-          "code": {"type": "string", "minLength": 1, "maxLength": 64},
-          "name": {"type": "string", "minLength": 1, "maxLength": 256},
-          "language": {"type": "string", "enum": ["uk", "en"]},
-          "specialty": {"type": "string", "minLength": 1, "maxLength": 64},
-          "schema_version": {"type": "integer", "minimum": 1, "default": 1},
-          "sections": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 32,
-            "items": {"$ref": "#/components/schemas/TemplateSection"}
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesisJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
           },
-          "metadata": {"$ref": "#/components/schemas/TemplateMetadata"}
-        }
-      },
-      "TemplateSection": {
-        "type": "object",
-        "required": ["id", "name", "asr_prompt"],
-        "additionalProperties": false,
-        "properties": {
-          "id": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z][a-z0-9_]*$"},
-          "name": {"type": "string", "minLength": 1, "maxLength": 128},
-          "voice_aliases": {"type": "array", "items": {"type": "string"}},
-          "required": {"type": "boolean", "default": true},
-          "field_type": {"type": "string", "enum": ["free_text", "structured_diagnosis", "date", "date_with_note", "numeric_with_unit"], "default": "free_text"},
-          "asr_prompt": {"type": "string", "minLength": 1, "maxLength": 896},
-          "min_chars": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 0},
-          "order": {"type": "integer", "minimum": 0, "default": 0},
-          "default_content": {"type": "string", "maxLength": 4000, "default": ""}
-        }
-      },
-      "TemplateMetadata": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "moh_order_ref": {"type": "string", "nullable": true, "maxLength": 64},
-          "billing_code": {"type": "string", "nullable": true, "maxLength": 32},
-          "fhir_template": {"type": "string", "nullable": true, "maxLength": 128},
-          "notes": {"type": "string", "maxLength": 2000, "default": ""}
-        }
-      },
-      "CloneRequest": {
-        "type": "object",
-        "required": ["system_template_id"],
-        "additionalProperties": false,
-        "properties": {
-          "system_template_id": {"type": "string", "format": "uuid"},
-          "new_name": {"type": "string", "minLength": 1, "maxLength": 256, "nullable": true},
-          "new_code": {"type": "string", "minLength": 1, "maxLength": 64, "nullable": true}
-        }
-      },
-      "CloneResponse": {
-        "type": "object",
-        "required": ["id"],
-        "properties": {"id": {"type": "string", "format": "uuid"}}
-      },
-      "UpdateResponse": {
-        "type": "object",
-        "required": ["id", "kind"],
-        "properties": {
-          "id": {"type": "string", "format": "uuid"},
-          "kind": {"type": "string", "enum": ["cosmetic", "structural", "no_change"]}
-        }
-      },
-      "SectionPromptResponse": {
-        "type": "object",
-        "required": ["prompt", "language", "section_name"],
-        "properties": {
-          "prompt": {"type": "string"},
-          "language": {"type": "string"},
-          "section_name": {"type": "string"}
-        }
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Synthesis Job",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/versions": {
+      "get": {
+        "operationId": "list_versions_v1_reports__report_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required for non-author reads.",
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReadPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for non-author reads.",
+              "title": "Purpose"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportVersionSummary"
+                  },
+                  "title": "Response List Versions V1 Reports  Report Id  Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Versions",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/{report_id}/versions/{version_number}": {
+      "get": {
+        "operationId": "get_version_v1_reports__report_id__versions__version_number__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_number",
+            "required": true,
+            "schema": {
+              "title": "Version Number",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Required for non-author reads.",
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReadPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for non-author reads.",
+              "title": "Purpose"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportVersionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Version",
+        "tags": [
+          "reports"
+        ]
       }
     }
   }

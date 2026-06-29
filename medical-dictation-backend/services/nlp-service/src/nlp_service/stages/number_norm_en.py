@@ -104,19 +104,26 @@ def _digit_value(token: str) -> int | None:
     return _DIGITS_EN.get(token.lower())
 
 
-def _parse_number_run(tokens: list[str], i: int) -> tuple[int | None, int]:
+def _parse_number_run(tokens: list[str], i: int) -> tuple[int | None, int, bool]:
     """Greedy multi-word cardinal parser.
+
+    Returns ``(value, words_consumed, colloquial)``. ``colloquial`` is True
+    when the value came from the ambiguous "one twenty" → 120 spoken-BP
+    heuristic. That reading is only safe inside an explicit BP/range
+    structure; a caller that isn't one MUST treat a colloquial value as
+    doubtful and pass the words through unchanged (ADR-0015
+    pass-through-on-doubt) — otherwise "two ten" fabricates 210.
 
     Handles "one hundred twenty" = 120 and "two thousand five hundred" = 2500.
     Pure-digit tokens are returned as-is.
     """
     if i >= len(tokens):
-        return None, 0
+        return None, 0, False
     first = _digit_value(tokens[i])
     if first is None:
-        return None, 0
+        return None, 0, False
     if tokens[i].isdigit():
-        return first, 1
+        return first, 1, False
 
     total = 0
     current = first
@@ -151,7 +158,7 @@ def _parse_number_run(tokens: list[str], i: int) -> tuple[int | None, int]:
                     current += v
                     cursor += 1
                     consumed += 1
-                return current, consumed
+                return current, consumed, True
 
     # Walk while consecutive tokens map to digits.
     while cursor < len(tokens):
@@ -170,7 +177,43 @@ def _parse_number_run(tokens: list[str], i: int) -> tuple[int | None, int]:
             break
         cursor += 1
         consumed += 1
-    return total + current, consumed
+    return total + current, consumed, False
+
+
+def _parse_fraction_digits(tokens: list[str], i: int) -> tuple[str | None, int]:
+    """Parse a spoken decimal fraction as a literal digit string.
+
+    "zero five" → "05", "five" → "5". A summing cardinal parser collapses
+    "zero five" to 5 and silently corrupts the decimal (5.05 → 5.5) — a
+    dropped digit in a dose is patient harm — so the fractional part is
+    rendered digit-by-digit, preserving leading zeros.
+    """
+    digits: list[str] = []
+    cursor = i
+    while cursor < len(tokens):
+        v = _digit_value(tokens[cursor])
+        if v is None:
+            break
+        digits.append(str(v))
+        cursor += 1
+    if not digits:
+        return None, 0
+    return "".join(digits), cursor - i
+
+
+# Plausible BP ranges — used to gate the "NUM over NUM" → slash rewrite so
+# that everyday "five over four" is not mangled into "5/4".
+_BP_SYSTOLIC = range(60, 301)
+_BP_DIASTOLIC = range(30, 161)
+_BP_CUES_EN: Final[frozenset[str]] = frozenset({"bp", "blood", "pressure"})
+
+
+def _looks_like_bp(v1: int, v2: int) -> bool:
+    return v1 in _BP_SYSTOLIC and v2 in _BP_DIASTOLIC
+
+
+def _has_bp_cue_en(tokens: list[str], i: int) -> bool:
+    return any(t.lower() in _BP_CUES_EN for t in tokens[max(0, i - 3) : i])
 
 
 def normalize_en(text: str, *, decimal_separator: str, bp_separator: str) -> str:
@@ -180,12 +223,13 @@ def normalize_en(text: str, *, decimal_separator: str, bp_separator: str) -> str
     n = len(raw)
     while i < n:
         # ── BP-like: NUM over NUM (mmHg?) ───────────────────────────
-        v1, c1 = _parse_number_run(raw, i)
+        v1, c1, col1 = _parse_number_run(raw, i)
         if v1 is not None and i + c1 < n and raw[i + c1].lower() in {"over", "/"}:
-            v2, c2 = _parse_number_run(raw, i + c1 + 1)
+            v2, c2, _ = _parse_number_run(raw, i + c1 + 1)
             if v2 is not None:
                 consumed = c1 + 1 + c2
-                # Optional trailing "millimeters of mercury" / "mm hg"
+                # Optional trailing "millimeters of mercury" / "mm hg" — an
+                # explicit unit is the strongest BP signal, so it wins outright.
                 if (
                     i + consumed + len(_BP_UNIT_SEQ) <= n
                     and tuple(
@@ -204,23 +248,28 @@ def normalize_en(text: str, *, decimal_separator: str, bp_separator: str) -> str
                     out.append(f"{v1}{bp_separator}{v2} mmHg")
                     i += consumed + 2
                     continue
-                out.append(f"{v1}{bp_separator}{v2}")
-                i += consumed
-                continue
+                # No unit: only emit the slash form when the context actually
+                # looks like a blood pressure (a BP cue word precedes, or both
+                # values are physiologically plausible). Otherwise "five over
+                # four" must pass through unchanged (ADR-0015).
+                if _has_bp_cue_en(raw, i) or _looks_like_bp(v1, v2):
+                    out.append(f"{v1}{bp_separator}{v2}")
+                    i += consumed
+                    continue
 
         # ── Decimal: NUM point NUM ─────────────────────────────────
         if v1 is not None and i + c1 < n and raw[i + c1].lower() == "point":
-            v2, c2 = _parse_number_run(raw, i + c1 + 1)
-            if v2 is not None:
-                out.append(f"{v1}{decimal_separator}{v2}")
-                i += c1 + 1 + c2
+            frac, cf = _parse_fraction_digits(raw, i + c1 + 1)
+            if frac is not None:
+                out.append(f"{v1}{decimal_separator}{frac}")
+                i += c1 + 1 + cf
                 continue
 
         # ── Range: from NUM to NUM ─────────────────────────────────
         if raw[i].lower() == "from" and i + 1 < n:
-            va, ca = _parse_number_run(raw, i + 1)
+            va, ca, _ = _parse_number_run(raw, i + 1)
             if va is not None and i + 1 + ca < n and raw[i + 1 + ca].lower() == "to":
-                vb, cb = _parse_number_run(raw, i + 2 + ca)
+                vb, cb, _ = _parse_number_run(raw, i + 2 + ca)
                 if vb is not None:
                     out.append(f"{va}–{vb}")
                     i += 2 + ca + cb
@@ -247,7 +296,9 @@ def normalize_en(text: str, *, decimal_separator: str, bp_separator: str) -> str
             continue
 
         # ── Generic: NUM UNIT ──────────────────────────────────────
-        if v1 is not None and i + c1 < n:
+        # A colloquial "one twenty" reading is too doubtful to attach to a
+        # dose unit ("two ten milligrams" must not become "210 mg").
+        if v1 is not None and not col1 and i + c1 < n:
             unit_word = raw[i + c1].lower()
             if unit_word in _UNITS:
                 out.append(f"{v1} {_UNITS[unit_word]}")
@@ -255,7 +306,8 @@ def normalize_en(text: str, *, decimal_separator: str, bp_separator: str) -> str
                 continue
 
         # ── Multi-word spelled cardinal → digit ────────────────────
-        if v1 is not None and c1 > 1:
+        # Never fold a standalone colloquial value: "two ten" stays words.
+        if v1 is not None and not col1 and c1 > 1:
             out.append(str(v1))
             i += c1
             continue

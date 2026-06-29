@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -35,6 +37,20 @@ class Settings(BaseSettings):
     auth_audience: str = Field(default="mdx-api", alias="AUTH_AUDIENCE")
     auth_clock_skew_seconds: int = Field(default=30, alias="AUTH_CLOCK_SKEW_SECONDS")
 
+    # ── CORS (SPA integration) ──────────────────────────────────────────
+    # Comma-separated browser origins allowed to call this service WITH
+    # credentials (the HttpOnly refresh cookie). Must be explicit origins —
+    # never "*" — because allow_credentials=True forbids the wildcard. Mirror
+    # of the auth-service allow-list (sprint A3).
+    cors_allowed_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+
     db_app_role_dsn: str = Field(
         default="postgresql://app_role:app_role@localhost:5432/medical_dictation",
         alias="DB_APP_ROLE_DSN",
@@ -49,6 +65,19 @@ class Settings(BaseSettings):
     # In-process TTLCache for templates
     template_cache_maxsize: int = Field(default=5000, alias="MDX_TEMPLATE_CACHE_MAXSIZE")
     template_cache_ttl_seconds: int = Field(default=60, alias="MDX_TEMPLATE_CACHE_TTL_SECONDS")
+
+    # Issuing organisation printed on the unsigned PDF (M1·A3).
+    pdf_issuer_name: str = Field(default="Medical Dictation", alias="MDX_PDF_ISSUER_NAME")
+
+    # ── Report synthesis (spec item 1) ──────────────────────────────────
+    # "mock" (default) is the deterministic offline engine — no external
+    # LLM, no PHI leaving the box. "anthropic" wires the production stub
+    # (Claude Opus 4.x, model id below); enabling it requires implementing
+    # the real client AND a compliance sign-off.
+    synthesis_provider: Literal["mock", "anthropic"] = Field(
+        default="mock", alias="MDX_SYNTHESIS_PROVIDER"
+    )
+    synthesis_model: str = Field(default="claude-opus-4-8", alias="MDX_SYNTHESIS_MODEL")
 
 
 settings = Settings()

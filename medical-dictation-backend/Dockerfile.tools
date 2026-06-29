@@ -1,0 +1,25 @@
+# ── DB tools image (one-shot migrate + seed) ───────────────────────
+# A tiny image carrying the migration runner, seed scripts, and a psql
+# client. Used by the `migrate` and `seed` one-shot services in
+# docker-compose.override.yml. Not a long-running service.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        postgresql-client \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    # migrate.py / seed_*.py only need asyncpg; seed.py shells out to psql.
+    && pip install --no-cache-dir "asyncpg>=0.29.0"
+
+WORKDIR /app
+# migrate.py resolves migrations relative to its own path
+# (scripts/db/migrate.py -> ../../infra/postgres/migrations), so keep the
+# scripts/ and infra/ trees in the same /app layout as the repo root.
+COPY scripts/ /app/scripts/
+COPY infra/ /app/infra/
+
+# No default CMD — the compose `migrate` and `seed` services set their own.

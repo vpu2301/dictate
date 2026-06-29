@@ -184,4 +184,4 @@ async def delete_tenant_abbreviation(
             abbreviation_id,
             tenant_id,
         )
-    return result.endswith(" 1")
+    return str(result).endswith(" 1")

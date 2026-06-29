@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from auth import Action, Claims, TargetKind
+from auth import Claims
 
 from ..deps import get_state, requires
 from ..scrubber import scrub_context, scrub_prefix
@@ -33,7 +33,7 @@ class TelemetryRequest(BaseModel):
 @router.post("/telemetry", status_code=status.HTTP_204_NO_CONTENT)
 async def receive_telemetry(
     body: TelemetryRequest,
-    claims: Annotated[Claims, Depends(requires(Action.READ, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
 ) -> Response:
     state = get_state()
     scrubbed = scrub_prefix(body.prefix)

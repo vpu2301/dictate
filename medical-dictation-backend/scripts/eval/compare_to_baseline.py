@@ -9,8 +9,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from pathlib import Path
 
 import asyncpg
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import audit_kinds  # noqa: E402
 
 
 async def compare(args: argparse.Namespace) -> int:
@@ -62,7 +66,10 @@ async def compare(args: argparse.Namespace) -> int:
                 )
 
         if failures:
-            print("=== regression detected ===", file=sys.stderr)
+            print(f"=== regression detected ({audit_kinds.RUN_REGRESSED}) ===", file=sys.stderr)
+            print(
+                f"{audit_kinds.RUN_REGRESSED} run_id={latest['id']}", file=sys.stderr
+            )
             for f in failures:
                 print("  " + f, file=sys.stderr)
             return 1

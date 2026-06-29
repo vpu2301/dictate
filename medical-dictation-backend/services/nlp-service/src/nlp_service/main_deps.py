@@ -14,6 +14,7 @@ from db import create_pool
 
 from .config import settings
 from .domain import repository
+from .pipeline.base import Stage
 from .pipeline.orchestrator import Orchestrator
 from .stages import (
     AbbreviationStage,
@@ -36,7 +37,8 @@ class RedisCacheAdapter:
     key_prefix: str
 
     async def get(self, key: str) -> bytes | None:
-        return await self.redis.get(f"{self.key_prefix}:{key}")
+        value: bytes | None = await self.redis.get(f"{self.key_prefix}:{key}")
+        return value
 
     async def set(self, key: str, value: bytes, ttl_seconds: int) -> None:
         await self.redis.set(f"{self.key_prefix}:{key}", value, ex=ttl_seconds)
@@ -78,7 +80,7 @@ async def build_state() -> ServiceState:
     punctuation = PunctuationStage()
     await punctuation.startup()  # eagerly load the model
 
-    stages = [
+    stages: list[Stage] = [
         VoiceCommandStage(specs_by_language=voice_specs),
         punctuation,
         NumberNormStage(),

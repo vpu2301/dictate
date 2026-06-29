@@ -57,7 +57,9 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # This MinIO release ships without curl/wget; `mc ready local` is the
+      # bundled readiness probe (matches root docker-compose.yml — Sprint A1).
+      test: ["CMD", "mc", "ready", "local"]
       interval: 30s
       timeout: 10s
       retries: 5

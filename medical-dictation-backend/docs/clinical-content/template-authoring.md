@@ -29,6 +29,7 @@ For the clinical content lead + linguist consultant.
       "required": true,
       "field_type": "free_text",
       "asr_prompt": "<≤ 224-token prompt>",
+      "synthesis_prompt": "<optional sprint-12 prose guidance>",
       "min_chars": 30,
       "order": 0
     }
@@ -74,6 +75,15 @@ For the clinical content lead + linguist consultant.
 Sprint-13 adds `choice`, `multi_choice`. New field types require
 a Pydantic model bump and a corresponding frontend renderer.
 
+### `synthesis_prompt` (optional)
+
+Per-section guidance read by **sprint-12 (Gemma)** to turn the dictated
+raw text into the section's final prose — e.g. "write in the third
+person, preserve doses verbatim, don't invent ICD-10 codes". It does
+**not** affect ASR. Optional: an empty value means "no section-specific
+synthesis guidance". Editing it is a **cosmetic** change (no new row).
+Max 2 000 chars.
+
 ### `min_chars` semantics
 
 The minimum character count for the section to be considered "filled"
@@ -114,7 +124,7 @@ deterministic; the PUT response carries the `kind`.
 ## Pilot week checklist
 
 - [ ] Real clinician dictates against each template (one session each
-  for the 16 templates).
+  for all system templates).
 - [ ] Linguist reviews any voice aliases that triggered or didn't
   trigger.
 - [ ] Clinical content lead checks each ASR prompt against the

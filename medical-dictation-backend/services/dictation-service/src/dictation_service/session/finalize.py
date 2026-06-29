@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import logging
 import struct
 from dataclasses import dataclass
@@ -31,7 +32,7 @@ from audit import AuditWriter, Severity
 from crypto import Envelope
 from db import tenant_connection
 from storage import EncryptedObjectStore
-from storage.object_store import header_metadata_for_row
+from storage.object_store import ObjectHeader, header_metadata_for_row
 
 from .. import audit_kinds
 from ..domain import repository
@@ -56,12 +57,19 @@ async def finalize_session(
     audio_store: EncryptedObjectStore,
     envelope: Envelope,
     reason: str = "normal",
+    purge_audio: bool = False,
 ) -> FinalizeResult:
     """Idempotently finalize a session.
 
     ``reason`` is one of: ``normal``, ``cap_reached``, ``token_expired``,
     ``worker_failure``. The DB row's status becomes ``finalized`` (or
     ``failed`` for worker_failure — caller picks).
+
+    ``purge_audio`` (sprint 07, ADR-0018): the demo privacy envelope.
+    When set (``DEMO_AUDIO_PURGE_ON_FINALIZE``), the finalized audio is
+    never written to object storage *and* the in-memory PCM is zeroed
+    before the buffer is freed — a "no audio at rest" posture independent
+    of whether the object store itself is disabled.
     """
     pcm = _flush_buffer(ctx)
     pcm_bytes_len = pcm.nbytes
@@ -76,7 +84,10 @@ async def finalize_session(
 
     audio_file_id: UUID | None = None
     object_store_disabled = audio_store.is_disabled
-    if pcm_bytes_len > 0 and not object_store_disabled:
+    # No-audio-at-rest when the store is disabled OR purge-on-finalize is
+    # set for this session (sprint 07, ADR-0018).
+    skip_persist = object_store_disabled or purge_audio
+    if pcm_bytes_len > 0 and not skip_persist:
         wav_bytes = _pcm_to_wav(pcm)
         audio_file_id = uuid4()
         storage_key = f"dictations/{ctx.tenant_id}/{ctx.session_id}.wav.enc"
@@ -114,7 +125,10 @@ async def finalize_session(
                     len(wav_bytes),
                     duration_ms,
                     hashlib.sha256(wav_bytes).digest(),
-                    _header_to_json(header),
+                    # asyncpg binds jsonb from a JSON string, not a dict
+                    # (no dict→jsonb codec is registered on the pool) — see
+                    # asr-service's insert_audio_row for the same pattern.
+                    json.dumps(_header_to_json(header)),
                     f"minio://{audio_store.bucket}/{storage_key}",
                     ctx.encounter_id,
                 )
@@ -180,6 +194,20 @@ async def finalize_session(
         severity=Severity.INFO,
     )
 
+    # Privacy envelope (sprint 07, ADR-0018): overwrite the decrypted PCM
+    # still in memory before we drop it, so a no-audio-at-rest session
+    # leaves no residual plaintext behind.
+    if skip_persist:
+        if pcm.size:
+            pcm[:] = 0.0
+        logger.info(
+            "dictation.audio.purged session_id=%s reason=%s purge_flag=%s store_disabled=%s",
+            ctx.session_id,
+            reason,
+            purge_audio,
+            object_store_disabled,
+        )
+
     # Free per-session resources.
     if ctx.buffer is not None:
         ctx.buffer.close()
@@ -206,7 +234,8 @@ def _flush_buffer(ctx: SessionContext) -> np.ndarray:
     total = ctx.buffer.total_samples
     ring_samples = ctx.buffer._ring_samples  # private but stable
     start = max(0, total - ring_samples)
-    return ctx.buffer.read(start, total)
+    samples: np.ndarray = ctx.buffer.read(start, total)
+    return samples
 
 
 def _pcm_to_wav(pcm: np.ndarray) -> bytes:
@@ -269,8 +298,8 @@ def _transcript_to_jsonb(ctx: SessionContext) -> list[dict[str, Any]]:
     return out
 
 
-def _header_to_json(header: object) -> dict[str, str | int]:
-    return header_metadata_for_row(header)  # type: ignore[arg-type]
+def _header_to_json(header: ObjectHeader) -> dict[str, str | int]:
+    return header_metadata_for_row(header)
 
 
 def _avg(xs: list[int]) -> int | None:

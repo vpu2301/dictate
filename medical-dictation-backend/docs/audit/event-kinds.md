@@ -17,6 +17,8 @@ typos at import.
 | `authz.denied`                    | sec      | auth-service `requires()` dep    | Role/scope check failed. Payload carries action + target_kind + reason. |
 | `user.invited`                    | info     | auth-service /admin/users/invite | tenant_admin created a new user                                    |
 | `user.deactivated`                | sec      | auth-service /admin/users/{sub}/deactivate | Sessions revoked, status flipped                         |
+| `user.reactivated`                | sec      | auth-service /admin/users/{sub}/reactivate | Deactivated user re-enabled; status flipped back to active |
+| `user.role_changed`               | sec      | auth-service PUT /admin/users/{sub}/roles | Realm roles changed by tenant_admin. Payload carries old_roles → new_roles. |
 | `user.reset_mfa`                  | sec      | *(sprint 16+)*                   | MFA enrolment cleared by admin                                     |
 | `audit.chain_verified`            | info/sec | nightly verifier                 | One per tenant per verify run. severity flips to `sec` on divergence |
 | `asr.audio_uploaded`              | info     | asr-service POST /asr/jobs       | Audio file enveloped + persisted; row inserted in `audio_files`    |
@@ -27,6 +29,7 @@ typos at import.
 | `asr.transcription_failed`        | error    | asr-worker processor             | Job failed with `error_kind` (gpu_oom, corrupt_audio, timeout, …)  |
 | `asr.job_cancelled`               | info     | asr-service DELETE / worker      | Job cancelled by user or by worker honouring cancel_requested      |
 | `asr.quota_exceeded`              | warn     | asr-service POST /asr/jobs       | Tenant hit the monthly upload cap                                  |
+| `asr.key.master_missing`          | error    | asr-worker startup (fail-closed) | Master key absent/malformed at boot. **System-wide, pre-tenant** — emitted as a CRITICAL structured log, NOT a per-tenant audit-chain row (no tenant context exists). Worker exits non-zero; see runbook § master-key-missing |
 | `dictation.session.started`       | info     | dictation-service WS handler     | New streaming session accepted (after auth + capacity)             |
 | `dictation.session.resumed`       | info     | dictation-service WS handler     | Existing session reattached after a network drop                   |
 | `dictation.session.finalized`     | info     | dictation-service finalize       | Session ended cleanly; transcript + audio persisted                |
@@ -47,6 +50,28 @@ typos at import.
 | `template.deprecated`             | info     | report-service DELETE /templates/{id} | Sprint 06 — soft-delete; status='deprecated'                 |
 | `template.viewed_full`            | info     | report-service GET /templates/{id} | Sprint 06 — full schema_jsonb fetched                          |
 | `dictation.section_switched`      | info     | dictation-service WS handler     | Sprint 06 — section navigation; prompt swap for next window      |
+| `template.created`                | info     | report-service POST /templates   | M1 — plain create of a tenant template (vs clone). Payload: code, specialty |
+| `report.pdf_rendered`             | info     | report-service GET /v1/reports/{id}/pdf | M1 — unsigned PDF rendered for local KEP. Payload: version_number, size_bytes, purpose |
+| `report.completed`                | info     | report-service POST /v1/reports/{id}/finalize | M1 — finalize completion summary (paired with `report.finalized`). Payload: version_number, section_count, low_confidence_count, source_session_id |
+| `signing.session.cancelled`       | info     | signing-service DELETE /signing/sessions/{id} | M1 — user aborted an in-flight session. Payload: from_status |
+| `signing.session.local_upload`    | info     | signing-service POST /signing/sessions/{id}/upload | M1 — locally-signed PAdES uploaded + verified (paired with `signing.envelope.persisted`). Payload: provider, signed_envelope_id, is_qualified |
+| `report.synthesis_started`        | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run begun. Payload: section_count, language, provider |
+| `report.synthesis_completed`      | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run finished (paired with `report.synthesis_started`). Payload: job_id, section_count, language, provider |
+| `demo.rate_limit_hit`             | warn     | `libs/demo` rate limiter         | Sprint 07 — a demo request was rejected by the three-axis limiter (per-IP / per-user / per-session). |
+| `demo.session_capped`            | warn     | `libs/demo` rate limiter         | Sprint 07 — demo session duration exceeded the per-session cap. |
+| `demo.daily_minutes_capped`      | warn     | `libs/demo` rate limiter         | Sprint 07 — per-user daily wall-clock minute budget exhausted. |
+| `demo.ip_blocked`                | warn     | `libs/demo` rate limiter         | Sprint 07 — an IP repeatedly hit caps and entered cooldown. |
+| `demo.privacy_test_passed`       | sec      | `scripts/eval/run_daily_privacy_test.py` | Sprint 07 — daily privacy release-gate confirmed no audio at rest. |
+| `demo.privacy_test_failed`       | sec      | `scripts/eval/run_daily_privacy_test.py` | Sprint 07 — daily privacy gate found residual audio; pages DPO + security. |
+| `eval.run.started`               | info     | `scripts/eval/run_wer.py`        | Sprint 07 — a WER eval run began (structured log; non-tenant CI event). |
+| `eval.run.completed`             | info     | `scripts/eval/run_wer.py`        | Sprint 07 — WER eval run finished; scores recorded to `audit.eval_runs`. |
+| `eval.run.regressed`             | warn     | `scripts/eval/compare_to_baseline.py` | Sprint 07 — a run breached a baseline threshold (WER/RTF/number-norm); Slacks `#eval-regressions`. |
+
+> **Demo + eval kinds (sprint 07)** are *not* hash-chained `audit.events`
+> rows — they are non-tenant, system-level events surfaced via structured
+> logs, Prometheus gauges, and Slack alerts. Their constants live in
+> `libs/demo/src/demo/audit_kinds.py` (`DEMO_AUDIT_KINDS`) and
+> `scripts/eval/audit_kinds.py` (`EVAL_AUDIT_KINDS`).
 
 ## Adding a new kind
 

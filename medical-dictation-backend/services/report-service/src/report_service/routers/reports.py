@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 from report_models import ReadPurpose, ReportContent
 
@@ -46,6 +46,30 @@ class ReportCreatedResponse(BaseModel):
     status: str
 
 
+class LocalizedText(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    uk: str
+    en: str
+
+
+class SectionLabel(BaseModel):
+    """Human-readable, localized title for one report section.
+
+    Templates are per-language (a template row is either ``uk`` or ``en``),
+    so the section ``name`` is a single string in the template's own
+    language. We mirror it into BOTH ``uk`` and ``en`` here — the same
+    behaviour the frontend's ``toStudioTemplate`` uses — so the SPA/PDF can
+    render section titles without re-fetching the template, and historical
+    reports carry their labels even if the template later changes.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    section_key: str
+    name: LocalizedText
+
+
 class ReportEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -65,12 +89,18 @@ class ReportEnvelope(BaseModel):
     signed_at: str | None
     cancelled_at: str | None
     content: ReportContent | None = None
+    section_labels: list[SectionLabel] | None = None
 
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
 
-def _envelope(row: repo.ReportRow, *, content: ReportContent | None = None) -> ReportEnvelope:
+def _envelope(
+    row: repo.ReportRow,
+    *,
+    content: ReportContent | None = None,
+    section_labels: list[SectionLabel] | None = None,
+) -> ReportEnvelope:
     return ReportEnvelope(
         id=row.id,
         code=row.code,
@@ -88,7 +118,54 @@ def _envelope(row: repo.ReportRow, *, content: ReportContent | None = None) -> R
         signed_at=row.signed_at.isoformat() if row.signed_at else None,
         cancelled_at=row.cancelled_at.isoformat() if row.cancelled_at else None,
         content=content,
+        section_labels=section_labels,
     )
+
+
+async def _resolve_section_labels(
+    conn: object, *, content: ReportContent
+) -> list[SectionLabel] | None:
+    """Build localized section labels from the report's template.
+
+    Resolves the template by ``content.template_id`` (reusing the domain
+    ``get_template`` repository helper within the caller's RLS-scoped
+    connection) and emits one :class:`SectionLabel` per template section,
+    ordered by the section ``order``. Returns ``None`` — never raises — if
+    the template was deleted or cannot be parsed, so a missing template
+    degrades gracefully instead of 500-ing the read.
+
+    Note: only the current template row is persisted per ``template_id``
+    (cosmetic edits update in place), so we resolve against it; section
+    names are cosmetic and never participate in ``body_hash``.
+    """
+    import json
+
+    from template_models import TemplateDefinition
+
+    from ..domain.repository import get_template
+
+    try:
+        tmpl_row = await get_template(conn, template_id=content.template_id)  # type: ignore[arg-type]
+        if tmpl_row is None:
+            return None
+        raw = tmpl_row["schema_jsonb"]
+        if isinstance(raw, str):
+            raw = json.loads(raw)
+        definition = TemplateDefinition.model_validate(raw)
+    except Exception:
+        logger.warning(
+            "could not resolve template %s for section labels",
+            content.template_id,
+            exc_info=True,
+        )
+        return None
+
+    return [
+        # Templates are per-language; mirror the single name into both
+        # locales (matches the frontend's toStudioTemplate behaviour).
+        SectionLabel(section_key=section.id, name=LocalizedText(uk=section.name, en=section.name))
+        for section in sorted(definition.sections, key=lambda s: s.order)
+    ]
 
 
 # ── Routes ──────────────────────────────────────────────────────────
@@ -101,7 +178,7 @@ def _envelope(row: repo.ReportRow, *, content: ReportContent | None = None) -> R
 )
 async def create_report(
     body: CreateReportRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> ReportCreatedResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -142,7 +219,7 @@ async def create_report(
 @router.get("/{report_id}", response_model=ReportEnvelope)
 async def get_report(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.READ, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
     purpose: Annotated[
         ReadPurpose | None,
         Query(description="Required for non-author reads."),
@@ -169,9 +246,12 @@ async def get_report(
             )
 
         content_obj: ReportContent | None = None
+        section_labels: list[SectionLabel] | None = None
         if include_content:
             v = await repo.fetch_version(conn, version_id=row.current_version_id)
             content_obj = v.content if v else None
+            if content_obj is not None:
+                section_labels = await _resolve_section_labels(conn, content=content_obj)
 
     await state.audit_writer.write_event(
         tenant_id=claims.tid,
@@ -187,4 +267,4 @@ async def get_report(
         severity=Severity.INFO,
     )
 
-    return _envelope(row, content=content_obj)
+    return _envelope(row, content=content_obj, section_labels=section_labels)

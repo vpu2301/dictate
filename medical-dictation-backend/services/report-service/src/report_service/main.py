@@ -7,6 +7,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from observability import bootstrap, register_exception_handlers
@@ -22,7 +23,10 @@ from .routers import (
     reports_diff,
     reports_drafts,
     reports_lifecycle,
+    reports_pdf,
     reports_search,
+    reports_synthesis,
+    reports_versions,
     templates,
 )
 
@@ -65,6 +69,18 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestIDMiddleware)
     register_exception_handlers(app)
+    # CORS for the SPA. allow_credentials=True is required so the browser sends
+    # the HttpOnly `mdx_rt` cookie on cross-origin XHR; that forbids a wildcard
+    # origin, so origins are an explicit allow-list (mirror auth-service A3).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["WWW-Authenticate"],
+        max_age=600,
+    )
     app.include_router(health.router)
     app.include_router(templates.router)
     # Search route must be registered BEFORE the parameterised ``{report_id}``
@@ -76,6 +92,9 @@ def create_app() -> FastAPI:
     app.include_router(reports_lifecycle.router)
     app.include_router(reports_amend.router)
     app.include_router(reports_diff.router)
+    app.include_router(reports_versions.router)
+    app.include_router(reports_pdf.router)
+    app.include_router(reports_synthesis.router)
     FastAPIInstrumentor.instrument_app(app)
     return app
 

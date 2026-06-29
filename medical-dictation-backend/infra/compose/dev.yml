@@ -56,6 +56,10 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      # Buckets must exist before the object store is used; also tells
+      # `up --wait` this one-shot is expected to exit 0 (not a failure).
+      minio-init:
+        condition: service_completed_successfully
 
   asr-worker:
     build:
@@ -84,6 +88,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   dictation-service:
     build:
@@ -111,7 +117,10 @@ services:
     volumes:
       - ../../infra/dev/master.key:/etc/mdx/master.key:ro
     tmpfs:
-      - /run/dictation:size=2g,mode=1700
+      # Owned by the nonroot service user (uid/gid 65532, see Dockerfile.cpu)
+      # so it can create per-session 0700 dirs. mode=0700 keeps the ring
+      # root private to the service; RAM-backed so decrypted PCM never hits disk.
+      - /run/dictation:size=2g,mode=0700,uid=65532,gid=65532
     ports:
       - "8002:8000"
     depends_on:
@@ -123,6 +132,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   nlp-service:
     build:

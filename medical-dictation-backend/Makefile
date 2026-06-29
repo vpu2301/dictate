@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval
+.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval check-corpus wer-eval-corpus
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -138,17 +138,17 @@ migrate-down: ## Roll back the most-recently-applied migration
 migrate-status: ## Show applied + pending migrations
 	uv run python scripts/db/migrate.py status
 
-openapi-dump: ## Refresh docs/api/auth-service-openapi.json from the running app
+openapi-dump: ## Refresh docs/api/*-openapi.json from the running apps
 	uv run python scripts/dev/dump-openapi.py
 
-openapi-check: ## CI gate — fail if the committed OpenAPI snapshot drifts
+openapi-check: ## CI gate — fail if any committed OpenAPI snapshot drifts
 	uv run python scripts/dev/dump-openapi.py >/dev/null
-	@if [ -n "$$(git status --porcelain docs/api/auth-service-openapi.json 2>/dev/null)" ]; then \
+	@if [ -n "$$(git status --porcelain docs/api/*-openapi.json 2>/dev/null)" ]; then \
 	    echo "OpenAPI snapshot is stale. Run: make openapi-dump"; \
-	    git diff --no-color docs/api/auth-service-openapi.json | head -50; \
+	    git diff --no-color docs/api/*-openapi.json | head -80; \
 	    exit 1; \
 	fi
-	@echo "OpenAPI snapshot is up to date."
+	@echo "OpenAPI snapshots are up to date."
 
 check-rls: ## CI gate — every user-schema table has RLS+FORCE enabled
 	uv run python scripts/ci/check-rls-policies.py
@@ -176,6 +176,11 @@ seed-abbreviations: ## Seed global abbreviation_dictionary (sprint 05)
 validate-templates: ## CI gate — validate every templates seed JSON (sprint 06)
 	PYTHONPATH=libs/template_models/src uv run python scripts/validate-templates.py
 
+check-corpus: ## CI gate — WER corpus SHA-256 integrity + PII sweep + eval unit tests (sprint 07)
+	uv run python scripts/eval/build_corpus_manifest.py --corpus eval/corpus/v1 --check
+	uv run python scripts/eval/check_corpus_pii.py
+	uv run pytest scripts/eval/tests/ -q
+
 seed-templates: ## Seed 16 system templates via upsert_system_template() (sprint 06)
 	uv run python scripts/seed/seed_templates.py
 
@@ -195,8 +200,17 @@ wer-eval-streaming: ## Run streaming WER harness against tests/fixtures/wer (spr
 	    --fixtures tests/fixtures/wer \
 	    --fail-on-regression
 
+wer-eval-corpus: ## Run the sprint-07 manifest corpus WER eval (needs GPU + model; --dsn optional)
+	uv run python scripts/eval/run_wer.py \
+	    --corpus eval/corpus \
+	    --output eval/reports \
+	    $(if $(EVAL_DB_DSN),--dsn $(EVAL_DB_DSN),)
+
 chaos-dictation: ## Run dictation chaos scenarios (needs dev stack + token)
-	RUN_DICTATION_CHAOS=1 uv run --project services/dictation-service pytest tests/chaos/ -v
+	RUN_DICTATION_CHAOS=1 uv run --project services/dictation-service pytest tests/chaos/dictation_chaos.py -v
+
+chaos-asr: ## Run batch-ASR worker chaos (SIGKILL reclaim; needs dev stack + asr-service + CPU model + token)
+	RUN_ASR_CHAOS=1 uv run --project services/asr-service pytest tests/chaos/asr_chaos.py -v
 
 load-dictation: ## Run dictation load test (needs dev stack + token)
 	RUN_DICTATION_LOAD=1 uv run --project services/dictation-service pytest tests/load/ -v
@@ -215,7 +229,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto validate-templates ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto validate-templates check-corpus ## Mirror CI gates locally
 
 ci-with-db: ci check-rls openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

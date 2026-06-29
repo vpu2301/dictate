@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 from report_models import ReportStatus
 
@@ -46,10 +46,23 @@ class CancelRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
 
 
+class FinalizeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Optional optimistic-lock guard: when present it must equal the
+    # report's current version number, else 409. Absent → fall back to the
+    # status-based lock alone (backward compatible / no-body finalize).
+    expected_version: int | None = Field(default=None, ge=1)
+    # Links the originating dictation session to the report when not
+    # already set at create time (Item 5).
+    dictation_session_id: UUID | None = None
+
+
 @router.post("/{report_id}/finalize", response_model=FinalizeResponse)
 async def finalize_report(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    body: FinalizeRequest | None = None,
 ) -> FinalizeResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -65,6 +78,21 @@ async def finalize_report(
                 },
             )
 
+        # Optional optimistic-lock guard (in addition to the status lock).
+        if (
+            body is not None
+            and body.expected_version is not None
+            and body.expected_version != row.current_version_number
+        ):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "optimistic_lock_mismatch",
+                    "current_version": row.current_version_number,
+                    "expected_version": body.expected_version,
+                },
+            )
+
         current = await repo.fetch_version(conn, version_id=row.current_version_id)
         assert current is not None
 
@@ -72,13 +100,30 @@ async def finalize_report(
         template = await _fetch_template_definition(conn, template_id=current.content.template_id)
         problems = validate_finalize(content=current.content, template=template)
         if problems:
-            raise HTTPException(
+            # Surface the per-section problems as first-class RFC-9457 extension
+            # members (not stuffed into `detail`, which the global handler
+            # str()-wraps) so the SPA can render field-level errors from JSON.
+            exc = HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "error": "finalize_validation_failed",
-                    "problems": [p.as_dict() for p in problems],
-                },
+                detail="Report failed finalize validation.",
             )
+            exc.problem_extras = {  # type: ignore[attr-defined]
+                "code": "finalize_validation_failed",
+                "problems": [p.as_dict() for p in problems],
+            }
+            raise exc
+
+        # Session → report linkage (Item 5): backfill only when absent.
+        source_session_id = row.source_session_id
+        if (
+            body is not None
+            and body.dictation_session_id is not None
+            and row.source_session_id is None
+        ):
+            await repo.set_source_session_id_if_absent(
+                conn, report_id=report_id, session_id=body.dictation_session_id
+            )
+            source_session_id = body.dictation_session_id
 
         try:
             await _sm.finalize(conn, report_id=report_id)
@@ -96,6 +141,9 @@ async def finalize_report(
                 detail=str(exc),
             ) from exc
 
+    sections = current.content.sections
+    low_confidence_count = sum(1 for s in sections if "[[" in (s.text or ""))
+
     await state.audit_writer.write_event(
         tenant_id=claims.tid,
         kind=audit_kinds.REPORT_FINALIZED,
@@ -106,13 +154,28 @@ async def finalize_report(
         payload={"version_number": row.current_version_number},
         severity=Severity.INFO,
     )
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.REPORT_COMPLETED,
+        actor_sub=claims.sub,
+        actor_role=(claims.roles[0] if claims.roles else None),
+        target_kind="report",
+        target_id=str(report_id),
+        payload={
+            "version_number": row.current_version_number,
+            "section_count": len(sections),
+            "low_confidence_count": low_confidence_count,
+            "source_session_id": str(source_session_id) if source_session_id else None,
+        },
+        severity=Severity.INFO,
+    )
     return FinalizeResponse(id=report_id, status=ReportStatus.FINALIZED.value)
 
 
 @router.post("/{report_id}/revert-to-draft", response_model=FinalizeResponse)
 async def revert_to_draft(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> FinalizeResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -153,7 +216,7 @@ async def revert_to_draft(
 async def cancel_report(
     report_id: UUID,
     body: CancelRequest,
-    claims: Annotated[Claims, Depends(requires(Action.WRITE, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> FinalizeResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:

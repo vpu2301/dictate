@@ -38,6 +38,20 @@ class Settings(BaseSettings):
     auth_audience: str = Field(default="mdx-api", alias="AUTH_AUDIENCE")
     auth_clock_skew_seconds: int = Field(default=30, alias="AUTH_CLOCK_SKEW_SECONDS")
 
+    # ── CORS (SPA integration) ──────────────────────────────────────────
+    # Comma-separated browser origins allowed to call this service WITH
+    # credentials (the HttpOnly refresh cookie). Must be explicit origins —
+    # never "*" — because allow_credentials=True forbids the wildcard. Mirror
+    # of the auth-service allow-list (sprint A3).
+    cors_allowed_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+
     # DB pools.
     db_app_role_dsn: str = Field(
         default="postgresql://app_role:app_role@localhost:5432/medical_dictation",
@@ -81,6 +95,9 @@ class Settings(BaseSettings):
     # Allow mock provider — refused in production by libs/kep, but
     # this flag controls whether we even wire it.
     enable_mock_provider: bool = Field(default=True, alias="ENABLE_MOCK_PROVIDER")
+
+    # Max size of a locally-signed PDF upload (M1·B4).
+    max_upload_mb: int = Field(default=25, alias="SIGNING_MAX_UPLOAD_MB")
 
 
 settings = Settings()

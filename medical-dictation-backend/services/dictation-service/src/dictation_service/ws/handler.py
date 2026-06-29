@@ -346,7 +346,7 @@ async def _resume_session(
 
     row = outcome.row
     assert row is not None
-    ctx = state.session_manager.get(sid)
+    ctx: SessionContext | None = state.session_manager.get(sid)
     if ctx is None:
         # The session is in DB but no in-process context — worker
         # restart case. We don't recover the buffer; tell the client to
@@ -547,7 +547,7 @@ async def _on_text(
             windower.base_prompt = new_prompt
         await state.audit_writer.write_event(
             tenant_id=ctx.tenant_id,
-            kind="dictation.section_switched",
+            kind=audit_kinds.SECTION_SWITCHED,
             actor_sub=ctx.user_id,
             target_kind="dictation_session",
             target_id=str(ctx.session_id),
@@ -814,7 +814,7 @@ async def _send_and_close(websocket: Any, error: Error, *, ws_code: int = 1008) 
 def _exceeds_hard_cap(ctx: SessionContext) -> bool:
     if ctx.buffer is None:
         return False
-    return ctx.buffer.total_ms >= settings.session_hard_cap_minutes * 60 * 1000
+    return bool(ctx.buffer.total_ms >= settings.session_hard_cap_minutes * 60 * 1000)
 
 
 async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> None:
@@ -826,6 +826,7 @@ async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> N
             audio_store=state.audio_store,
             envelope=state.envelope,
             reason=reason,
+            purge_audio=settings.demo_audio_purge_on_finalize,
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("finalize.failed", exc_info=exc)

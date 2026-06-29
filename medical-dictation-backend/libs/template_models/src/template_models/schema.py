@@ -72,6 +72,11 @@ class TemplateSection(_Strict):
     min_chars: int = Field(default=0, ge=0, le=10_000)
     order: int = Field(default=0, ge=0)
     default_content: str = Field(default="", max_length=4_000)
+    # Per-section synthesis guidance read by sprint-12 (Gemma) to turn the
+    # dictated raw text into the section's final prose. Optional: an empty
+    # value means "no section-specific synthesis guidance". Editing it is a
+    # cosmetic change (see ``classify_edit``).
+    synthesis_prompt: str = Field(default="", max_length=2_000)
 
     @field_validator("id")
     @classmethod
@@ -191,7 +196,8 @@ def classify_edit(old: TemplateDefinition, new: TemplateDefinition) -> EditClass
     - a section's ``required`` flag flipped,
     - a section's ``min_chars`` increased (loosening is cosmetic).
 
-    Everything else is cosmetic (name/aliases/prompt/order/default_content/metadata).
+    Everything else is cosmetic
+    (name/aliases/asr_prompt/order/default_content/synthesis_prompt/metadata).
     A no-change edit is classified as :class:`EditKind.NO_CHANGE` so the
     caller can short-circuit.
     """

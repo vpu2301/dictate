@@ -47,6 +47,7 @@ class RenderInput:
     sections: list[dict[str, Any]]
     finalized_at: str
     language: str = "uk"
+    is_draft: bool = False
 
 
 def _clamp(s: str | None) -> str:
@@ -91,6 +92,7 @@ def render_unsigned_pdf(payload: RenderInput) -> bytes:
         ],
         finalized_at=payload.finalized_at,
         language=payload.language,
+        is_draft=payload.is_draft,
     )
     pdf_bytes = HTML(string=html, base_url=str(_TEMPLATE_DIR)).write_pdf(
         presentational_hints=False,

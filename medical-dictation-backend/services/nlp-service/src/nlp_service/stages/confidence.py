@@ -82,9 +82,12 @@ def _compute_spans(
         level: Literal["high_concern", "moderate"] = (
             "high_concern" if w.probability < high_below else "moderate"
         )
-        # Find the word in ``text`` starting from cursor.
+        # Find the word in ``text`` starting from cursor. Whole-word match
+        # only: a bare substring search lets a short word ("і", "a", "о")
+        # match *inside* a longer word and paint a low-confidence cue over
+        # the wrong region. Boundaries are any non-alphanumeric char.
         needle = w.text.lower()
-        start = text_lower.find(needle, cursor)
+        start = _find_word(text_lower, needle, cursor)
         if start == -1:
             # The text was reformatted enough that we can't locate this
             # word — sprint-5 budget accepts the drop; pilot session
@@ -104,3 +107,24 @@ def _compute_spans(
                 continue
         out.append(ConfidenceSpan(start_char=start, end_char=end, level=level))
     return out
+
+
+def _find_word(haystack: str, needle: str, start_at: int) -> int:
+    """Index of the next whole-word occurrence of ``needle`` at or after
+    ``start_at``, or -1. A match is whole-word when both flanks are a
+    string edge or a non-alphanumeric char (Unicode-aware, so Cyrillic
+    counts as word characters)."""
+    if not needle:
+        return -1
+    nlen = len(needle)
+    pos = start_at
+    while True:
+        idx = haystack.find(needle, pos)
+        if idx == -1:
+            return -1
+        before_ok = idx == 0 or not haystack[idx - 1].isalnum()
+        after = idx + nlen
+        after_ok = after == len(haystack) or not haystack[after].isalnum()
+        if before_ok and after_ok:
+            return idx
+        pos = idx + 1

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 
 from audit import Severity
-from auth import Action, Claims, TargetKind
+from auth import Claims
 from db import tenant_connection
 
 from .. import audit_kinds
@@ -50,7 +50,7 @@ class SearchResponse(BaseModel):
 
 @router.get("/search", response_model=SearchResponse)
 async def search_reports(
-    claims: Annotated[Claims, Depends(requires(Action.READ, TargetKind.REPORT))],
+    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
     q: str | None = Query(default=None, max_length=200),
     patient_id: UUID | None = None,
     author_id: UUID | None = None,

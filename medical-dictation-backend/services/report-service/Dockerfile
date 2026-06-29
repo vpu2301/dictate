@@ -6,6 +6,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
+        `# weasyprint (medical_kep[pdf]) native deps — A3 unsigned-PDF render` \
+        libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+        libffi8 shared-mime-info fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 65532 nonroot \
     && useradd --uid 65532 --gid 65532 --shell /sbin/nologin --no-create-home nonroot
@@ -25,6 +28,7 @@ RUN uv pip install --system --no-cache \
     /build/libs/audit \
     /build/libs/db \
     /build/libs/template_models \
+    /build/libs/kep \
     /build/libs/secret
 
 # Editable workspace libs install as .pth files, which Python only honors
