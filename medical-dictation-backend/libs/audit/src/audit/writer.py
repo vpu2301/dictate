@@ -92,7 +92,7 @@ class AuditWriter:
         actor_sub: UUID | None = None,
         actor_role: str | None = None,
         target_kind: str | None = None,
-        target_id: str | None = None,
+        target_id: str | UUID | None = None,
         payload: Mapping[str, Any] | None = None,
         severity: Severity = Severity.INFO,
     ) -> AuditEventReceipt:
@@ -165,7 +165,7 @@ class AuditWriter:
         actor_role: str | None,
         kind: str,
         target_kind: str | None,
-        target_id: str | None,
+        target_id: str | UUID | None,
         payload: Mapping[str, Any],
         severity: Severity,
     ) -> AuditEventReceipt:
@@ -210,6 +210,14 @@ class AuditWriter:
 
             created_at = datetime.now(UTC)
 
+            # Normalize target_id to str: callers may pass a UUID (incl.
+            # asyncpg's pgproto.UUID from fetchval), but the JCS canonicalizer
+            # can't serialize it AND the audit.events.target_id column is TEXT
+            # (asyncpg rejects a UUID bind). str() is idempotent for the str
+            # callers (e.g. templates.py) already pass. Used for both the
+            # canonical hash record and the INSERT bind below.
+            target_id_str = str(target_id) if target_id is not None else None
+
             event_record: dict[str, Any] = {
                 "tenant_id": str(tenant_id),
                 "seq": next_seq,
@@ -218,7 +226,7 @@ class AuditWriter:
                 "actor_role": actor_role,
                 "kind": kind,
                 "target_kind": target_kind,
-                "target_id": target_id,
+                "target_id": target_id_str,
                 "payload": dict(payload),
                 "severity": severity.value,
             }
@@ -242,7 +250,7 @@ class AuditWriter:
                 actor_role,
                 kind,
                 target_kind,
-                target_id,
+                target_id_str,
                 event_jcs.decode("utf-8"),
                 prev_hash,
                 payload_hash,

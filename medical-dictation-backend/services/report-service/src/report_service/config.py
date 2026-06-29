@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -66,6 +68,16 @@ class Settings(BaseSettings):
 
     # Issuing organisation printed on the unsigned PDF (M1·A3).
     pdf_issuer_name: str = Field(default="Medical Dictation", alias="MDX_PDF_ISSUER_NAME")
+
+    # ── Report synthesis (spec item 1) ──────────────────────────────────
+    # "mock" (default) is the deterministic offline engine — no external
+    # LLM, no PHI leaving the box. "anthropic" wires the production stub
+    # (Claude Opus 4.x, model id below); enabling it requires implementing
+    # the real client AND a compliance sign-off.
+    synthesis_provider: Literal["mock", "anthropic"] = Field(
+        default="mock", alias="MDX_SYNTHESIS_PROVIDER"
+    )
+    synthesis_model: str = Field(default="claude-opus-4-8", alias="MDX_SYNTHESIS_MODEL")
 
 
 settings = Settings()

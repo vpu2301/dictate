@@ -52,8 +52,11 @@ typos at import.
 | `dictation.section_switched`      | info     | dictation-service WS handler     | Sprint 06 — section navigation; prompt swap for next window      |
 | `template.created`                | info     | report-service POST /templates   | M1 — plain create of a tenant template (vs clone). Payload: code, specialty |
 | `report.pdf_rendered`             | info     | report-service GET /v1/reports/{id}/pdf | M1 — unsigned PDF rendered for local KEP. Payload: version_number, size_bytes, purpose |
+| `report.completed`                | info     | report-service POST /v1/reports/{id}/finalize | M1 — finalize completion summary (paired with `report.finalized`). Payload: version_number, section_count, low_confidence_count, source_session_id |
 | `signing.session.cancelled`       | info     | signing-service DELETE /signing/sessions/{id} | M1 — user aborted an in-flight session. Payload: from_status |
 | `signing.session.local_upload`    | info     | signing-service POST /signing/sessions/{id}/upload | M1 — locally-signed PAdES uploaded + verified (paired with `signing.envelope.persisted`). Payload: provider, signed_envelope_id, is_qualified |
+| `report.synthesis_started`        | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run begun. Payload: section_count, language, provider |
+| `report.synthesis_completed`      | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run finished (paired with `report.synthesis_started`). Payload: job_id, section_count, language, provider |
 
 ## Adding a new kind
 

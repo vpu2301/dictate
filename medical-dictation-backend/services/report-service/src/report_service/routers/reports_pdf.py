@@ -1,15 +1,18 @@
-"""GET /reports/{id}/pdf — unsigned PDF for local KEP (M1·A3).
+"""GET /reports/{id}/pdf — server-rendered PDF (M1·A3 + draft export).
 
-Renders the current version of a *finalized* report as a PDF (the bytes a
-clinician signs locally, then uploads via signing-service B4). Drafts get a
-409 RFC-9457. The weasyprint import lives behind ``domain.pdf`` so it never
-loads on the router import path.
+Renders the current version of a report as a PDF. Non-signed reports
+(draft / finalized / amended) are rendered with a visible DRAFT treatment
+(watermark + banner + "no legal force" disclaimer) so an unsigned export
+is never mistaken for a legally-binding document. Only a *cancelled*
+report is refused (409); a signed report can be exported "clean" via
+``?variant=clean``. The weasyprint import lives behind ``domain.pdf`` so
+it never loads on the router import path.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -32,7 +35,7 @@ router = APIRouter(prefix="/v1/reports", tags=["reports"])
 
 @router.get(
     "/{report_id}/pdf",
-    summary="Render the current finalized version as an unsigned PDF (409 for drafts).",
+    summary="Render the current version as a PDF (draft watermark for non-signed reports; 409 only for cancelled).",
     responses={200: {"content": {"application/pdf": {}}}},
 )
 async def get_report_pdf(
@@ -40,6 +43,14 @@ async def get_report_pdf(
     claims: Annotated[Claims, Depends(requires("report.read", "report"))],
     purpose: Annotated[
         ReadPurpose | None, Query(description="Required for non-author reads.")
+    ] = None,
+    variant: Annotated[
+        Literal["draft", "clean"],
+        Query(description="'clean' is only honoured for signed reports; non-signed reports are always draft."),
+    ] = "draft",
+    lang: Annotated[
+        Literal["uk", "en"] | None,
+        Query(description="Render language; falls back to the report language, else 'uk'."),
     ] = None,
 ) -> Response:
     state = get_state()
@@ -60,27 +71,38 @@ async def get_report_pdf(
                 },
             )
 
-        if report.status != ReportStatus.FINALIZED or report.finalized_at is None:
+        # A cancelled report must never be exported.
+        if report.status == ReportStatus.CANCELLED:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 detail={
-                    "type": "https://errors.medical-dictation/report-not-finalized",
-                    "title": "Report is not finalized",
+                    "type": "https://errors.medical-dictation/report-cancelled",
+                    "title": "Report is cancelled",
                     "status": status.HTTP_409_CONFLICT,
                     "detail": (
-                        f"report {report_id} is in status {report.status.value!r}; "
-                        "only finalized reports can be rendered to PDF"
+                        f"report {report_id} is cancelled and cannot be rendered to PDF"
                     ),
                     "report_status": report.status.value,
                 },
             )
 
         version = await repo.fetch_version(conn, version_id=report.current_version_id)
-        if version is None:  # pragma: no cover — finalized reports always have a version
+        if version is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="version not found")
 
+    # Draft treatment whenever the report is not signed, OR when explicitly
+    # requested via ``variant=draft``. ``clean`` is only honoured for signed
+    # reports; any non-signed report is forced to draft regardless of variant.
+    is_signed = report.status == ReportStatus.SIGNED
+    is_draft = (not is_signed) or variant == "draft"
+    language = lang or "uk"
+
     pdf_bytes = render_report_pdf(
-        report=report, version=version, issuer_name=settings.pdf_issuer_name
+        report=report,
+        version=version,
+        issuer_name=settings.pdf_issuer_name,
+        is_draft=is_draft,
+        language=language,
     )
 
     await state.audit_writer.write_event(
@@ -94,12 +116,15 @@ async def get_report_pdf(
             "version_number": version.version_number,
             "size_bytes": len(pdf_bytes),
             "purpose": purpose.value if purpose else "author",
+            "variant": "draft" if is_draft else "clean",
+            "report_status": report.status.value,
         },
         severity=Severity.INFO,
     )
 
+    filename = f"report-{report_id}-draft.pdf" if is_draft else f"report-{report_id}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{report.code}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
