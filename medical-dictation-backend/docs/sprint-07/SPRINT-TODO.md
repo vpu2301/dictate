@@ -62,3 +62,49 @@ items completed unless explicitly carried over (see RETRO).
 - [x] Sprint-07 RETRO.md
 - [x] This SPRINT-TODO.md (as-built)
 - [x] `project_sprint07.md` auto-memory entry + MEMORY.md index update
+
+## Gap-fill (post-sprint, branch S07)
+
+Items above were checked optimistically during the sprint; an as-built
+audit found several only partially wired. Closed here:
+
+- [x] **Corpus fixtures** — `eval/corpus/v1/` shipped with an *empty*
+  manifest. Added the 8 placeholder fixtures (4 specialties × 2 langs:
+  cardiology/endocrinology/radiology/general, `audio.wav` +
+  `transcript.txt` + `metadata.json`) and a SHA-256 `manifest.json`
+  (`scripts/eval/build_corpus_manifest.py`).
+- [x] **`run_wer.py`** — was the sprint-03 `--fixtures` smoke harness
+  (WER only). Rebuilt to the methodology contract: `--corpus` mode with
+  SHA-256 integrity gate, WER (UK-aware) + CER + RTF p50/p95 +
+  per-category number-norm, JSON report + Markdown history + the spec's
+  Prometheus metric names, and `--dsn` persistence to
+  `audit.eval_runs`/`eval_utterances` (so `compare_to_baseline.py` has
+  rows to gate on). Legacy `--fixtures` mode preserved for
+  `make wer-eval`. Pure scoring/integrity logic extracted to
+  `scripts/eval/wer_lib.py`.
+- [x] **Eval unit tests** — `scripts/eval/tests/` (24 tests): UK
+  wrong-case WER, CER, number-norm, determinism, manifest tamper/missing
+  detection, PII sweep, aggregation + Prometheus emission.
+- [x] **CI gate** — `make check-corpus` (integrity + PII + eval tests)
+  wired into `ci.yml` gates job and `make ci`.
+- [x] **Eval audit kinds** — `scripts/eval/audit_kinds.py`
+  (`EVAL_AUDIT_KINDS`); `eval.run.started/completed` emitted by
+  `run_wer.py`, `eval.run.regressed` by `compare_to_baseline.py`;
+  documented in `event-kinds.md` + `audit-kinds-sprint-07.md`.
+- [x] **Demo privacy envelope on the streaming path** — dictation-service
+  built `EncryptedObjectStore` *without* `disabled=`, so
+  `MD_OBJECT_STORE_DISABLED` was never honored (the demo's real WS path
+  would have written audio). Added `object_store_disabled` +
+  `demo_audio_purge_on_finalize` config, wired `disabled=` in
+  `main_deps.py`, and made `finalize_session` honor `purge_audio`
+  (skip persistence + zero the in-memory PCM). Covered by
+  `test_finalize_privacy.py` (3 tests).
+
+### Still carried over (unchanged from sprint plan)
+
+- Full 120-utterance corpus authoring (clinical content lead + linguist).
+- Initial WER baseline capture after 3 consecutive nightly GPU runs.
+- Git-LFS wiring for real corpus audio (placeholders commit as plain
+  files; SRE wires LFS for the authored set).
+- End-to-end GPU run of `run_wer.py --corpus` (needs the A10G eval rig;
+  pure scoring + integrity + persistence wiring are unit-green locally).

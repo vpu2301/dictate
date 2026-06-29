@@ -826,6 +826,7 @@ async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> N
             audio_store=state.audio_store,
             envelope=state.envelope,
             reason=reason,
+            purge_audio=settings.demo_audio_purge_on_finalize,
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("finalize.failed", exc_info=exc)

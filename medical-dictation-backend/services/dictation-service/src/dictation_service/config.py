@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     s3_audio_bucket: str = Field(default="mdx-audio", alias="S3_AUDIO_BUCKET")
     s3_use_ssl: bool = Field(default=False, alias="S3_USE_SSL")
 
+    # ── Demo privacy envelope (sprint 07, ADR-0018) ─────────────────────
+    # When disabled, no finalized audio is ever written to object storage
+    # (the HF Space sets this true). Purge-on-finalize additionally zeroes
+    # the in-memory PCM buffer at end-of-session as defence in depth.
+    object_store_disabled: bool = Field(
+        default=False, alias="MD_OBJECT_STORE_DISABLED"
+    )
+    demo_audio_purge_on_finalize: bool = Field(
+        default=False, alias="DEMO_AUDIO_PURGE_ON_FINALIZE"
+    )
+
     # ── Master key (envelope crypto for finalized uploads) ──────────────
     master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
 

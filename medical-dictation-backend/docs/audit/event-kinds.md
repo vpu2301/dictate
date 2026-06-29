@@ -57,6 +57,21 @@ typos at import.
 | `signing.session.local_upload`    | info     | signing-service POST /signing/sessions/{id}/upload | M1 — locally-signed PAdES uploaded + verified (paired with `signing.envelope.persisted`). Payload: provider, signed_envelope_id, is_qualified |
 | `report.synthesis_started`        | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run begun. Payload: section_count, language, provider |
 | `report.synthesis_completed`      | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run finished (paired with `report.synthesis_started`). Payload: job_id, section_count, language, provider |
+| `demo.rate_limit_hit`             | warn     | `libs/demo` rate limiter         | Sprint 07 — a demo request was rejected by the three-axis limiter (per-IP / per-user / per-session). |
+| `demo.session_capped`            | warn     | `libs/demo` rate limiter         | Sprint 07 — demo session duration exceeded the per-session cap. |
+| `demo.daily_minutes_capped`      | warn     | `libs/demo` rate limiter         | Sprint 07 — per-user daily wall-clock minute budget exhausted. |
+| `demo.ip_blocked`                | warn     | `libs/demo` rate limiter         | Sprint 07 — an IP repeatedly hit caps and entered cooldown. |
+| `demo.privacy_test_passed`       | sec      | `scripts/eval/run_daily_privacy_test.py` | Sprint 07 — daily privacy release-gate confirmed no audio at rest. |
+| `demo.privacy_test_failed`       | sec      | `scripts/eval/run_daily_privacy_test.py` | Sprint 07 — daily privacy gate found residual audio; pages DPO + security. |
+| `eval.run.started`               | info     | `scripts/eval/run_wer.py`        | Sprint 07 — a WER eval run began (structured log; non-tenant CI event). |
+| `eval.run.completed`             | info     | `scripts/eval/run_wer.py`        | Sprint 07 — WER eval run finished; scores recorded to `audit.eval_runs`. |
+| `eval.run.regressed`             | warn     | `scripts/eval/compare_to_baseline.py` | Sprint 07 — a run breached a baseline threshold (WER/RTF/number-norm); Slacks `#eval-regressions`. |
+
+> **Demo + eval kinds (sprint 07)** are *not* hash-chained `audit.events`
+> rows — they are non-tenant, system-level events surfaced via structured
+> logs, Prometheus gauges, and Slack alerts. Their constants live in
+> `libs/demo/src/demo/audit_kinds.py` (`DEMO_AUDIT_KINDS`) and
+> `scripts/eval/audit_kinds.py` (`EVAL_AUDIT_KINDS`).
 
 ## Adding a new kind
 
