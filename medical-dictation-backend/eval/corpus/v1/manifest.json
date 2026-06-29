@@ -1,7 +1,112 @@
 {
   "corpus_version": "v1",
   "schema_version": 1,
-  "description": "Sprint-07 WER eval reference set. 60 UK + 60 EN utterances when fully authored.",
+  "description": "Sprint-07 WER eval reference set. 60 UK + 60 EN utterances when fully authored; ships with 8 placeholder fixtures.",
   "license": "internal-use-only; consent statements per utterance",
-  "utterances": []
+  "utterances": [
+    {
+      "utterance_id": "en-cardiology-001",
+      "language": "en",
+      "specialty": "cardiology",
+      "duration_s": 6.0,
+      "dictation_source": "authored_by_linguist",
+      "path": "en-cardiology-001",
+      "sha256": {
+        "audio.wav": "872298ce419ed2c7d0f76f4e6b0c53d415f72605ad131d4509102cefc2db80fe",
+        "transcript.txt": "72a35ae4f491e4088560163bda16208ec3ad9629526582e6afcb69a11dcb6fca",
+        "metadata.json": "3911c6696759362c0b63c66501c153c70236268f230f6868bf51b46012287446"
+      }
+    },
+    {
+      "utterance_id": "en-endocrinology-001",
+      "language": "en",
+      "specialty": "endocrinology",
+      "duration_s": 5.0,
+      "dictation_source": "authored_by_linguist",
+      "path": "en-endocrinology-001",
+      "sha256": {
+        "audio.wav": "55794ec91b4de25e36726f54a564cc415cdfd95cf5a525bfd2a6c3c325ad4de4",
+        "transcript.txt": "94dfec8166bed6edb31ecc0869b6f59184339fbefc3416082f41facec3db87eb",
+        "metadata.json": "1a519d6c63de88ddab93682bebfd016269a732569fe44dc3d0378fbe9fa4b460"
+      }
+    },
+    {
+      "utterance_id": "en-general-001",
+      "language": "en",
+      "specialty": "general",
+      "duration_s": 4.5,
+      "dictation_source": "authored_by_linguist",
+      "path": "en-general-001",
+      "sha256": {
+        "audio.wav": "5c347d5dbb9f606e39ba0880f8b2315dfe9b9cca72b779638a9323f36f6d6f66",
+        "transcript.txt": "9cf4c65ceaadd5cfc872897eff7d7c96e9393da02e09e357ae67c62179d8774d",
+        "metadata.json": "d25dfa6751f30e9d995ddb6b83eb48592d2a7297afeff2cfc4f5e7b32178278b"
+      }
+    },
+    {
+      "utterance_id": "en-radiology-001",
+      "language": "en",
+      "specialty": "radiology",
+      "duration_s": 5.5,
+      "dictation_source": "authored_by_linguist",
+      "path": "en-radiology-001",
+      "sha256": {
+        "audio.wav": "7b5aff4f18398efca5f881dde3f8b96d1c4b6d0d97d0ef786fd79182c933149d",
+        "transcript.txt": "6b7fc9f0028368c7bca20f5368c6e14893d96969e2ebca9405713a5836a7f3ea",
+        "metadata.json": "f786d815e338d29e03e33f6ad1c7b74827d0ac94196cb8805ff696f771612029"
+      }
+    },
+    {
+      "utterance_id": "uk-cardiology-001",
+      "language": "uk",
+      "specialty": "cardiology",
+      "duration_s": 6.0,
+      "dictation_source": "authored_by_linguist",
+      "path": "uk-cardiology-001",
+      "sha256": {
+        "audio.wav": "e6f681bf0a4748eab87d80946f067811bda7acf3c5cd16b7ef496a3759d6be55",
+        "transcript.txt": "e6386ef235248d84a40f9759dcdbe370508bb9ab74f7877015f472bd1903cb92",
+        "metadata.json": "9360b94651f41772fe19393fae3166acd8c92bfd99eb8e1e8b3102da549b898f"
+      }
+    },
+    {
+      "utterance_id": "uk-endocrinology-001",
+      "language": "uk",
+      "specialty": "endocrinology",
+      "duration_s": 5.0,
+      "dictation_source": "authored_by_linguist",
+      "path": "uk-endocrinology-001",
+      "sha256": {
+        "audio.wav": "c1a202d1af1686459850e55632b113d87920569c99f0fac0a7e96c5052c7dae1",
+        "transcript.txt": "e60dd2d6b374d13c0be5484fdc537e05ace53d43c51982993599546856ff965f",
+        "metadata.json": "110aad1eea776421418f44c86a9465d2ef8cc3a73b13668d0efd1dded57d20d6"
+      }
+    },
+    {
+      "utterance_id": "uk-general-001",
+      "language": "uk",
+      "specialty": "general",
+      "duration_s": 4.5,
+      "dictation_source": "authored_by_linguist",
+      "path": "uk-general-001",
+      "sha256": {
+        "audio.wav": "07ba007fce25dbc769b91bdcbbc146aaaa36846e6263daaf20e671d63591c532",
+        "transcript.txt": "2e9f58ee258e20d547025724de66ac7bb9b688a2dc646281aedf095bf8040adb",
+        "metadata.json": "a73a9401797be2c09f494838400084bb227f1676b9ed6ca5abd894155efa83a8"
+      }
+    },
+    {
+      "utterance_id": "uk-radiology-001",
+      "language": "uk",
+      "specialty": "radiology",
+      "duration_s": 5.5,
+      "dictation_source": "authored_by_linguist",
+      "path": "uk-radiology-001",
+      "sha256": {
+        "audio.wav": "54d8de81ae466f5c833537c06ab4016c1136b5ef327619644ba7b9a5b712c6d5",
+        "transcript.txt": "e4f0619b304d275f167c079d95c08c31a6173c2547051c20547e809367c36cc4",
+        "metadata.json": "1085e57f8e58a041802e1da44b1b8278e8aade2f8ac676f871599744a8c910be"
+      }
+    }
+  ]
 }

@@ -57,12 +57,19 @@ async def finalize_session(
     audio_store: EncryptedObjectStore,
     envelope: Envelope,
     reason: str = "normal",
+    purge_audio: bool = False,
 ) -> FinalizeResult:
     """Idempotently finalize a session.
 
     ``reason`` is one of: ``normal``, ``cap_reached``, ``token_expired``,
     ``worker_failure``. The DB row's status becomes ``finalized`` (or
     ``failed`` for worker_failure — caller picks).
+
+    ``purge_audio`` (sprint 07, ADR-0018): the demo privacy envelope.
+    When set (``DEMO_AUDIO_PURGE_ON_FINALIZE``), the finalized audio is
+    never written to object storage *and* the in-memory PCM is zeroed
+    before the buffer is freed — a "no audio at rest" posture independent
+    of whether the object store itself is disabled.
     """
     pcm = _flush_buffer(ctx)
     pcm_bytes_len = pcm.nbytes
@@ -77,7 +84,10 @@ async def finalize_session(
 
     audio_file_id: UUID | None = None
     object_store_disabled = audio_store.is_disabled
-    if pcm_bytes_len > 0 and not object_store_disabled:
+    # No-audio-at-rest when the store is disabled OR purge-on-finalize is
+    # set for this session (sprint 07, ADR-0018).
+    skip_persist = object_store_disabled or purge_audio
+    if pcm_bytes_len > 0 and not skip_persist:
         wav_bytes = _pcm_to_wav(pcm)
         audio_file_id = uuid4()
         storage_key = f"dictations/{ctx.tenant_id}/{ctx.session_id}.wav.enc"
@@ -183,6 +193,20 @@ async def finalize_session(
         },
         severity=Severity.INFO,
     )
+
+    # Privacy envelope (sprint 07, ADR-0018): overwrite the decrypted PCM
+    # still in memory before we drop it, so a no-audio-at-rest session
+    # leaves no residual plaintext behind.
+    if skip_persist:
+        if pcm.size:
+            pcm[:] = 0.0
+        logger.info(
+            "dictation.audio.purged session_id=%s reason=%s purge_flag=%s store_disabled=%s",
+            ctx.session_id,
+            reason,
+            purge_audio,
+            object_store_disabled,
+        )
 
     # Free per-session resources.
     if ctx.buffer is not None:

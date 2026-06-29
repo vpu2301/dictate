@@ -91,6 +91,7 @@ jobs:
           make check-no-object-storage
           make check-no-crypto
           make validate-templates
+          make check-corpus
 
   # ──────────────────────────────────────────────────────────────
   test:

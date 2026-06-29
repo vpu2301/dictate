@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval
+.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval check-corpus wer-eval-corpus
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -176,6 +176,11 @@ seed-abbreviations: ## Seed global abbreviation_dictionary (sprint 05)
 validate-templates: ## CI gate — validate every templates seed JSON (sprint 06)
 	PYTHONPATH=libs/template_models/src uv run python scripts/validate-templates.py
 
+check-corpus: ## CI gate — WER corpus SHA-256 integrity + PII sweep + eval unit tests (sprint 07)
+	uv run python scripts/eval/build_corpus_manifest.py --corpus eval/corpus/v1 --check
+	uv run python scripts/eval/check_corpus_pii.py
+	uv run pytest scripts/eval/tests/ -q
+
 seed-templates: ## Seed 16 system templates via upsert_system_template() (sprint 06)
 	uv run python scripts/seed/seed_templates.py
 
@@ -194,6 +199,12 @@ wer-eval-streaming: ## Run streaming WER harness against tests/fixtures/wer (spr
 	uv run python scripts/eval/run_streaming_wer.py \
 	    --fixtures tests/fixtures/wer \
 	    --fail-on-regression
+
+wer-eval-corpus: ## Run the sprint-07 manifest corpus WER eval (needs GPU + model; --dsn optional)
+	uv run python scripts/eval/run_wer.py \
+	    --corpus eval/corpus \
+	    --output eval/reports \
+	    $(if $(EVAL_DB_DSN),--dsn $(EVAL_DB_DSN),)
 
 chaos-dictation: ## Run dictation chaos scenarios (needs dev stack + token)
 	RUN_DICTATION_CHAOS=1 uv run --project services/dictation-service pytest tests/chaos/dictation_chaos.py -v
@@ -218,7 +229,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto validate-templates ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto validate-templates check-corpus ## Mirror CI gates locally
 
 ci-with-db: ci check-rls openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 
