@@ -45,6 +45,7 @@ known-first-party = [
     "dictation_service",
     "nlp_service",
     "report_service",
+    "core_service",
     "observability",
     "auth",
     "db",
@@ -79,6 +80,7 @@ root_packages = [
     "dictation_service",
     "nlp_service",
     "report_service",
+    "core_service",
     "observability",
     "secret",
     "auth",
@@ -155,6 +157,15 @@ layers = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "core-service: routers → domain → adapters; reverse forbidden"
+type = "layers"
+layers = [
+    "core_service.routers",
+    "core_service.domain",
+    "core_service.adapters",
+]
+
+[[tool.importlinter.contracts]]
 name = "template_models is a leaf — pure Pydantic types"
 type = "forbidden"
 source_modules = ["template_models"]
@@ -195,6 +206,7 @@ forbidden_modules = [
     "dictation_service",
     "nlp_service",
     "report_service",
+    "core_service",
 ]
 
 # Services are mutually independent: shared concerns live in libs/*, never
@@ -217,6 +229,7 @@ modules = [
     "dictation_service",
     "nlp_service",
     "report_service",
+    "core_service",
 ]
 ignore_imports = [
     "dictation_service.main_deps -> asr_worker.inference",

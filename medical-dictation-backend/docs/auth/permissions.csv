@@ -124,3 +124,23 @@ auditor,report.write,report,false,read-only role — no clinical content writes
 auditor,report.read,report,false,clinical content out of audit role (mirrors dictation)
 service,report.write,report,false,user-only authoring
 service,report.read,report,true,sprint 09 — signing-service S2S reads report to sign
+tenant_admin,patient.read,patient,true,sprint 11 — read patient roster + record
+tenant_admin,patient.write,patient,true,sprint 11 — create/update patients/encounters/consents/anamnesis/privacy
+clinician,patient.read,patient,true,sprint 11 — reads patients
+clinician,patient.write,patient,true,sprint 11 — authors patient record
+nurse,patient.read,patient,true,sprint 11 — reads patients
+nurse,patient.write,patient,true,sprint 11 — authors patient record
+auditor,patient.read,patient,false,PHI out of audit role (mirrors report/dictation)
+auditor,patient.write,patient,false,read-only role — no clinical writes
+service,patient.read,patient,false,no S2S patient-read surface today
+service,patient.write,patient,false,user-only authoring
+tenant_admin,note.read,note,true,sprint 11 — read clinical notes
+tenant_admin,note.write,note,true,sprint 11 — create/edit/sign clinical notes
+clinician,note.read,note,true,sprint 11 — reads notes
+clinician,note.write,note,true,sprint 11 — authors notes
+nurse,note.read,note,true,sprint 11 — reads notes
+nurse,note.write,note,true,sprint 11 — authors notes
+auditor,note.read,note,false,PHI out of audit role
+auditor,note.write,note,false,read-only role — no clinical writes
+service,note.read,note,false,no S2S note-read surface today
+service,note.write,note,false,user-only authoring

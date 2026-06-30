@@ -118,6 +118,7 @@ Postgres (creates roles via `init.sql`) → **migrate** (27 SQL migrations) →
 | auth-service | `http://localhost:8000` | the SPA expects this origin |
 | asr-service | `http://localhost:8001` | batch ASR submit/status |
 | dictation-service | `http://localhost:8002` | streaming ASR (WebSocket) |
+| core-service | `http://localhost:8003` | patients & the per-patient record (encounters, notes, consents, anamnesis, privacy, timeline) |
 | nlp-service | `http://localhost:8005` | `/readyz` is 503 in dev — punctuation model disabled by config; `/healthz` is 200 and the pipeline is functional |
 | report-service | `http://localhost:8006` | |
 | autocomplete-service | `http://localhost:8007` | |
@@ -133,7 +134,7 @@ Postgres (creates roles via `init.sql`) → **migrate** (27 SQL migrations) →
 Health-check every service once up:
 
 ```bash
-for p in 8000 8001 8005 8006 8007 8008; do
+for p in 8000 8001 8003 8005 8006 8007 8008; do
   curl -s -o /dev/null -w "%{http_code}  :$p/healthz\n" http://localhost:$p/healthz
 done
 ```
