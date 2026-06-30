@@ -4,6 +4,40 @@ The standing-release-gate measurement that protects every downstream
 sprint touching Whisper / prompts / NLP / models / audio from silent
 regressions.
 
+## Running the eval
+
+```bash
+make wer-eval-corpus
+# equivalently:
+uv run python scripts/eval/run_wer.py --corpus eval/corpus \
+    --output eval/reports [--metrics-file <path>] [--dsn "$EVAL_DB_DSN"]
+```
+
+**The real gate runs on the Linux/GPU rig** (A10G), where the asr-worker
+runtime deps pin `faster-whisper` and the engine loads `large-v3` on CUDA
+(`fp16`). Those are the only numbers that count as a release signal.
+
+**Local dev on macOS works out of the box** for plumbing checks:
+
+- `faster-whisper` is excluded from asr-worker's *runtime* deps on macOS
+  (it's mocked in tests); the eval pulls it into the shared dev venv via the
+  macOS-gated `dev` dependency-group in the workspace `pyproject.toml`.
+- `run_wer.py` auto-selects a CPU config on macOS when `MD_ASR_*` are unset:
+  `MD_ASR_DEVICE=cpu`, `MD_ASR_COMPUTE_TYPE=int8`, `MD_ASR_MODEL=tiny`
+  (an explicit env var always wins). The same defaults can be set by hand on
+  any non-GPU box.
+- Requires `ffmpeg` on `PATH` to decode `audio.wav` (`brew install ffmpeg`).
+- The script needs Python ≥ 3.11 (uses `datetime.UTC`); always run it through
+  `uv` (the managed 3.12 venv). A bare system `python3` is guarded with an
+  actionable error.
+
+> ⚠️ macOS / CPU / `tiny` numbers are **plumbing-only**, never a release
+> signal — different model and precision than the gate. The v1 corpus also
+> currently ships **8 placeholder fixtures** (synthetic tones, not speech), so
+> every utterance scores WER = 1.0 until real audio is authored. Use the run
+> to confirm the harness end-to-end (integrity check → decode → inference →
+> WER/CER/RTF → JSON/Markdown/Prometheus/DB outputs), not for accuracy.
+
 ## Scoring
 
 ### WER (Word Error Rate)

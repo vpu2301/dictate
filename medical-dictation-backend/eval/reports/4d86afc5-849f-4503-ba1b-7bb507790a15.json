@@ -1,0 +1,140 @@
+{
+  "run_id": "4d86afc5-849f-4503-ba1b-7bb507790a15",
+  "started_at": "2026-06-30T17:24:41.256596+00:00",
+  "finished_at": "2026-06-30T17:24:42.847799+00:00",
+  "corpus_version": "v1",
+  "model": "tiny",
+  "pipeline_version": "nlp-v1.0.0",
+  "prompts_hash": "6c44c9161bfe815968adf61301abfab8f6514a8b3c216b6892eea096fe544749",
+  "utterances": [
+    {
+      "utterance_id": "en-cardiology-001",
+      "language": "en",
+      "specialty": "cardiology",
+      "duration_s": 6.0,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 34.506,
+      "number_norm_score": 0.0,
+      "number_norm_by_category": {
+        "bp": 0.0,
+        "dose": 0.0
+      },
+      "reference": "Blood pressure 130/85 mmHg, heart rate 68 per minute. Started atorvastatin 20 mg once daily.",
+      "hypothesis": ""
+    },
+    {
+      "utterance_id": "en-endocrinology-001",
+      "language": "en",
+      "specialty": "endocrinology",
+      "duration_s": 5.0,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 28.044,
+      "number_norm_score": 0.0,
+      "number_norm_by_category": {
+        "dose": 0.0
+      },
+      "reference": "Fasting glucose 6.4 mmol/L. Continue metformin 1000 mg twice daily.",
+      "hypothesis": ""
+    },
+    {
+      "utterance_id": "en-general-001",
+      "language": "en",
+      "specialty": "general",
+      "duration_s": 4.5,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 20.689,
+      "number_norm_score": null,
+      "number_norm_by_category": {},
+      "reference": "Patient reports cough for 5 days. Temperature 38.1 degrees Celsius.",
+      "hypothesis": ""
+    },
+    {
+      "utterance_id": "en-radiology-001",
+      "language": "en",
+      "specialty": "radiology",
+      "duration_s": 5.5,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 30.708,
+      "number_norm_score": null,
+      "number_norm_by_category": {},
+      "reference": "Chest radiograph shows no focal consolidation, effusion, or pneumothorax.",
+      "hypothesis": ""
+    },
+    {
+      "utterance_id": "uk-cardiology-001",
+      "language": "uk",
+      "specialty": "cardiology",
+      "duration_s": 6.0,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 30.845,
+      "number_norm_score": 0.0,
+      "number_norm_by_category": {
+        "bp": 0.0,
+        "dose": 0.0,
+        "frequency": 0.0
+      },
+      "reference": "АТ 120/80 мм рт ст, ЧСС 72 за хвилину. Призначено бісопролол 5 мг 1 раз на добу.",
+      "hypothesis": ""
+    },
+    {
+      "utterance_id": "uk-endocrinology-001",
+      "language": "uk",
+      "specialty": "endocrinology",
+      "duration_s": 5.0,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 25.709,
+      "number_norm_score": 0.0,
+      "number_norm_by_category": {
+        "dose": 0.0,
+        "frequency": 0.0
+      },
+      "reference": "Глюкоза крові 7.8 ммоль/л. Метформін 850 мг 2 рази на день.",
+      "hypothesis": ""
+    },
+    {
+      "utterance_id": "uk-general-001",
+      "language": "uk",
+      "specialty": "general",
+      "duration_s": 4.5,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 21.687,
+      "number_norm_score": null,
+      "number_norm_by_category": {},
+      "reference": "Скарги на головний біль протягом 3 днів. Температура тіла 37.2 градуса.",
+      "hypothesis": ""
+    },
+    {
+      "utterance_id": "uk-radiology-001",
+      "language": "uk",
+      "specialty": "radiology",
+      "duration_s": 5.5,
+      "wer": 1.0,
+      "cer": 1.0,
+      "rtf": 22.57,
+      "number_norm_score": null,
+      "number_norm_by_category": {},
+      "reference": "На рентгенограмі органів грудної клітки вогнищевих та інфільтративних змін не виявлено.",
+      "hypothesis": ""
+    }
+  ],
+  "aggregates": {
+    "wer_overall_uk": 1.0,
+    "wer_overall_en": 1.0,
+    "cer_overall_uk": 1.0,
+    "cer_overall_en": 1.0,
+    "rtf_p50": 26.877,
+    "rtf_p95": 33.225,
+    "number_norm_by_category": {
+      "bp": 0.0,
+      "dose": 0.0,
+      "frequency": 0.0
+    }
+  }
+}

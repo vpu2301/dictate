@@ -1,6 +1,16 @@
 [tool.uv.workspace]
 members = ["services/*", "libs/*"]
 
+[dependency-groups]
+# Dev-only. faster-whisper is intentionally excluded from asr-worker's
+# *runtime* deps on macOS (services/asr-worker/pyproject.toml) so dev installs
+# stay light and the CPU path is mocked in tests; prod images pin it via the
+# Dockerfile. Pull it into the shared dev venv on macOS only, so the WER eval
+# harness (scripts/eval/run_wer.py) runs out of the box with a bare
+# `uv run python scripts/eval/run_wer.py --corpus eval/corpus`. macOS-gated:
+# Linux/CI resolution and the production images are unchanged.
+dev = ["faster-whisper>=1.0.0 ; sys_platform == 'darwin'"]
+
 
 [tool.ruff]
 line-length = 100

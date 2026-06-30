@@ -200,7 +200,7 @@ wer-eval-streaming: ## Run streaming WER harness against tests/fixtures/wer (spr
 	    --fixtures tests/fixtures/wer \
 	    --fail-on-regression
 
-wer-eval-corpus: ## Run the sprint-07 manifest corpus WER eval (needs GPU + model; --dsn optional)
+wer-eval-corpus: ## Run the sprint-07 manifest corpus WER eval (GPU+model on Linux; CPU/tiny auto-fallback on macOS; --dsn optional)
 	uv run python scripts/eval/run_wer.py \
 	    --corpus eval/corpus \
 	    --output eval/reports \

@@ -30,10 +30,35 @@ Usage::
 
 from __future__ import annotations
 
+import sys
+
+if sys.version_info < (3, 11):  # pragma: no cover - invocation guard
+    sys.exit(
+        "run_wer.py needs Python >= 3.11 (uses datetime.UTC); you are on "
+        f"{sys.version_info.major}.{sys.version_info.minor}. "
+        "Run it through the uv-managed venv, e.g.:\n"
+        "    uv run python scripts/eval/run_wer.py --corpus eval/corpus ...\n"
+        "or use the Makefile target: make wer-eval-corpus"
+    )
+
+# Developer-laptop fallback: macOS has no CUDA, so the asr-worker prod
+# defaults (cuda/large-v3/float16) can't load. Default to a CPU-friendly
+# config so the harness runs out of the box for a local smoke test. This
+# is set BEFORE asr_worker.config is imported (the engine import is lazy
+# inside _transcribe_corpus). Linux/GPU — the real WER gate — is untouched,
+# and an explicit MD_ASR_* env var always wins (setdefault). Numbers from
+# tiny/CPU are plumbing-only, never a release signal.
+import os  # noqa: E402
+import platform  # noqa: E402
+
+if platform.system() == "Darwin":
+    os.environ.setdefault("MD_ASR_DEVICE", "cpu")
+    os.environ.setdefault("MD_ASR_COMPUTE_TYPE", "int8")
+    os.environ.setdefault("MD_ASR_MODEL", "tiny")
+
 import argparse
 import json
 import logging
-import sys
 import time
 import uuid
 from dataclasses import dataclass, field

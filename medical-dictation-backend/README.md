@@ -51,6 +51,7 @@ medical-dictation-backend/
 | uv | 0.4 | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | make | any | OS package manager |
 | git | 2.40 | https://git-scm.com |
+| ffmpeg | any | OS package manager (`brew install ffmpeg`) — only for the local WER eval (decodes corpus audio) |
 
 > **Windows:** WSL2 is required for acceptable Docker performance. Run `make doctor` to verify.
 
@@ -177,7 +178,18 @@ make test-cov      # pytest with coverage report (gate: ≥ 70%)
 make security-scan # bandit
 make dev-down      # stop & remove containers
 make doctor        # environment health check
+make wer-eval-corpus # WER release-gate measurement over eval/corpus
 ```
+
+> **WER eval on macOS:** `make wer-eval-corpus` (or a bare
+> `uv run python scripts/eval/run_wer.py --corpus eval/corpus`) works out of
+> the box on a dev laptop — no GPU/CUDA needed. On macOS the harness
+> auto-selects a CPU-friendly config (`MD_ASR_DEVICE=cpu`,
+> `MD_ASR_COMPUTE_TYPE=int8`, `MD_ASR_MODEL=tiny`) and `faster-whisper` is
+> pulled into the dev venv via the macOS-gated `dev` dependency-group.
+> Requires `ffmpeg` (see Prerequisites). These local numbers are
+> **plumbing-only** — the real release gate runs `large-v3` on the Linux/GPU
+> rig. See [`docs/eval/wer-methodology.md`](docs/eval/wer-methodology.md).
 
 ---
 
