@@ -40,6 +40,8 @@ KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
         "abbreviation",
         "template",
         "report",
+        "patient",
+        "note",
     }
 )
 
@@ -129,6 +131,24 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("nurse", "report.write", "report"): True,
     ("nurse", "report.read", "report"): True,
     ("service", "report.read", "report"): True,
+    # ── Sprint 11: patients (clinical/EHR core-service) ──────────────
+    # Patient roster + the per-patient record (encounters, consents,
+    # anamnesis, privacy). Mirrors `report`: clinical authors (admin,
+    # clinician, nurse) read+write; auditors denied PHI; service tokens
+    # have no S2S surface here today.
+    ("tenant_admin", "patient.read", "patient"): True,
+    ("tenant_admin", "patient.write", "patient"): True,
+    ("clinician", "patient.read", "patient"): True,
+    ("clinician", "patient.write", "patient"): True,
+    ("nurse", "patient.read", "patient"): True,
+    ("nurse", "patient.write", "patient"): True,
+    # Clinical notes (SOAP/APSO/DAP/free) bound to a patient.
+    ("tenant_admin", "note.read", "note"): True,
+    ("tenant_admin", "note.write", "note"): True,
+    ("clinician", "note.read", "note"): True,
+    ("clinician", "note.write", "note"): True,
+    ("nurse", "note.read", "note"): True,
+    ("nurse", "note.write", "note"): True,
 }
 
 

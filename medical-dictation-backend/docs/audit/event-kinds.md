@@ -57,6 +57,18 @@ typos at import.
 | `signing.session.local_upload`    | info     | signing-service POST /signing/sessions/{id}/upload | M1 — locally-signed PAdES uploaded + verified (paired with `signing.envelope.persisted`). Payload: provider, signed_envelope_id, is_qualified |
 | `report.synthesis_started`        | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run begun. Payload: section_count, language, provider |
 | `report.synthesis_completed`      | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run finished (paired with `report.synthesis_started`). Payload: job_id, section_count, language, provider |
+| `patient.created`                 | info     | core-service POST /patients      | Sprint 11 — new patient added to the roster. Payload: has_mrn |
+| `patient.updated`                 | info     | core-service PUT /patients/{id}  | Sprint 11 — patient demographics edited. Payload: fields (changed column names) |
+| `patient.viewed`                  | info     | core-service GET /patients/{id}  | Sprint 11 — full patient record fetched (PHI access). |
+| `encounter.created`              | info     | core-service POST /patients/{id}/encounters | Sprint 11 — encounter recorded. Payload: encounter_id, kind |
+| `note.created`                    | info     | core-service POST /notes         | Sprint 11 — clinical note created. Payload: patient_id, structure |
+| `note.updated`                    | info     | core-service PATCH /notes/{id}   | Sprint 11 — draft note edited. |
+| `note.signed`                     | info     | core-service POST /notes/{id}/sign | Sprint 11 — note signed (becomes immutable). |
+| `consent.granted`                 | info     | core-service POST /patients/{id}/consents | Sprint 11 — consent recorded. Payload: consent_id, type |
+| `consent.withdrawn`               | info     | core-service POST /patients/{id}/consents/{cid}/withdraw | Sprint 11 — consent withdrawn. Payload: consent_id |
+| `anamnesis.updated`               | info     | core-service PUT /patients/{id}/anamnesis | Sprint 11 — structured history saved. |
+| `privacy.dsar_requested`          | sec      | core-service POST /patients/{id}/dsar | Sprint 11 — data-subject access request logged. Payload: request_id, kind |
+| `privacy.erasure_scheduled`       | sec      | core-service POST /patients/{id}/erasure | Sprint 11 — patient erasure scheduled (grace period). Payload: request_id, kind |
 | `demo.rate_limit_hit`             | warn     | `libs/demo` rate limiter         | Sprint 07 — a demo request was rejected by the three-axis limiter (per-IP / per-user / per-session). |
 | `demo.session_capped`            | warn     | `libs/demo` rate limiter         | Sprint 07 — demo session duration exceeded the per-session cap. |
 | `demo.daily_minutes_capped`      | warn     | `libs/demo` rate limiter         | Sprint 07 — per-user daily wall-clock minute budget exhausted. |

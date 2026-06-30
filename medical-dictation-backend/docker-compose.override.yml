@@ -14,6 +14,7 @@
 #   auth-service          :8000   (the SPA expects this origin)
 #   asr-service           :8001
 #   dictation-service     :8002   (WebSocket streaming ASR)
+#   core-service          :8003   (patients & per-patient record)
 #   nlp-service           :8005
 #   report-service        :8006
 #   autocomplete-service  :8007
@@ -280,6 +281,25 @@ services:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
     ports:
       - "8006:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # ── core-service — patients & the per-patient clinical record ─────
+  core-service:
+    build:
+      context: .
+      dockerfile: services/core-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
+    ports:
+      - "8003:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:

@@ -27,6 +27,7 @@ SERVICES: list[tuple[str, str]] = [
     ("asr_service.main", "asr-service-openapi.json"),
     ("report_service.main", "report-service-openapi.json"),
     ("signing_service.main", "signing-service-openapi.json"),
+    ("core_service.main", "core-service-openapi.json"),
 ]
 
 
