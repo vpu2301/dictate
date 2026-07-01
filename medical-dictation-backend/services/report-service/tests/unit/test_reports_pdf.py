@@ -102,9 +102,14 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         )
     )
 
+    class _FakeConn:
+        async def fetchrow(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            # No branding row in unit env → PDF issuer falls back to default.
+            return None
+
     @contextlib.asynccontextmanager
     async def _fake_tenant_conn(pool, tenant_id):  # noqa: ANN001
-        yield None
+        yield _FakeConn()
 
     monkeypatch.setattr(reports_pdf, "tenant_connection", _fake_tenant_conn)
 
