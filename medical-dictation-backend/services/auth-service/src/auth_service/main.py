@@ -24,7 +24,7 @@ from observability import bootstrap, register_exception_handlers
 from .config import settings
 from .deps import install_state
 from .main_deps import build_state, teardown_state
-from .routers import admin, audit, health, login, me
+from .routers import admin, audit, health, login, me, tenants
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
         expose_headers=["WWW-Authenticate"],
         max_age=600,
@@ -86,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(login.router)
     app.include_router(me.router)
     app.include_router(admin.router)
+    app.include_router(tenants.router)
     app.include_router(audit.router)
     FastAPIInstrumentor.instrument_app(app)
     return app

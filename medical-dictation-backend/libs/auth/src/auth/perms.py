@@ -54,6 +54,9 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # tenant_admin: tenant-wide admin
     ("tenant_admin", "tenant.read", "tenant"): True,
     ("tenant_admin", "tenant.update", "tenant"): True,
+    # Tenant (clinic) lifecycle + membership management (Sprint 12).
+    ("tenant_admin", "tenant.create", "tenant"): True,
+    ("tenant_admin", "tenant.manage_members", "tenant"): True,
     ("tenant_admin", "user.read", "user"): True,
     ("tenant_admin", "user.invite", "user"): True,
     ("tenant_admin", "user.manage_roles", "user"): True,

@@ -144,3 +144,13 @@ auditor,note.read,note,false,PHI out of audit role
 auditor,note.write,note,false,read-only role — no clinical writes
 service,note.read,note,false,no S2S note-read surface today
 service,note.write,note,false,user-only authoring
+tenant_admin,tenant.create,tenant,true,onboard a new clinic/tenant (becomes owner)
+clinician,tenant.create,tenant,false,no tenant lifecycle authority
+nurse,tenant.create,tenant,false,no tenant lifecycle authority
+auditor,tenant.create,tenant,false,read-only role
+service,tenant.create,tenant,false,S2S has no tenant lifecycle surface
+tenant_admin,tenant.manage_members,tenant,true,invite/remove members and set roles
+clinician,tenant.manage_members,tenant,false,no member-management authority
+nurse,tenant.manage_members,tenant,false,no member-management authority
+auditor,tenant.manage_members,tenant,false,read-only role
+service,tenant.manage_members,tenant,false,S2S has no member-management surface

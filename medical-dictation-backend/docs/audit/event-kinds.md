@@ -20,6 +20,13 @@ typos at import.
 | `user.reactivated`                | sec      | auth-service /admin/users/{sub}/reactivate | Deactivated user re-enabled; status flipped back to active |
 | `user.role_changed`               | sec      | auth-service PUT /admin/users/{sub}/roles | Realm roles changed by tenant_admin. Payload carries old_roles → new_roles. |
 | `user.reset_mfa`                  | sec      | *(sprint 16+)*                   | MFA enrolment cleared by admin                                     |
+| `tenant.created`                  | sec      | auth-service POST /tenants        | A new clinic/tenant was onboarded; actor becomes owner            |
+| `tenant.updated`                  | info     | auth-service PATCH /tenants/{id}   | Tenant profile / branding / contact fields changed                |
+| `tenant.logo_updated`             | info     | auth-service PUT /tenants/{id}/logo | Tenant logo uploaded / replaced                                   |
+| `tenant.member_added`             | sec      | auth-service POST /tenants/{id}/members | A principal was linked to the tenant with a role             |
+| `tenant.member_role_changed`      | sec      | auth-service PATCH /tenants/{id}/members/{sub} | Membership role changed (old → new in payload)        |
+| `tenant.member_removed`           | sec      | auth-service DELETE /tenants/{id}/members/{sub} | Membership revoked                                    |
+| `tenant.switched`                 | info     | auth-service POST /tenants/{id}/switch | User switched their active tenant                            |
 | `audit.chain_verified`            | info/sec | nightly verifier                 | One per tenant per verify run. severity flips to `sec` on divergence |
 | `asr.audio_uploaded`              | info     | asr-service POST /asr/jobs       | Audio file enveloped + persisted; row inserted in `audio_files`    |
 | `asr.audio_deleted`               | sec      | *(sprint 11)*                    | Right-to-erasure delete of an audio object                         |

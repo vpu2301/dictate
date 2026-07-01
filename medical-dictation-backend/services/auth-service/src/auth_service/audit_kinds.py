@@ -21,3 +21,12 @@ USER_INVITED: Final[str] = "user.invited"
 USER_DEACTIVATED: Final[str] = "user.deactivated"
 USER_REACTIVATED: Final[str] = "user.reactivated"
 USER_ROLE_CHANGED: Final[str] = "user.role_changed"
+
+# ── Tenant (clinic) lifecycle + membership (Sprint 12) ─────────────────
+TENANT_CREATED: Final[str] = "tenant.created"
+TENANT_UPDATED: Final[str] = "tenant.updated"
+TENANT_LOGO_UPDATED: Final[str] = "tenant.logo_updated"
+TENANT_MEMBER_ADDED: Final[str] = "tenant.member_added"
+TENANT_MEMBER_ROLE_CHANGED: Final[str] = "tenant.member_role_changed"
+TENANT_MEMBER_REMOVED: Final[str] = "tenant.member_removed"
+TENANT_SWITCHED: Final[str] = "tenant.switched"

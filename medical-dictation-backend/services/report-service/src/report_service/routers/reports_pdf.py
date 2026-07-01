@@ -26,6 +26,7 @@ from .. import audit_kinds
 from ..config import settings
 from ..deps import get_state, requires
 from ..domain import reports_repository as repo
+from ..domain.branding import load_tenant_branding
 from ..domain.pdf import render_report_pdf
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,11 @@ async def get_report_pdf(
         if version is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="version not found")
 
+        # Tenant branding for the document header (issuer name). Read under the
+        # same RLS-scoped connection; falls back to the configured default when
+        # the tenant carries no branding.
+        branding = await load_tenant_branding(conn, tenant_id=str(claims.tid))
+
     # Draft treatment whenever the report is not signed, OR when explicitly
     # requested via ``variant=draft``. ``clean`` is only honoured for signed
     # reports; any non-signed report is forced to draft regardless of variant.
@@ -97,10 +103,13 @@ async def get_report_pdf(
     is_draft = (not is_signed) or variant == "draft"
     language = lang or "uk"
 
+    # Prefer the tenant's registered/legal name as the document issuer; fall
+    # back to the service-level default when the tenant has no branding set.
+    issuer_name = branding.issuer_name if branding.issuer_name != "—" else settings.pdf_issuer_name
     pdf_bytes = render_report_pdf(
         report=report,
         version=version,
-        issuer_name=settings.pdf_issuer_name,
+        issuer_name=issuer_name,
         is_draft=is_draft,
         language=language,
     )
