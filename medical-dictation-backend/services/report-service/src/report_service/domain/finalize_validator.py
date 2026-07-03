@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Final
+from uuid import UUID
 
 from report_models import ReportContent
 from template_models import TemplateDefinition
@@ -19,6 +20,7 @@ _REASON_BY_CODE: Final[dict[str, str]] = {
     "missing_required_section": "required_empty",
     "below_min_chars": "below_min_chars",
     "missing_icd10": "missing_icd10",
+    "missing_patient": "patient_required",
 }
 
 
@@ -46,9 +48,26 @@ class FinalizeProblem:
 
 
 def validate_finalize(
-    *, content: ReportContent, template: TemplateDefinition
+    *,
+    content: ReportContent,
+    template: TemplateDefinition,
+    patient_id: UUID | None,
 ) -> list[FinalizeProblem]:
     problems: list[FinalizeProblem] = []
+
+    # Every finalized report must reference a patient. The API + DB
+    # constraint (migration 0033) make a patient-less draft impossible to
+    # create, but we re-assert it here as defence-in-depth for any legacy
+    # draft that slipped through before the invariant existed.
+    if patient_id is None:
+        problems.append(
+            FinalizeProblem(
+                field="patient_id",
+                code="missing_patient",
+                detail="report must reference a patient before finalize",
+            )
+        )
+
     by_key = {s.section_key: s for s in content.sections}
     for tpl_section in template.sections:
         body = by_key.get(tpl_section.key)

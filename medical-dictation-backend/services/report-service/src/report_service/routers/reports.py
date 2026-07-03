@@ -18,6 +18,7 @@ from .. import audit_kinds
 from ..deps import get_state, requires
 from ..domain import code_sequence
 from ..domain import reports_repository as repo
+from ..domain.pii_redactor import name_to_initials
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class CreateReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: ReportContent
-    patient_id: UUID | None = None
+    patient_id: UUID
     co_author_ids: list[UUID] = Field(default_factory=list)
     source_session_id: UUID | None = None
 
@@ -80,6 +81,8 @@ class ReportEnvelope(BaseModel):
     current_version_number: int
     primary_author_id: UUID
     co_author_ids: list[UUID]
+    patient_id: UUID | None
+    patient_name_redacted: str | None
     title: str
     icd10_codes: list[str]
     encounter_date: str | None
@@ -109,6 +112,8 @@ def _envelope(
         current_version_number=row.current_version_number,
         primary_author_id=row.primary_author_id,
         co_author_ids=row.co_author_ids,
+        patient_id=row.patient_id,
+        patient_name_redacted=row.patient_name_redacted,
         title=row.title,
         icd10_codes=row.icd10_codes,
         encounter_date=row.encounter_date.isoformat() if row.encounter_date else None,
@@ -182,6 +187,24 @@ async def create_report(
 ) -> ReportCreatedResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
+        # Defence-in-depth: a report MUST reference a patient in the caller's
+        # own tenant. Resolve under RLS so a cross-tenant / missing patient
+        # both surface as 422 patient_not_found (never 404 — don't leak
+        # cross-tenant existence).
+        patient = await repo.fetch_patient_label(conn, patient_id=body.patient_id)
+        if patient is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "type": "https://errors.medical-dictation/patient-not-found",
+                    "title": "Patient not found",
+                    "detail": "patient_not_found",
+                    "code": "patient_not_found",
+                },
+            )
+        # Prefer the Ukrainian name; fall back to English. Store initials only.
+        patient_name_redacted = name_to_initials(patient.name_uk or patient.name_en)
+
         code = await code_sequence.next_code(conn, tenant_id=claims.tid)
         report_id, version_id = await repo.create_report_with_v1(
             conn,
@@ -190,6 +213,7 @@ async def create_report(
             primary_author_id=claims.sub,
             co_author_ids=body.co_author_ids,
             patient_id=body.patient_id,
+            patient_name_redacted=patient_name_redacted,
             template_id=body.content.template_id,
             template_schema_version=body.content.template_schema_version,
             source_session_id=body.source_session_id,

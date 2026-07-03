@@ -163,16 +163,9 @@
             "$ref": "#/components/schemas/ReportContent"
           },
           "patient_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Patient Id"
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
           },
           "source_session_id": {
             "anyOf": [
@@ -188,7 +181,8 @@
           }
         },
         "required": [
-          "content"
+          "content",
+          "patient_id"
         ],
         "title": "CreateReportRequest",
         "type": "object"
@@ -750,6 +744,29 @@
             "title": "Id",
             "type": "string"
           },
+          "patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "patient_name_redacted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Name Redacted"
+          },
           "primary_author_id": {
             "format": "uuid",
             "title": "Primary Author Id",
@@ -801,6 +818,8 @@
           "current_version_number",
           "primary_author_id",
           "co_author_ids",
+          "patient_id",
+          "patient_name_redacted",
           "title",
           "icd10_codes",
           "encounter_date",
@@ -1090,6 +1109,29 @@
             "title": "Icd10 Codes",
             "type": "array"
           },
+          "patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "patient_name_redacted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Name Redacted"
+          },
           "primary_author_id": {
             "format": "uuid",
             "title": "Primary Author Id",
@@ -1108,6 +1150,11 @@
             "title": "Status",
             "type": "string"
           },
+          "template_id": {
+            "format": "uuid",
+            "title": "Template Id",
+            "type": "string"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -1122,9 +1169,12 @@
           "code",
           "title",
           "status",
+          "template_id",
           "encounter_date",
           "primary_author_id",
           "co_author_ids",
+          "patient_id",
+          "patient_name_redacted",
           "icd10_codes",
           "snippet",
           "updated_at"

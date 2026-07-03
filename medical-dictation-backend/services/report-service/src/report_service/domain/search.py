@@ -5,9 +5,17 @@ with AND. Joins to ``report_versions`` so the search hits the current
 version's rendered text. Snippet via ``ts_headline`` is run inside the
 same query for one DB round-trip.
 
+Results are ordered most-recent-first by ``created_at`` (a monotonic,
+never-NULL column) with ``id`` as a stable tie-break. Earlier revisions
+ordered by ``encounter_date DESC NULLS LAST, id DESC``; because dictation
+drafts never set ``encounter_date`` (it stays NULL until finalize), that
+degenerated into ordering by the random ``id`` UUID, so a freshly-created
+draft could land arbitrarily deep in the list and fall outside the first
+page — making it look like nothing was stored.
+
 Cursor encoding (opaque to clients): base64 url-safe of the tuple
-``(encounter_date_iso_or_empty, report_id_hex)``. Tie-break by id so
-the cursor is stable.
+``(created_at_iso, report_id_hex)``. Tie-break by id so the cursor is
+stable.
 """
 
 from __future__ import annotations
@@ -39,27 +47,30 @@ class SearchHit:
     code: str
     title: str
     status: str
+    template_id: UUID
     encounter_date: date | None
     primary_author_id: UUID
     co_author_ids: list[UUID]
+    patient_id: UUID | None
+    patient_name_redacted: str | None
     icd10_codes: list[str]
     snippet: str
+    created_at: datetime
     updated_at: datetime
 
 
-def encode_cursor(*, encounter_date: date | None, report_id: UUID) -> str:
+def encode_cursor(*, created_at: datetime, report_id: UUID) -> str:
     payload = {
-        "d": encounter_date.isoformat() if encounter_date else "",
+        "c": created_at.isoformat(),
         "i": report_id.hex,
     }
     return base64.urlsafe_b64encode(json.dumps(payload).encode("ascii")).decode("ascii")
 
 
-def decode_cursor(value: str) -> tuple[date | None, UUID]:
+def decode_cursor(value: str) -> tuple[datetime, UUID]:
     raw = base64.urlsafe_b64decode(value.encode("ascii"))
     obj = json.loads(raw.decode("ascii"))
-    d = date.fromisoformat(obj["d"]) if obj["d"] else None
-    return d, UUID(obj["i"])
+    return datetime.fromisoformat(obj["c"]), UUID(obj["i"])
 
 
 async def search_reports(
@@ -67,7 +78,7 @@ async def search_reports(
     *,
     filters: SearchFilters,
     limit: int,
-    cursor: tuple[date | None, UUID] | None,
+    cursor: tuple[datetime, UUID] | None,
 ) -> tuple[list[SearchHit], str | None, int | None]:
     """Run the FTS + filters query.
 
@@ -107,18 +118,14 @@ async def search_reports(
         where.append(f"r.icd10_codes && ${len(args)}::text[]")
 
     if cursor is not None:
-        cur_d, cur_id = cursor
-        # Order: encounter_date DESC NULLS LAST, id DESC.
-        if cur_d is None:
-            args.append(cur_id)
-            where.append(f"r.id < ${len(args)} AND r.encounter_date IS NULL")
-        else:
-            args.append(cur_d)
-            args.append(cur_id)
-            where.append(
-                f"(r.encounter_date < ${len(args) - 1} "
-                f" OR (r.encounter_date = ${len(args) - 1} AND r.id < ${len(args)}))"
-            )
+        cur_c, cur_id = cursor
+        # Order: created_at DESC, id DESC — keyset predicate for "strictly after".
+        args.append(cur_c)
+        args.append(cur_id)
+        where.append(
+            f"(r.created_at < ${len(args) - 1} "
+            f" OR (r.created_at = ${len(args) - 1} AND r.id < ${len(args)}))"
+        )
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
     args.append(limit + 1)
@@ -132,14 +139,15 @@ async def search_reports(
 
     sql = f"""
         SELECT
-            r.id, r.code, r.title, r.status, r.encounter_date,
-            r.primary_author_id, r.co_author_ids, r.icd10_codes,
-            r.updated_at,
+            r.id, r.code, r.title, r.status, r.template_id, r.encounter_date,
+            r.primary_author_id, r.co_author_ids,
+            r.patient_id, r.patient_name_redacted, r.icd10_codes,
+            r.created_at, r.updated_at,
             {snippet_expr} AS snippet
         FROM reports r
         JOIN report_versions v ON v.id = r.current_version_id
         {where_sql}
-        ORDER BY r.encounter_date DESC NULLS LAST, r.id DESC
+        ORDER BY r.created_at DESC, r.id DESC
         LIMIT ${len(args)}
     """
     rows = await conn.fetch(sql, *args)
@@ -154,18 +162,22 @@ async def search_reports(
                 code=r["code"],
                 title=r["title"],
                 status=r["status"],
+                template_id=r["template_id"],
                 encounter_date=r["encounter_date"],
                 primary_author_id=r["primary_author_id"],
                 co_author_ids=list(r["co_author_ids"] or []),
+                patient_id=r["patient_id"],
+                patient_name_redacted=r["patient_name_redacted"],
                 icd10_codes=list(r["icd10_codes"] or []),
                 snippet=r["snippet"] or "",
+                created_at=r["created_at"],
                 updated_at=r["updated_at"],
             )
         )
     next_cursor: str | None = None
     if has_more and hits:
         last = hits[-1]
-        next_cursor = encode_cursor(encounter_date=last.encounter_date, report_id=last.report_id)
+        next_cursor = encode_cursor(created_at=last.created_at, report_id=last.report_id)
     total_estimated = await _estimate_total(conn)
     return hits, next_cursor, total_estimated
 

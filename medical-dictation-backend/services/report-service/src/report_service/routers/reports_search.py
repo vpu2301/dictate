@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -31,9 +31,12 @@ class SearchHitDTO(BaseModel):
     code: str
     title: str
     status: str
+    template_id: UUID
     encounter_date: str | None
     primary_author_id: UUID
     co_author_ids: list[UUID]
+    patient_id: UUID | None
+    patient_name_redacted: str | None
     icd10_codes: list[str]
     snippet: str
     updated_at: str
@@ -63,7 +66,7 @@ async def search_reports(
     total: str | None = Query(default=None, description="set to 'exact' for full count"),
 ) -> SearchResponse:
     state = get_state()
-    cursor_decoded: tuple[date | None, UUID] | None = None
+    cursor_decoded: tuple[datetime, UUID] | None = None
     if cursor:
         try:
             cursor_decoded = searchmod.decode_cursor(cursor)
@@ -109,9 +112,12 @@ async def search_reports(
                 code=h.code,
                 title=h.title,
                 status=h.status,
+                template_id=h.template_id,
                 encounter_date=h.encounter_date.isoformat() if h.encounter_date else None,
                 primary_author_id=h.primary_author_id,
                 co_author_ids=h.co_author_ids,
+                patient_id=h.patient_id,
+                patient_name_redacted=h.patient_name_redacted,
                 icd10_codes=h.icd10_codes,
                 snippet=snippet,
                 updated_at=h.updated_at.isoformat(),

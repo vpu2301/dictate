@@ -25,32 +25,41 @@ def _content(sections=(), icd=None):
 def test_missing_required_section_flagged():
     tpl = _template([{"key": "ccx", "required": True, "min_chars": 0, "icd10_required": False}])
     c = _content()
-    problems = validate_finalize(content=c, template=tpl)
+    problems = validate_finalize(content=c, template=tpl, patient_id=uuid4())
     assert any(p.code == "missing_required_section" for p in problems)
 
 
 def test_below_min_chars_flagged():
     tpl = _template([{"key": "ccx", "required": True, "min_chars": 20, "icd10_required": False}])
     c = _content(sections=[("ccx", "short", [])])
-    problems = validate_finalize(content=c, template=tpl)
+    problems = validate_finalize(content=c, template=tpl, patient_id=uuid4())
     assert any(p.code == "below_min_chars" for p in problems)
 
 
 def test_icd10_required_satisfied_at_top_level():
     tpl = _template([{"key": "ccx", "required": False, "min_chars": 0, "icd10_required": True}])
     c = _content(sections=[("ccx", "any", [])], icd=["I21"])
-    problems = validate_finalize(content=c, template=tpl)
+    problems = validate_finalize(content=c, template=tpl, patient_id=uuid4())
     assert problems == []
 
 
 def test_icd10_required_missing_flagged():
     tpl = _template([{"key": "ccx", "required": False, "min_chars": 0, "icd10_required": True}])
     c = _content(sections=[("ccx", "any", [])], icd=[])
-    problems = validate_finalize(content=c, template=tpl)
+    problems = validate_finalize(content=c, template=tpl, patient_id=uuid4())
     assert any(p.code == "missing_icd10" for p in problems)
 
 
 def test_optional_section_empty_not_flagged():
     tpl = _template([{"key": "ccx", "required": False, "min_chars": 0, "icd10_required": False}])
     c = _content()
-    assert validate_finalize(content=c, template=tpl) == []
+    assert validate_finalize(content=c, template=tpl, patient_id=uuid4()) == []
+
+
+def test_missing_patient_flagged():
+    tpl = _template([])
+    c = _content()
+    problems = validate_finalize(content=c, template=tpl, patient_id=None)
+    problem = next(p for p in problems if p.code == "missing_patient")
+    assert problem.field == "patient_id"
+    assert problem.reason == "patient_required"

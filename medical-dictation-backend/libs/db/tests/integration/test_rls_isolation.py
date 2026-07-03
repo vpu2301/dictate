@@ -360,10 +360,17 @@ async def test_every_entity_table_isolates_tenants(
                 "schema_jsonb) VALUES ($1,$2,$3,'Iso Test','en','cardiology','{\"version\":\"1\"}'::jsonb)",
                 uuid4(), a, f"iso-{a.hex[:8]}",
             )
+            patient_id = uuid4()
             await c.execute(
-                "INSERT INTO reports (id, tenant_id, code, primary_author_id) "
-                "VALUES ($1,$2,$3,$4)",
-                report_id, a, f"REP-2026-{a.hex[:5]}", author_a,
+                "INSERT INTO patients (id, tenant_id, name_uk, created_by) "
+                "VALUES ($1,$2,'Iso Patient',$3)",
+                patient_id, a, author_a,
+            )
+            # reports.patient_id is required + FK'd (migration 0033).
+            await c.execute(
+                "INSERT INTO reports (id, tenant_id, code, primary_author_id, patient_id) "
+                "VALUES ($1,$2,$3,$4,$5)",
+                report_id, a, f"REP-2026-{a.hex[:5]}", author_a, patient_id,
             )
             await c.execute(
                 "INSERT INTO report_versions (id, report_id, version_number, created_by, "

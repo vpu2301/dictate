@@ -98,7 +98,9 @@ async def finalize_report(
 
         # Load template to run finalize validation.
         template = await _fetch_template_definition(conn, template_id=current.content.template_id)
-        problems = validate_finalize(content=current.content, template=template)
+        problems = validate_finalize(
+            content=current.content, template=template, patient_id=row.patient_id
+        )
         if problems:
             # Surface the per-section problems as first-class RFC-9457 extension
             # members (not stuffed into `detail`, which the global handler

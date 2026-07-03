@@ -58,6 +58,8 @@ def _report_row():
         finalized_at=now,
         signed_at=None,
         cancelled_at=None,
+        patient_id=UUID("88888888-8888-8888-8888-888888888888"),
+        patient_name_redacted="І.П.",
     )
 
 
@@ -169,6 +171,9 @@ def test_get_report_includes_localized_section_labels(
 
     resp = client.get(f"/v1/reports/{REPORT_ID}")
     assert resp.status_code == 200
+    # Patient is surfaced on the report page (saved at create, read here).
+    assert resp.json()["patient_id"] == "88888888-8888-8888-8888-888888888888"
+    assert resp.json()["patient_name_redacted"] == "І.П."
     labels = resp.json()["section_labels"]
     # Ordered by template section.order: findings (1) before impression (2).
     assert [lbl["section_key"] for lbl in labels] == ["findings", "impression"]

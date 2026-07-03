@@ -66,6 +66,8 @@ class ReportRow:
     signed_at: datetime | None
     cancelled_at: datetime | None
     source_session_id: UUID | None = None
+    patient_id: UUID | None = None
+    patient_name_redacted: str | None = None
 
 
 @dataclass(slots=True)
@@ -97,7 +99,8 @@ async def fetch_report(conn: asyncpg.Connection, *, report_id: UUID) -> ReportRo
                r.primary_author_id, r.co_author_ids,
                r.title, r.icd10_codes, r.encounter_date,
                r.created_at, r.updated_at, r.finalized_at,
-               r.signed_at, r.cancelled_at, r.source_session_id
+               r.signed_at, r.cancelled_at, r.source_session_id,
+               r.patient_id, r.patient_name_redacted
         FROM reports r
         LEFT JOIN report_versions v ON v.id = r.current_version_id
         WHERE r.id = $1
@@ -124,6 +127,8 @@ async def fetch_report(conn: asyncpg.Connection, *, report_id: UUID) -> ReportRo
         signed_at=row["signed_at"],
         cancelled_at=row["cancelled_at"],
         source_session_id=row["source_session_id"],
+        patient_id=row["patient_id"],
+        patient_name_redacted=row["patient_name_redacted"],
     )
 
 
@@ -250,6 +255,47 @@ async def list_version_summaries(
     ]
 
 
+# ── Patient resolution ──────────────────────────────────────────────
+
+
+@dataclass(slots=True)
+class PatientLabel:
+    """Minimal patient projection used at report-create time.
+
+    Resolved on the caller's RLS-scoped connection, so a row is returned
+    only when the patient lives in the caller's tenant. Cross-tenant /
+    missing patients both surface as ``None``.
+    """
+
+    id: UUID
+    name_uk: str
+    name_en: str
+
+
+async def fetch_patient_label(
+    conn: asyncpg.Connection, *, patient_id: UUID
+) -> PatientLabel | None:
+    """Resolve a patient for report creation under the current RLS scope.
+
+    Returns ``None`` for a missing patient, a patient in another tenant
+    (RLS hides it), or a soft-deleted (``status`` = ``deceased``/``inactive``
+    is still valid — only tenant scoping filters here). The router turns a
+    ``None`` into a 422 ``patient_not_found`` (never a 404) so cross-tenant
+    existence is not leaked.
+    """
+    row = await conn.fetchrow(
+        "SELECT id, name_uk, name_en FROM patients WHERE id = $1",
+        patient_id,
+    )
+    if row is None:
+        return None
+    return PatientLabel(
+        id=row["id"],
+        name_uk=row["name_uk"],
+        name_en=row["name_en"],
+    )
+
+
 # ── Create ──────────────────────────────────────────────────────────
 
 
@@ -260,7 +306,8 @@ async def create_report_with_v1(
     code: str,
     primary_author_id: UUID,
     co_author_ids: list[UUID],
-    patient_id: UUID | None,
+    patient_id: UUID,
+    patient_name_redacted: str,
     template_id: UUID,
     template_schema_version: int,
     source_session_id: UUID | None,
@@ -284,10 +331,10 @@ async def create_report_with_v1(
         """
         INSERT INTO reports (
             tenant_id, code, status, primary_author_id, co_author_ids,
-            patient_id, template_id, template_schema_version,
+            patient_id, patient_name_redacted, template_id, template_schema_version,
             title, icd10_codes, encounter_date, source_session_id
         )
-        VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8, $9, $10::date, $11)
+        VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8, $9, $10, $11::date, $12)
         RETURNING id
         """,
         tenant_id,
@@ -295,6 +342,7 @@ async def create_report_with_v1(
         primary_author_id,
         co_author_ids,
         patient_id,
+        patient_name_redacted,
         template_id,
         template_schema_version,
         content.title,
