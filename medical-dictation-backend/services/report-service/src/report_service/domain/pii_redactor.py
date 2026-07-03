@@ -29,6 +29,18 @@ _PIB_RE: Final = re.compile(
 _DOB_LIKE_RE: Final = re.compile(r"\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b")
 
 
+def name_to_initials(name: str) -> str:
+    """Reduce a full name to dotted initials (``"Іван Петренко" → "І.П."``).
+
+    Used to populate ``reports.patient_name_redacted`` — a PHI-free snippet
+    of who the report is about. Empty / whitespace-only input yields ``""``.
+    Each whitespace-separated token contributes its first character,
+    upper-cased, followed by a dot.
+    """
+    parts = [p for p in name.split() if p]
+    return "".join(f"{p[0].upper()}." for p in parts)
+
+
 def redact_snippet(text: str) -> str:
     text = _IPN_RE.sub("[redacted-ipn]", text)
     text = _PIB_RE.sub("[redacted-name]", text)

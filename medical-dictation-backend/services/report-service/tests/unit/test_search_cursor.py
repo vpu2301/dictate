@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -10,20 +10,21 @@ import pytest
 from report_service.domain.search import decode_cursor, encode_cursor
 
 
-def test_roundtrip_with_date():
+def test_roundtrip():
     rid = uuid4()
-    d = date(2026, 5, 13)
-    cur = encode_cursor(encounter_date=d, report_id=rid)
-    out_d, out_id = decode_cursor(cur)
-    assert out_d == d
+    c = datetime(2026, 5, 13, 14, 30, 15, tzinfo=UTC)
+    cur = encode_cursor(created_at=c, report_id=rid)
+    out_c, out_id = decode_cursor(cur)
+    assert out_c == c
     assert out_id == rid
 
 
-def test_roundtrip_with_no_date():
+def test_roundtrip_preserves_microseconds():
     rid = uuid4()
-    cur = encode_cursor(encounter_date=None, report_id=rid)
-    out_d, out_id = decode_cursor(cur)
-    assert out_d is None
+    c = datetime(2026, 7, 1, 21, 38, 4, 811835, tzinfo=UTC)
+    cur = encode_cursor(created_at=c, report_id=rid)
+    out_c, out_id = decode_cursor(cur)
+    assert out_c == c
     assert out_id == rid
 
 

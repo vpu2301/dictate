@@ -64,6 +64,7 @@ def _report_row(*, source_session_id: UUID | None = None):
         signed_at=None,
         cancelled_at=None,
         source_session_id=source_session_id,
+        patient_id=UUID("77777777-7777-7777-7777-777777777777"),
     )
 
 

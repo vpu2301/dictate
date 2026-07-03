@@ -61,6 +61,15 @@ async def seed_tenant(
 
     await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
 
+    # reports.patient_id is required + FK'd (migration 0033). Seed a single
+    # synthetic patient per tenant and hang every report off it.
+    patient_id = await conn.fetchval(
+        "INSERT INTO patients (tenant_id, name_uk, created_by) "
+        "VALUES ($1, 'Навантажувальний Пацієнт', $2) RETURNING id",
+        tenant_id,
+        author_id,
+    )
+
     for i in range(count):
         status = _pick_status(rng)
         encounter_date = date(2026, 1, 1) + timedelta(days=rng.randint(0, 365))
@@ -94,12 +103,12 @@ async def seed_tenant(
             """
             INSERT INTO reports (
                 tenant_id, code, status, primary_author_id, co_author_ids,
-                template_id, template_schema_version,
+                patient_id, template_id, template_schema_version,
                 title, icd10_codes, encounter_date,
                 finalized_at, signed_at, cancelled_at
             )
             VALUES ($1, $2, $3::report_status, $4, '{}'::uuid[],
-                    $5, 1, $6, $7::text[], $8::date,
+                    $9, $5, 1, $6, $7::text[], $8::date,
                     CASE WHEN $3 IN ('finalized','signed','amended') THEN now() END,
                     CASE WHEN $3 IN ('signed','amended') THEN now() END,
                     CASE WHEN $3 = 'cancelled' THEN now() END)
@@ -113,6 +122,7 @@ async def seed_tenant(
             title,
             icd10,
             encounter_date,
+            patient_id,
         )
         version_id = await conn.fetchval(
             """
