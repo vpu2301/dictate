@@ -40,6 +40,7 @@ async def insert_session(
     callback_completion_url: str | None,
     purpose_code: str | None,
     document_pdf_hash: bytes | None = None,
+    canonical_json: dict[str, Any] | None = None,
 ) -> UUID:
     return await conn.fetchval(
         """
@@ -47,9 +48,10 @@ async def insert_session(
             (tenant_id, initiated_by, resource_type, resource_id,
              resource_version_id, provider, provider_session_id,
              status, expires_at, redirect_url, qr_payload,
-             callback_completion_url, purpose_code, document_pdf_hash)
+             callback_completion_url, purpose_code, document_pdf_hash,
+             canonical_json)
         VALUES ($1, $2, $3, $4, $5, $6::signing_provider, $7,
-                'awaiting_user', $8, $9, $10, $11, $12, $13)
+                'awaiting_user', $8, $9, $10, $11, $12, $13, $14::jsonb)
         RETURNING id
         """,
         tenant_id,
@@ -65,6 +67,7 @@ async def insert_session(
         callback_completion_url,
         purpose_code,
         document_pdf_hash,
+        json.dumps(canonical_json) if canonical_json is not None else None,
     )
 
 
@@ -78,7 +81,7 @@ async def fetch_session_by_provider_id(
         """
         SELECT id, tenant_id, initiated_by, resource_type, resource_id,
                resource_version_id, status, expires_at, signed_envelope_id,
-               provider, provider_session_id
+               provider, provider_session_id, canonical_json
         FROM signing_sessions
         WHERE provider = $1::signing_provider AND provider_session_id = $2
         """,
@@ -103,7 +106,7 @@ async def fetch_session_by_id(
                s.redirect_url, s.qr_payload, s.signed_envelope_id,
                s.failure_reason, s.initiated_by, s.resource_type,
                s.resource_id, s.resource_version_id, s.provider_session_id,
-               s.document_pdf_hash,
+               s.document_pdf_hash, s.canonical_json,
                se.verification_token, se.signed_at, se.signer_full_name
         FROM signing_sessions s
         LEFT JOIN signed_envelopes se ON se.id = s.signed_envelope_id
@@ -203,6 +206,7 @@ async def insert_envelope(
     ocsp_responses: list[bytes],
     is_qualified: bool,
     ltv_enabled: bool,
+    signature_level: str = "qualified",
 ) -> UUID:
     return await conn.fetchval(
         """
@@ -214,7 +218,8 @@ async def insert_envelope(
             verification_token, pdf_storage_uri,
             signer_ipn_hmac, signer_full_name,
             certificate_serial, certificate_issuer_cn, certificate_chain,
-            tsa_response, ocsp_responses, is_qualified, ltv_enabled
+            tsa_response, ocsp_responses, is_qualified, ltv_enabled,
+            signature_level
         )
         VALUES (
             $1, $2, $3, $4, $5,
@@ -224,7 +229,8 @@ async def insert_envelope(
             $14, $15,
             $16, $17,
             $18, $19, $20::text[],
-            $21, $22::bytea[], $23, $24
+            $21, $22::bytea[], $23, $24,
+            $25
         )
         RETURNING id
         """,
@@ -252,7 +258,83 @@ async def insert_envelope(
         ocsp_responses,
         is_qualified,
         ltv_enabled,
+        signature_level,
     )
+
+
+async def mark_resource_signed(
+    conn: asyncpg.Connection,
+    *,
+    resource_type: str,
+    resource_id: UUID,
+    resource_version_id: UUID,
+    signed_at: datetime,
+    signer_sub: UUID,
+    envelope_id: UUID,
+    canonical_bytes: bytes | None,
+    canonical_hash: bytes | None,
+) -> str | None:
+    """Advance the signed resource's lifecycle in the same transaction
+    that persisted the envelope.
+
+    Mirrors report-service's state machine transitions with guarded
+    UPDATEs (no-op when raced): ``finalized → signed`` for a report,
+    ``signed → amended`` when an amendment version is signed. Returns
+    the resulting report status, or None for non-report resources
+    (their lifecycle lives in core-service).
+    """
+    if resource_type not in ("report", "amendment"):
+        return None
+
+    await conn.execute(
+        """
+        UPDATE report_versions
+        SET signed_at         = $2,
+            signed_by         = $3,
+            signing_record_id = $4,
+            signed_data       = $5,
+            signed_data_hash  = $6
+        WHERE id = $1 AND signed_at IS NULL
+        """,
+        resource_version_id,
+        signed_at,
+        signer_sub,
+        envelope_id,
+        canonical_bytes,
+        canonical_hash,
+    )
+
+    if resource_type == "report":
+        row = await conn.fetchrow(
+            """
+            UPDATE reports
+            SET status = 'signed', signed_at = $2, updated_at = now()
+            WHERE id = $1 AND status = 'finalized'
+            RETURNING status
+            """,
+            resource_id,
+            signed_at,
+        )
+    else:  # amendment
+        row = await conn.fetchrow(
+            """
+            UPDATE reports
+            SET status = 'amended', updated_at = now()
+            WHERE id = $1 AND status IN ('signed', 'amended')
+            RETURNING status
+            """,
+            resource_id,
+        )
+    if row is None:
+        current = await conn.fetchval("SELECT status FROM reports WHERE id = $1", resource_id)
+        logger.warning(
+            "mark_resource_signed.no_transition: report=%s current_status=%s type=%s",
+            resource_id,
+            current,
+            resource_type,
+        )
+        return str(current) if current is not None else None
+    return str(row["status"])
 
 
 async def fetch_envelope_by_token(conn: asyncpg.Connection, *, token: str) -> asyncpg.Record | None:
@@ -264,7 +346,8 @@ async def fetch_envelope_by_token(conn: asyncpg.Connection, *, token: str) -> as
                pdf_storage_uri, signer_full_name,
                certificate_serial, certificate_issuer_cn,
                is_qualified, signature_algorithm,
-               canonical_json_hash, signed_data
+               canonical_json_hash, signed_data,
+               signature_level, provider
         FROM signed_envelopes
         WHERE verification_token = $1
         """,

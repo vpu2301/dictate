@@ -15,6 +15,7 @@ byte compare.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Annotated
 from uuid import UUID
@@ -145,11 +146,15 @@ async def upload_signed_pdf(
         raise _invalid("signature verification failed: " + "; ".join(result.errors))
 
     # ── 5. Persist envelope + flip to signed ────────────────────────
+    # ``is_qualified`` records the VERIFIER's verdict (test-CA chains
+    # can never persist as qualified), never the parsed self-assertion.
+    session_canonical = row["canonical_json"]
+    canonical_json = json.loads(session_canonical) if session_canonical else {}
     ipn = parsed.signer_ipn
     ipn_hmac_bytes = ipn_hmac(ipn, settings.signer_ipn_hmac_key_hex) if ipn else None
     token = new_verification_token()
     provider = ProviderName(row["provider"])
-    async with tenant_connection(state.app_pool, tenant_id) as conn:
+    async with tenant_connection(state.app_pool, tenant_id) as conn, conn.transaction():
         envelope_id = await repo.insert_envelope(
             conn,
             tenant_id=tenant_id,
@@ -160,7 +165,7 @@ async def upload_signed_pdf(
             provider=provider,
             provider_session_id=row["provider_session_id"],
             provider_envelope_id=f"local-upload:{session_id}",
-            canonical_json={},
+            canonical_json=canonical_json,
             canonical_json_hash=parsed.document_hash_sha256,
             signed_at=parsed.signed_at,
             signed_data=pdf_bytes,
@@ -174,8 +179,20 @@ async def upload_signed_pdf(
             certificate_chain=parsed.cert_chain_pem,
             tsa_response=None,
             ocsp_responses=[],
-            is_qualified=parsed.is_qualified,
+            is_qualified=result.is_qualified,
             ltv_enabled=parsed.tsa_token_present and parsed.ocsp_responses_present,
+            signature_level="qualified",
+        )
+        await repo.mark_resource_signed(
+            conn,
+            resource_type=row["resource_type"],
+            resource_id=row["resource_id"],
+            resource_version_id=row["resource_version_id"],
+            signed_at=parsed.signed_at,
+            signer_sub=row["initiated_by"],
+            envelope_id=envelope_id,
+            canonical_bytes=None,
+            canonical_hash=parsed.document_hash_sha256,
         )
         await repo.transition_session(
             conn,
@@ -197,7 +214,8 @@ async def upload_signed_pdf(
             payload={
                 "provider": provider.value,
                 "signed_envelope_id": str(envelope_id),
-                "is_qualified": parsed.is_qualified,
+                "is_qualified": result.is_qualified,
+                "signature_level": "qualified",
             },
             severity=Severity.INFO,
         )

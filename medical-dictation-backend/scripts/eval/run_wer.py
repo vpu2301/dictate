@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import sys
 
-if sys.version_info < (3, 11):  # pragma: no cover - invocation guard
+if sys.version_info < (3, 11):  # pragma: no cover - invocation guard  # noqa: UP036
     sys.exit(
         "run_wer.py needs Python >= 3.11 (uses datetime.UTC); you are on "
         f"{sys.version_info.major}.{sys.version_info.minor}. "

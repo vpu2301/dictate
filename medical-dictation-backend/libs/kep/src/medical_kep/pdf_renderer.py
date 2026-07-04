@@ -50,6 +50,22 @@ class RenderInput:
     is_draft: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class SignatureStamp:
+    """The visible signature block on a rendered signed artifact.
+
+    ``level='qualified'`` renders the КЕП stamp (signer + provider +
+    timestamp). ``level='dev'`` renders a diagonal "DEV BUILD — NOT
+    LEGALLY SIGNED / НЕ Є ЮРИДИЧНИМ ПІДПИСОМ" watermark across every
+    page plus a red banner — a dev artifact must be unmistakable.
+    """
+
+    level: str  # 'qualified' | 'dev'
+    signer_full_name: str
+    provider_label: str
+    signed_at: str  # ISO-8601; deterministic input, not time-of-render
+
+
 def _clamp(s: str | None) -> str:
     if not s:
         return ""
@@ -63,6 +79,33 @@ def render_unsigned_pdf(payload: RenderInput) -> bytes:
     message so unit-test environments that don't install the [pdf]
     extra get a helpful failure mode.
     """
+    return _render(payload, stamp=None)
+
+
+def render_signed_pdf(
+    payload: RenderInput,
+    *,
+    stamp: SignatureStamp,
+    canonical_bytes: bytes | None = None,
+) -> bytes:
+    """Render the signed artifact: tier stamp + optional embedded
+    ``canonical.json``. Deterministic — same input, byte-equal output."""
+    pdf = _render(payload, stamp=stamp)
+    if canonical_bytes is not None:
+        pdf = embed_canonical_json(pdf, canonical_bytes)
+    return pdf
+
+
+def _render(payload: RenderInput, *, stamp: SignatureStamp | None) -> bytes:
+    import os
+
+    # WeasyPrint's font subsetting (fontTools) stamps time-of-render into
+    # the subset font's `head` table unless SOURCE_DATE_EPOCH is set —
+    # breaking the byte-equal determinism the signed artifact depends on.
+    # noqa justified: this is a reproducible-build knob for the render
+    # library, not application config; 1767225600 = 2026-01-01T00:00Z,
+    # matching _DETERMINISTIC_DATE.
+    os.environ.setdefault("SOURCE_DATE_EPOCH", "1767225600")  # noqa: ENV001
     try:
         from jinja2 import Environment, FileSystemLoader, select_autoescape
         from weasyprint import HTML
@@ -93,6 +136,10 @@ def render_unsigned_pdf(payload: RenderInput) -> bytes:
         finalized_at=payload.finalized_at,
         language=payload.language,
         is_draft=payload.is_draft,
+        stamp_level=(stamp.level if stamp else ""),
+        stamp_signer=_clamp(stamp.signer_full_name) if stamp else "",
+        stamp_provider=_clamp(stamp.provider_label) if stamp else "",
+        stamp_signed_at=(stamp.signed_at if stamp else ""),
     )
     pdf_bytes = HTML(string=html, base_url=str(_TEMPLATE_DIR)).write_pdf(
         presentational_hints=False,

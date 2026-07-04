@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -131,46 +132,66 @@ async def receive_callback(
         )
         return _no_info_response(400)
 
-    # 4) Persist envelope.
+    # 4) Persist envelope. ``is_qualified`` records the VERIFIER's
+    # verdict (test-CA-anchored chains can never persist as qualified),
+    # never the provider's self-asserted flag. The canonical JSON the
+    # flow committed to at initiate (S09-rev) rides on the session row.
+    session_canonical = session_row["canonical_json"]
+    canonical_json = json.loads(session_canonical) if session_canonical else {}
     ipn = envelope.parsed.signer_ipn
     ipn_hmac_bytes = ipn_hmac(ipn, settings.signer_ipn_hmac_key_hex) if ipn else None
     token = new_verification_token()
-    async with tenant_connection(state.app_pool, session_row["tenant_id"]) as conn:
-        envelope_id = await repo.insert_envelope(
-            conn,
-            tenant_id=session_row["tenant_id"],
-            signer_user_id=session_row["initiated_by"],
-            resource_type=session_row["resource_type"],
-            resource_id=session_row["resource_id"],
-            resource_version_id=session_row["resource_version_id"],
-            provider=provider_name,
-            provider_session_id=session_id_str,
-            provider_envelope_id=envelope.provider_envelope_id,
-            canonical_json={},  # filled in by signing-service caller path; sprint-09 wire is via internal API only
-            canonical_json_hash=envelope.parsed.document_hash_sha256,
-            signed_at=envelope.parsed.signed_at,
-            signed_data=envelope.signed_bytes,
-            signature_algorithm=envelope.parsed.signature_algorithm,
-            verification_token=token,
-            pdf_storage_uri=None,
-            signer_ipn_hmac=ipn_hmac_bytes,
-            signer_full_name=envelope.parsed.signer_full_name or "",
-            certificate_serial=envelope.parsed.signer_cert_serial,
-            certificate_issuer_cn=envelope.parsed.signer_cert_issuer_cn,
-            certificate_chain=envelope.parsed.cert_chain_pem,
-            tsa_response=None,
-            ocsp_responses=[],
-            is_qualified=envelope.parsed.is_qualified,
-            ltv_enabled=envelope.parsed.tsa_token_present
-            and envelope.parsed.ocsp_responses_present,
-        )
-        await repo.transition_session(
-            conn,
-            session_id=session_row["id"],
-            expected_from="verifying",
-            to="signed",
-            signed_envelope_id=envelope_id,
-        )
+    async with (
+        tenant_connection(state.app_pool, session_row["tenant_id"]) as conn,
+        conn.transaction(),
+    ):
+            envelope_id = await repo.insert_envelope(
+                conn,
+                tenant_id=session_row["tenant_id"],
+                signer_user_id=session_row["initiated_by"],
+                resource_type=session_row["resource_type"],
+                resource_id=session_row["resource_id"],
+                resource_version_id=session_row["resource_version_id"],
+                provider=provider_name,
+                provider_session_id=session_id_str,
+                provider_envelope_id=envelope.provider_envelope_id,
+                canonical_json=canonical_json,
+                canonical_json_hash=envelope.parsed.document_hash_sha256,
+                signed_at=envelope.parsed.signed_at,
+                signed_data=envelope.signed_bytes,
+                signature_algorithm=envelope.parsed.signature_algorithm,
+                verification_token=token,
+                pdf_storage_uri=None,
+                signer_ipn_hmac=ipn_hmac_bytes,
+                signer_full_name=envelope.parsed.signer_full_name or "",
+                certificate_serial=envelope.parsed.signer_cert_serial,
+                certificate_issuer_cn=envelope.parsed.signer_cert_issuer_cn,
+                certificate_chain=envelope.parsed.cert_chain_pem,
+                tsa_response=None,
+                ocsp_responses=[],
+                is_qualified=result.is_qualified,
+                ltv_enabled=envelope.parsed.tsa_token_present
+                and envelope.parsed.ocsp_responses_present,
+                signature_level="qualified",
+            )
+            await repo.mark_resource_signed(
+                conn,
+                resource_type=session_row["resource_type"],
+                resource_id=session_row["resource_id"],
+                resource_version_id=session_row["resource_version_id"],
+                signed_at=envelope.parsed.signed_at,
+                signer_sub=session_row["initiated_by"],
+                envelope_id=envelope_id,
+                canonical_bytes=None,
+                canonical_hash=envelope.parsed.document_hash_sha256,
+            )
+            await repo.transition_session(
+                conn,
+                session_id=session_row["id"],
+                expected_from="verifying",
+                to="signed",
+                signed_envelope_id=envelope_id,
+            )
 
     await state.audit_writer.write_event(
         tenant_id=session_row["tenant_id"],
@@ -182,7 +203,8 @@ async def receive_callback(
         payload={
             "provider": provider_name.value,
             "verification_token": token,
-            "is_qualified": envelope.parsed.is_qualified,
+            "is_qualified": result.is_qualified,
+            "signature_level": "qualified",
         },
         severity=Severity.INFO,
     )

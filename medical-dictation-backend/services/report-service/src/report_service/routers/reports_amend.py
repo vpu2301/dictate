@@ -123,16 +123,5 @@ async def amend_report(
     )
 
 
-@router.post(
-    "/{report_id}/sign",
-    status_code=status.HTTP_501_NOT_IMPLEMENTED,
-)
-async def sign_placeholder(
-    report_id: UUID,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
-) -> dict[str, str]:
-    """Sprint-09 implements; sprint-08 leaves the route shape locked."""
-    raise HTTPException(
-        status.HTTP_501_NOT_IMPLEMENTED,
-        detail="signing is implemented in sprint-09 (KEP)",
-    )
+# POST /{report_id}/sign lives in routers/reports_sign.py (S09 revision
+# replaced the sprint-08 501 placeholder that used to sit here).

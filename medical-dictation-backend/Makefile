@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto wer-eval check-corpus wer-eval-corpus
+.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config wer-eval check-corpus wer-eval-corpus
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -162,6 +162,9 @@ check-no-object-storage: ## CI gate — no direct boto3/aioboto3/minio outside l
 check-no-crypto: ## CI gate — no direct cryptography.hazmat outside libs/crypto
 	uv run python scripts/ci/check-no-direct-crypto.py
 
+check-no-dev-signing-in-prod-config: ## CI gate — dev_password signing scaffold never enabled in prod configs
+	uv run python scripts/ci/check-no-dev-signing-in-prod-config.py
+
 seed-prompts: ## Seed medical_prompts (uk/en × 7 specialties)
 	psql "postgresql://postgres:postgres@localhost:5432/medical_dictation" \
 	    -f infra/postgres/seed/medical_prompts.sql
@@ -229,7 +232,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto validate-templates check-corpus ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config validate-templates check-corpus ## Mirror CI gates locally
 
 ci-with-db: ci check-rls openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

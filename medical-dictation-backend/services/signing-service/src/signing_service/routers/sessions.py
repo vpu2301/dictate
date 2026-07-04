@@ -40,6 +40,9 @@ class InitiateSessionRequest(BaseModel):
     user_provider_choice: ProviderName | None = None
     signer_hint: dict | None = None
     purpose_code: str | None = None
+    # The canonical JCS object this signing flow commits to (S09-rev);
+    # copied onto the envelope row when the callback persists it.
+    canonical_json: dict | None = None
 
 
 class InitiateSessionResponse(BaseModel):
@@ -150,6 +153,7 @@ async def initiate(
             callback_completion_url=body.callback_completion_url,
             purpose_code=body.purpose_code,
             document_pdf_hash=bytes.fromhex(body.document_pdf_hash_hex),
+            canonical_json=body.canonical_json,
         )
 
     await state.audit_writer.write_event(

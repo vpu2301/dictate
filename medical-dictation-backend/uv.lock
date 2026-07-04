@@ -2129,6 +2129,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pypdf" },
     { name = "rfc8785" },
+    { name = "secret" },
 ]
 
 [package.optional-dependencies]
@@ -2155,6 +2156,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pypdf", specifier = ">=4.2" },
     { name = "rfc8785", specifier = ">=0.1.4" },
+    { name = "secret", editable = "libs/secret" },
     { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=62.0" },
 ]
 provides-extras = ["pdf"]

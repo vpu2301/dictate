@@ -37,3 +37,4 @@ secrets/
 # uv
 # Note: uv.lock IS committed (deterministic dependency resolution).
 # Only the build-time virtualenv is ignored; that's covered by `.venv/` above.
+infra/edge/certs/

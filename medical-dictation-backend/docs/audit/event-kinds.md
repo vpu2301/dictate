@@ -62,6 +62,9 @@ typos at import.
 | `report.completed`                | info     | report-service POST /v1/reports/{id}/finalize | M1 — finalize completion summary (paired with `report.finalized`). Payload: version_number, section_count, low_confidence_count, source_session_id |
 | `signing.session.cancelled`       | info     | signing-service DELETE /signing/sessions/{id} | M1 — user aborted an in-flight session. Payload: from_status |
 | `signing.session.local_upload`    | info     | signing-service POST /signing/sessions/{id}/upload | M1 — locally-signed PAdES uploaded + verified (paired with `signing.envelope.persisted`). Payload: provider, signed_envelope_id, is_qualified |
+| `signing.file_key_rejected`       | sec      | signing-service POST /signing/inline | S09-rev — file-key container/password rejected (bad container or wrong password). Payload: reason |
+| `signing.dev_password_rejected`   | sec      | signing-service POST /signing/inline | S09-rev — dev-scaffold account-password re-auth rejected or locked. Payload: reason |
+| `report.sign_requested`           | info     | report-service POST /v1/reports/{id}/sign | S09-rev — sign surface invoked (before delegation to signing-service). Payload: provider, resource_type |
 | `report.synthesis_started`        | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run begun. Payload: section_count, language, provider |
 | `report.synthesis_completed`      | info     | report-service POST /v1/reports/{id}/synthesize | Spec item 1 — synthesis run finished (paired with `report.synthesis_started`). Payload: job_id, section_count, language, provider |
 | `patient.created`                 | info     | core-service POST /patients      | Sprint 11 — new patient added to the roster. Payload: has_mrn |

@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     # Issuing organisation printed on the unsigned PDF (M1·A3).
     pdf_issuer_name: str = Field(default="Medical Dictation", alias="MDX_PDF_ISSUER_NAME")
 
+    # signing-service base URL — the report sign surface (S09-rev)
+    # delegates envelope creation there, forwarding the caller's JWT.
+    signing_service_base_url: str = Field(
+        default="http://localhost:8008", alias="SIGNING_SERVICE_BASE_URL"
+    )
+
     # ── Report synthesis (spec item 1) ──────────────────────────────────
     # "mock" (default) is the deterministic offline engine — no external
     # LLM, no PHI leaving the box. "anthropic" wires the production stub

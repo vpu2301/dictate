@@ -32,6 +32,50 @@
   .section-text { white-space: pre-wrap; }
   .signature-block { margin-top: 24pt; padding-top: 10pt; border-top: 1px dashed #888; }
   .label { color: #555; font-size: 9pt; }
+  {% if stamp_level == "dev" %}
+  .dev-banner {
+    border: 1.5pt solid #b00020;
+    color: #b00020;
+    background: #fdecec;
+    font-weight: bold;
+    text-align: center;
+    padding: 6pt;
+    margin-bottom: 12pt;
+    letter-spacing: 1pt;
+  }
+  .dev-watermark {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    overflow: hidden;
+  }
+  .dev-watermark span {
+    position: absolute;
+    top: 42%;
+    left: -12%;
+    width: 124%;
+    text-align: center;
+    transform: rotate(-35deg);
+    font-size: 34pt;
+    font-weight: bold;
+    color: #b00020;
+    opacity: 0.14;
+    letter-spacing: 3pt;
+  }
+  {% endif %}
+  {% if stamp_level == "qualified" %}
+  .kep-stamp {
+    margin-top: 16pt;
+    border: 1.5pt solid #0a5c2e;
+    color: #0a5c2e;
+    padding: 8pt 10pt;
+    font-size: 10pt;
+  }
+  .kep-stamp .kep-title { font-weight: bold; letter-spacing: 0.5pt; margin-bottom: 4pt; }
+  {% endif %}
   {% if is_draft %}
   .draft-banner {
     border: 1.5pt solid #b00020;
@@ -77,6 +121,14 @@
       {{ "DRAFT — NOT SIGNED" if is_en else "ЧЕРНЕТКА — НЕ ПІДПИСАНО" }}
     </div>
   {% endif %}
+  {% if stamp_level == "dev" %}
+    <div class="dev-watermark">
+      <span>DEV BUILD — NOT LEGALLY SIGNED<br/>НЕ Є ЮРИДИЧНИМ ПІДПИСОМ</span>
+    </div>
+    <div class="dev-banner">
+      DEV BUILD — NOT LEGALLY SIGNED / НЕ Є ЮРИДИЧНИМ ПІДПИСОМ
+    </div>
+  {% endif %}
 
   <div class="header-block">
     <h1>{{ title }}</h1>
@@ -116,6 +168,20 @@
     {% if is_draft %}
       <div class="label" style="margin-top: 6pt; color: #b00020;">
         {{ "This document has no legal force until electronically signed (Diia.Signature / QES)." if is_en else "Документ не має юридичної сили до накладення кваліфікованого електронного підпису (Дія.Підпис / КЕП)." }}
+      </div>
+    {% endif %}
+    {% if stamp_level == "qualified" %}
+      <div class="kep-stamp">
+        <div class="kep-title">{{ "Qualified electronic signature (QES)" if is_en else "Кваліфікований електронний підпис (КЕП)" }}</div>
+        <div><span class="label">{{ "Signer:" if is_en else "Підписант:" }}</span> {{ stamp_signer }}</div>
+        <div><span class="label">{{ "Provider:" if is_en else "Засіб підпису:" }}</span> {{ stamp_provider }}</div>
+        <div><span class="label">{{ "Signed at:" if is_en else "Час підпису:" }}</span> {{ stamp_signed_at }}</div>
+      </div>
+    {% endif %}
+    {% if stamp_level == "dev" %}
+      <div class="label" style="margin-top: 10pt; color: #b00020; font-weight: bold;">
+        DEV BUILD — {{ "development confirmation by account password; NOT a legal signature" if is_en else "підтвердження паролем облікового запису в середовищі розробки; НЕ Є юридичним підписом" }}
+        ({{ stamp_signer }}, {{ stamp_signed_at }})
       </div>
     {% endif %}
   </div>

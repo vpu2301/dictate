@@ -48,6 +48,7 @@ def _session_row(status: str = "awaiting_user", *, document_pdf_hash: bytes | No
         "resource_version_id": uuid4(),
         "provider_session_id": "psid-1",
         "document_pdf_hash": document_pdf_hash,
+        "canonical_json": None,
         "verification_token": None,
         "signed_at": None,
         "signer_full_name": None,
@@ -111,9 +112,17 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 def _stub_tenant_conn(monkeypatch: pytest.MonkeyPatch) -> None:
     from signing_service.routers import uploads
 
+    class _FakeConn:
+        @contextlib.asynccontextmanager
+        async def _tx(self):
+            yield None
+
+        def transaction(self):
+            return self._tx()
+
     @contextlib.asynccontextmanager
     async def _fake(pool, tenant_id):  # noqa: ANN001
-        yield None
+        yield _FakeConn()
 
     monkeypatch.setattr(uploads, "tenant_connection", _fake)
 
@@ -214,12 +223,17 @@ def test_upload_happy_path(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
         expected["insert"] = kwargs
         return env_id
 
+    async def _mark(conn, **kwargs):  # noqa: ANN003
+        expected["mark"] = kwargs
+        return "signed"
+
     monkeypatch.setattr(uploads.repo, "fetch_session_by_id", _fetch)
     monkeypatch.setattr(uploads.repo, "transition_session", _transition)
     monkeypatch.setattr(uploads.repo, "insert_envelope", _insert)
+    monkeypatch.setattr(uploads.repo, "mark_resource_signed", _mark)
     monkeypatch.setattr(uploads, "Envelope", _FakeEnvelope)
     monkeypatch.setattr(
-        uploads, "verify_envelope", lambda **kw: SimpleNamespace(valid=True, errors=[])
+        uploads, "verify_envelope", lambda **kw: SimpleNamespace(valid=True, errors=[], is_qualified=True)
     )
 
     resp = client.post(f"/signing/sessions/{uuid4()}/upload", files=_pdf_file())

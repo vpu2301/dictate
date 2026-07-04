@@ -130,6 +130,18 @@
             ],
             "title": "Callback Completion Url"
           },
+          "canonical_json": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Json"
+          },
           "display": {
             "additionalProperties": true,
             "title": "Display",
@@ -266,6 +278,167 @@
         "title": "InitiateSessionResponse",
         "type": "object"
       },
+      "InlineSignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_pdf_b64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Pdf B64"
+          },
+          "canonical_hash_hex": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Canonical Hash Hex",
+            "type": "string"
+          },
+          "canonical_json": {
+            "additionalProperties": true,
+            "title": "Canonical Json",
+            "type": "object"
+          },
+          "key_container_b64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Container B64"
+          },
+          "key_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Password"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "provider": {
+            "enum": [
+              "file_key",
+              "dev_password"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "purpose_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose Code"
+          },
+          "resource_id": {
+            "format": "uuid",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "pattern": "^(report|amendment)$",
+            "title": "Resource Type",
+            "type": "string"
+          },
+          "resource_version_id": {
+            "format": "uuid",
+            "title": "Resource Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id",
+          "resource_version_id",
+          "provider",
+          "canonical_json",
+          "canonical_hash_hex"
+        ],
+        "title": "InlineSignRequest",
+        "type": "object"
+      },
+      "InlineSignResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "envelope_id": {
+            "format": "uuid",
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "is_qualified": {
+            "title": "Is Qualified",
+            "type": "boolean"
+          },
+          "report_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Status"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "signature_level": {
+            "title": "Signature Level",
+            "type": "string"
+          },
+          "signed_at": {
+            "title": "Signed At",
+            "type": "string"
+          },
+          "signer_full_name": {
+            "title": "Signer Full Name",
+            "type": "string"
+          },
+          "verification_token": {
+            "title": "Verification Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelope_id",
+          "session_id",
+          "signature_level",
+          "verification_token",
+          "signed_at",
+          "signer_full_name",
+          "is_qualified"
+        ],
+        "title": "InlineSignResponse",
+        "type": "object"
+      },
       "LocalUploadResponse": {
         "additionalProperties": false,
         "properties": {
@@ -301,7 +474,9 @@
         "enum": [
           "diia",
           "iit",
-          "mock"
+          "mock",
+          "file_key",
+          "dev_password"
         ],
         "title": "ProviderName",
         "type": "string"
@@ -598,6 +773,65 @@
           }
         },
         "summary": "List Certificates",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/signing/inline": {
+      "post": {
+        "operationId": "sign_inline_signing_inline_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InlineSignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InlineSignResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Inline",
         "tags": [
           "signing"
         ]

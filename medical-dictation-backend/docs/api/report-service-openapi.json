@@ -1277,6 +1277,158 @@
         "title": "SectionPromptResponse",
         "type": "object"
       },
+      "SignInlineResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "envelope_id": {
+            "format": "uuid",
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "is_qualified": {
+            "title": "Is Qualified",
+            "type": "boolean"
+          },
+          "report_status": {
+            "title": "Report Status",
+            "type": "string"
+          },
+          "signature_level": {
+            "title": "Signature Level",
+            "type": "string"
+          },
+          "signed_at": {
+            "title": "Signed At",
+            "type": "string"
+          },
+          "signer_full_name": {
+            "title": "Signer Full Name",
+            "type": "string"
+          },
+          "verification_token": {
+            "title": "Verification Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelope_id",
+          "signature_level",
+          "verification_token",
+          "signed_at",
+          "signer_full_name",
+          "is_qualified",
+          "report_status"
+        ],
+        "title": "SignInlineResponse",
+        "type": "object"
+      },
+      "SignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "key_container_b64": {
+            "anyOf": [
+              {
+                "maxLength": 200000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Container B64"
+          },
+          "key_password": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Password"
+          },
+          "language": {
+            "default": "uk",
+            "title": "Language",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "provider": {
+            "enum": [
+              "file_key",
+              "diia",
+              "dev_password"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "SignRequest",
+        "type": "object"
+      },
+      "SignSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "qr_payload": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Payload"
+          },
+          "redirect_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect Url"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "provider",
+          "expires_at"
+        ],
+        "title": "SignSessionResponse",
+        "type": "object"
+      },
       "SynthesisJobResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3319,8 +3471,7 @@
     },
     "/v1/reports/{report_id}/sign": {
       "post": {
-        "description": "Sprint-09 implements; sprint-08 leaves the route shape locked.",
-        "operationId": "sign_placeholder_v1_reports__report_id__sign_post",
+        "operationId": "sign_report_v1_reports__report_id__sign_post",
         "parameters": [
           {
             "in": "path",
@@ -3349,7 +3500,37 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInlineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignSessionResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3359,23 +3540,9 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Sign Placeholder V1 Reports  Report Id  Sign Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
           }
         },
-        "summary": "Sign Placeholder",
+        "summary": "Sign Report",
         "tags": [
           "reports"
         ]
