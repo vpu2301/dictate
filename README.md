@@ -44,7 +44,7 @@ dictate/
     │   ├── asr-service/          # batch ASR orchestrator (CPU) + validators
     │   ├── asr-worker/           # batch ASR GPU consumer (faster-whisper)
     │   ├── dictation-service/    # real-time streaming ASR over WebSocket
-    │   ├── nlp-service/          # 6-stage transcript post-processing pipeline
+    │   ├── nlp-service/          # transcript post-processing pipeline (7 stages)
     │   ├── report-service/       # templates + reports (versioning/diff/search)
     │   ├── signing-service/      # КЕП/KEP signing + public /verify
     │   └── autocomplete-service/ # clinical phrase autocomplete (trie + Redis)
@@ -242,7 +242,7 @@ in `docs/adr/`, not a quiet edit.
 | **auth-service** (S02) | Login/refresh/logout, admin users, audit API; Keycloak realm; RLS; hash-chained audit; perms matrix; MFA stub | **MFA intentionally disabled** in pilot — flip `MDX_REQUIRE_MFA=true` to enforce |
 | **asr-service / asr-worker** (S03) | Batch Whisper ASR; 8-step validators; envelope crypto; EncryptedObjectStore; Redis Streams | First PHI-bearing path. AAD = `tenant_id ‖ row_id`; `master.key` mode ≤ 0400 |
 | **dictation-service** (S04) | Real-time streaming ASR over WebSocket, protocol `medical-dictation.v1` | Sliding-window Whisper, reconnect/resume, tmpfs ring buffer, binary Opus frames |
-| **nlp-service** (S05) | 6-stage pipeline: voice commands → punctuation → numbers → dates → abbreviations → confidence | Ordered contract; `PIPELINE_VERSION` in idempotence cache key; abbrev snapshot per request |
+| **nlp-service** (S05) | Pipeline: voice commands → punctuation → spoken-punctuation → numbers → dates → abbreviations → confidence | Ordered contract; `PIPELINE_VERSION` in idempotence cache key; abbrev snapshot per request |
 | **report-service** (S06, S08) | Section-aware templates (16 system templates) + reports (versioning, diff, FTS) | Cosmetic-vs-structural edit rule; append-only `report_versions`; linear amendment chain |
 | **signing-service** (S09) | КЕП/KEP signing (Дія + ІІТ + mock) + public `/verify` | PAdES-LTV with embedded canonical JSON (JCS); IP-HMAC audit + rate limiter on /verify |
 | **autocomplete-service** (S10) | Clinical phrase autocomplete | Trie + Redis cache (per-key lock, version_tag); Bayesian ranking; p95 ≤ 80 ms; PII scrubber |

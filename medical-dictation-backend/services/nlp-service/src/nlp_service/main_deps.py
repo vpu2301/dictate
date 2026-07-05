@@ -22,6 +22,7 @@ from .stages import (
     DateNormStage,
     NumberNormStage,
     PunctuationStage,
+    SpokenPunctuationStage,
     VoiceCommandStage,
 )
 from .stages.voice_command_matcher import CommandSpec
@@ -74,7 +75,7 @@ async def build_state() -> ServiceState:
     redis_client = aioredis.from_url(settings.redis_url, decode_responses=False)
     cache = RedisCacheAdapter(redis=redis_client, key_prefix=settings.cache_key_prefix)
 
-    # ── Build the 6-stage pipeline ─────────────────────────────────
+    # ── Build the NLP pipeline ─────────────────────────────────────
     voice_specs = await repository.load_voice_commands(app_pool)
 
     punctuation = PunctuationStage()
@@ -83,6 +84,7 @@ async def build_state() -> ServiceState:
     stages: list[Stage] = [
         VoiceCommandStage(specs_by_language=voice_specs),
         punctuation,
+        SpokenPunctuationStage(),
         NumberNormStage(),
         DateNormStage(),
         AbbreviationStage(),

@@ -1,5 +1,14 @@
 # Voice Commands (medical-dictation.v1)
 
+> **Two layers handle spoken punctuation.** The prosody-gated FSM below
+> (Stage 1) is the primary path for *streaming* dictation, where it can
+> use word timing + probability and also emit frontend `operations`
+> (undo, cursor moves). The deterministic **spoken-punctuation
+> normalizer** (Stage 2b, see the section at the bottom) is a text-only
+> safety net that catches command words the FSM misses — including the
+> entire batch / text-only path, where there are no word timings and the
+> FSM is inert.
+
 The voice command FSM (sprint 05 Stage 1) detects intentional verbal
 commands embedded in dictation. Every match has three gates:
 
@@ -80,3 +89,67 @@ emits `voice_command.undone` for telemetry.
 Every `Final` message carries `voice_command: null` (sprint 05 default)
 or a populated slot. The `operations` array always carries the
 frontend-actionable derivative (see `operations.py`).
+
+## Spoken-punctuation normalizer (Stage 2b — deterministic net)
+
+`stages/spoken_punctuation.py` + `stages/spoken_punctuation_stage.py`
+convert spoken punctuation **words** the ASR transcribed literally
+(`крапка`, `кома`, `period`, `comma`, …) into the actual marks. It runs
+right after the ML punctuation stage, on the **text alone** — no timing
+or probability required — so it works on the batch/text path and rescues
+any command the prosody FSM's conservative gates let through.
+
+Why a second layer instead of loosening the FSM gates: the FSM must stay
+conservative (a false "period" mid-sentence is worse than a missed one)
+*and* it needs word timings it doesn't have on the batch path. A separate
+text-level pass can afford deterministic, context-checked replacement.
+
+### Command map
+
+| Language | Phrase(s)                     | Result        |
+| -------- | ----------------------------- | ------------- |
+| uk       | крапка, крапку                | `.`           |
+| uk       | кома                          | `,`           |
+| uk       | двокрапка                     | `:`           |
+| uk       | крапка з комою                | `;`           |
+| uk       | знак питання                  | `?`           |
+| uk       | знак оклику                   | `!`           |
+| uk       | новий рядок / новий абзац     | `\n` / `\n\n` |
+| uk       | питання (trailing only)       | `?`           |
+| en       | period, full stop             | `.`           |
+| en       | comma                         | `,`           |
+| en       | colon                         | `:`           |
+| en       | semicolon                     | `;`           |
+| en       | question mark                 | `?`           |
+| en       | exclamation mark / point      | `!`           |
+| en       | new line / new paragraph      | `\n` / `\n\n` |
+| en       | dot (non-numeric context)     | `.`           |
+
+Longest phrase wins (`крапка з комою` beats `крапка`; `знак питання`
+beats bare `питання`).
+
+### Conservative guards (avoid corrupting prose)
+
+Words that are also normal vocabulary are only converted in an
+unambiguous context:
+
+- **`dot`** — kept when flanked by a number word/digit (`three dot five`,
+  `3 dot 5`) or a URL token (`example dot com`).
+- **`period`** — kept before `of` (`a period of two weeks`).
+- **`питання`** — converted only as the *trailing* token of a clause
+  (`… нормально питання` → `…?`); mid-sentence it stays the noun
+  "question". The unambiguous form `знак питання` always converts.
+
+### Spacing / capitalization
+
+No space before a mark, one space after; a terminator (`.`/`!`/`?`) or a
+line break capitalizes the next word (`,`/`:`/`;` do not); line/paragraph
+breaks never introduce duplicate spaces. A redundant mark an upstream
+punctuator attached to the previous token is collapsed.
+
+### Adding a command or language
+
+Edit `_UK_RULES` / `_EN_RULES` (or add a new `_RULES_BY_LANGUAGE` entry)
+in `stages/spoken_punctuation.py`, then add cases to
+`tests/unit/test_spoken_punctuation.py` — including a regression case
+proving normal prose with that surface word is left intact.

@@ -100,4 +100,4 @@ introduces them.
 | **Specialty context** | `ProcessingContext.specialty` — used by the abbreviation stage's domain filter to disambiguate (e.g., `ІМ` in a cardiology session). |
 | **Direction (compact / expand / either)** | Per-row policy in the abbreviation dictionary. `compact` writes the abbreviation; `expand` writes the expansion; `either` passes through. |
 | **Tenant override**   | A row in `abbreviation_dictionary` with `tenant_id IS NOT NULL` — wins on collision with a global rule on the same `(language, expanded, abbreviated)`. |
-| **Pipeline version**  | Constant in code (`PIPELINE_VERSION` = `"nlp-v1.0.0"`) participating in the idempotence cache key. Bump invalidates every cached result. |
+| **Pipeline version**  | Constant in code (`PIPELINE_VERSION` = `"nlp-v1.1.0"`) participating in the idempotence cache key. Bump invalidates every cached result. |

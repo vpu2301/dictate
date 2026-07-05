@@ -1,9 +1,9 @@
 """Stage interface + pipeline types.
 
-The 6-stage NLP pipeline (voice_commands → punctuation → number_norm →
-date_norm → abbreviation → confidence) communicates via these immutable
-records. Every stage takes the previous stage's output and returns a
-new ``StageOutput``; the orchestrator threads them.
+The NLP pipeline (voice_commands → punctuation → spoken_punctuation →
+number_norm → date_norm → abbreviation → confidence) communicates via
+these immutable records. Every stage takes the previous stage's output
+and returns a new ``StageOutput``; the orchestrator threads them.
 
 Why discriminated-union messages instead of mutating dicts: the
 pipeline runs against PHI-bearing text in production, and silent
