@@ -13,11 +13,30 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from secret import Secret
+
 
 class ProviderName(StrEnum):
     DIIA = "diia"
     IIT = "iit"
     MOCK = "mock"
+    FILE_KEY = "file_key"
+    DEV_PASSWORD = "dev_password"
+
+
+class SignatureLevel(StrEnum):
+    """The legal tier of an envelope — immutable once persisted.
+
+    ``QUALIFIED`` means the envelope carries a real CMS/PAdES
+    cryptographic envelope purporting to be a КЕП; whether it *verifies*
+    as qualified is decided by the trust store, never by this value
+    alone. ``DEV`` is the development-only password-confirmation
+    scaffold: no cryptographic envelope exists and the tier can never be
+    reported as qualified on any surface.
+    """
+
+    QUALIFIED = "qualified"
+    DEV = "dev"
 
 
 class SigningSessionStatus(StrEnum):
@@ -79,15 +98,17 @@ class SigningSessionInit:
 class SignedEnvelope:
     """What we persist after a callback successfully arrives.
 
-    ``signed_bytes`` is the raw PAdES/CAdES envelope. ``parsed`` is the
-    structural breakdown used by ``verify_envelope`` (cert chain, signer
-    info, TSA, OCSP, document hash binding).
+    ``signed_bytes`` is the raw PAdES/CAdES envelope (for the dev tier:
+    the watermarked artifact PDF — there is no cryptographic envelope).
+    ``parsed`` is the structural breakdown used by ``verify_envelope``
+    (cert chain, signer info, TSA, OCSP, document hash binding).
     """
 
     provider: ProviderName
     provider_envelope_id: str
     signed_bytes: bytes
     parsed: ParsedEnvelopeDTO
+    signature_level: SignatureLevel = SignatureLevel.QUALIFIED
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +161,17 @@ class ProviderTransientError(Exception):
     retry or fall back to the other provider."""
 
 
+class InvalidCredentialsError(Exception):
+    """Inline signing credentials rejected — wrong key-container
+    password, unreadable container, or wrong account password. Maps to
+    400 (file_key) / 401 (dev_password) at the route layer."""
+
+
+class AccountLockedError(Exception):
+    """The identity provider reports the account as locked out
+    (brute-force protection). Maps to 423 at the route layer."""
+
+
 # ── ABC ─────────────────────────────────────────────────────────────
 
 
@@ -190,3 +222,67 @@ class ProviderHealthSnapshot:
     healthy: bool
     latency_ms: int
     last_error: str | None = None
+
+
+# ── Inline signing (file_key / dev_password) ────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class SignerIdentity:
+    """Who is signing — taken from the *verified JWT claims*, never from
+    the request body."""
+
+    sub: str  # UUID as string
+    display_name: str
+    username: str | None = None  # preferred_username/email; dev re-auth needs it
+
+
+@dataclass(frozen=True, slots=True)
+class InlineCredentials:
+    """Secrets for an inline signing request. Passwords are wrapped in
+    :class:`secret.Secret` so they can never leak via repr/str/JSON;
+    the raw key container is bytes that MUST stay in memory only —
+    inline signers zero their working copies after use and never write
+    them to disk or logs.
+    """
+
+    key_container: bytes | None = None
+    key_password: Secret[str] | None = None
+    dev_password: Secret[str] | None = None
+
+
+class InlineSigner(abc.ABC):
+    """A provider that signs synchronously inside the request, with no
+    redirect and no callback (``file_key``, ``dev_password``).
+
+    Deliberately NOT a :class:`SigningProvider` subclass: the
+    session-flow methods (``initiate``/``handle_callback``) have no
+    meaningful implementation for an inline signer, and a stub that
+    raises would poison the shared registry contract.
+    """
+
+    name: ProviderName
+    signature_level: SignatureLevel
+
+    @abc.abstractmethod
+    async def sign_inline(
+        self,
+        *,
+        canonical_bytes: bytes,
+        credentials: InlineCredentials,
+        signer: SignerIdentity,
+        artifact_pdf: bytes | None = None,
+    ) -> SignedEnvelope:
+        """Sign ``canonical_bytes`` and return the envelope to persist.
+
+        Raises :class:`InvalidCredentialsError` on a bad container /
+        wrong password, :class:`AccountLockedError` on IdP lockout, and
+        :class:`ProviderTransientError` when a dependency (TSA, IdP) is
+        unreachable.
+        """
+
+    @abc.abstractmethod
+    async def health(self) -> ProviderHealthSnapshot: ...
+
+    @abc.abstractmethod
+    async def aclose(self) -> None: ...

@@ -12,10 +12,12 @@ dependencies = [
     "defusedxml>=0.7",
     "pypdf>=4.2",
     "audit",
+    "secret",
 ]
 
 [tool.uv.sources]
 audit = { workspace = true }
+secret = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

@@ -45,12 +45,20 @@ async def verify(
         await _audit_public(token, request, "not_found", 0, state)
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="not found")
 
-    # Build the public response. Deliberately small surface.
+    # Build the public response. Deliberately small surface. The tier is
+    # reported truthfully on every envelope: a 'dev' envelope carries no
+    # cryptographic signature and short-circuits to "dev — not
+    # qualified" regardless of any other column.
+    level = str(row["signature_level"])
+    is_dev = level == "dev"
     body: dict[str, object] = {
+        "status": "dev_not_qualified" if is_dev else "valid",
+        "signature_level": level,
+        "provider": str(row["provider"]),
         "resource_type": row["resource_type"],
         "signed_at": row["signed_at"].isoformat(),
         "signer_full_name": row["signer_full_name"],
-        "is_qualified": bool(row["is_qualified"]),
+        "is_qualified": False if is_dev else bool(row["is_qualified"]),
         "certificate_issuer_cn": row["certificate_issuer_cn"],
         "certificate_serial": row["certificate_serial"],
         "signature_algorithm": row["signature_algorithm"],
@@ -88,15 +96,21 @@ async def verify_pdf(
         await _audit_public(token, request, "not_found", 0, state)
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="not found")
 
-    pdf_bytes = bytes(row["signed_data"]) if row["signed_data"] else b""
-    safe_name = _sanitize_filename(row["resource_type"] + "-" + token) + ".pdf"
+    artifact = bytes(row["signed_data"]) if row["signed_data"] else b""
+    # PAdES uploads and dev artifacts are PDFs; CAdES envelopes (diia /
+    # file_key detached CMS) are .p7s — serve the truthful content type.
+    if artifact.startswith(b"%PDF"):
+        media_type, ext = "application/pdf", ".pdf"
+    else:
+        media_type, ext = "application/pkcs7-signature", ".p7s"
+    safe_name = _sanitize_filename(row["resource_type"] + "-" + token) + ext
     headers = {
         "Content-Disposition": f'attachment; filename="{safe_name}"',
     }
     await _audit_public(
-        token, request, "valid", len(pdf_bytes), state, kind=audit_kinds.PUBLIC_VERIFY_PDF_FETCH
+        token, request, "valid", len(artifact), state, kind=audit_kinds.PUBLIC_VERIFY_PDF_FETCH
     )
-    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    return Response(content=artifact, media_type=media_type, headers=headers)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────

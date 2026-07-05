@@ -14,6 +14,8 @@ SIGNING_SESSION_LOCAL_UPLOAD: Final = "signing.session.local_upload"  # local-KE
 SIGNING_ENVELOPE_PERSISTED: Final = "signing.envelope.persisted"
 SIGNING_PROVIDER_HEALTH_CHANGED: Final = "signing.provider.health_changed"
 SIGNING_CALLBACK_SIGNATURE_INVALID: Final = "signing.session.callback_signature_invalid"
+SIGNING_DEV_PASSWORD_REJECTED: Final = "signing.dev_password_rejected"  # sec (S09-rev)
+SIGNING_FILE_KEY_REJECTED: Final = "signing.file_key_rejected"  # sec (S09-rev)
 
 # Global (no-tenant) verify audit stream — written to
 # ``audit.public_verify_audit`` not the hash-chained log.

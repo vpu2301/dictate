@@ -15,6 +15,7 @@ TEMPLATE_VIEWED_FULL: Final = "template.viewed_full"  # GET /templates/{id}
 REPORT_CREATED: Final = "report.created"
 REPORT_DRAFT_UPDATED: Final = "report.draft.updated"  # aggregated per session
 REPORT_FINALIZED: Final = "report.finalized"
+REPORT_SIGN_REQUESTED: Final = "report.sign_requested"  # S09-rev: sign surface invoked
 REPORT_COMPLETED: Final = "report.completed"  # finalize completion summary (M1·A5)
 REPORT_REVERTED: Final = "report.reverted"
 REPORT_CANCELLED: Final = "report.cancelled"

@@ -17,7 +17,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq openssl jq python3-defusedxml
+          sudo apt-get install -y -qq openssl jq python3-defusedxml xmlsec1
       - name: Run refresh
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_SECURITY_WEBHOOK }}

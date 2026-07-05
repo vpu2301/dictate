@@ -18,7 +18,7 @@ from audit.writer import AuditWriter
 
 
 class _FakeTxn:
-    async def __aenter__(self) -> "_FakeTxn":
+    async def __aenter__(self) -> _FakeTxn:
         return self
 
     async def __aexit__(self, *_: object) -> bool:

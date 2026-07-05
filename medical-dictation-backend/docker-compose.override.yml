@@ -279,6 +279,8 @@ services:
     restart: unless-stopped
     environment:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
+      # The sign surface (S09-rev) delegates envelope creation here.
+      SIGNING_SERVICE_BASE_URL: http://signing-service:8000
     ports:
       - "8006:8000"
     healthcheck: *svc-healthcheck
@@ -331,6 +333,24 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # ── public-edge — the ONLY internet-facing surface (S09-rev) ──────
+  # Reverse-proxy allowlist: exactly POST /signing/callbacks/diia and
+  # GET /verify/* pass through (TLS + edge rate limit); every other
+  # path 404s at the edge. See infra/edge/nginx.conf.template.
+  public-edge:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment:
+      SIGNING_UPSTREAM: signing-service:8000
+    volumes:
+      - ./infra/edge/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./infra/edge/certs:/etc/nginx/certs:ro
+    ports:
+      - "8443:443"
+    depends_on:
+      signing-service:
+        condition: service_healthy
+
   # ── signing-service — Ukrainian KEP e-signature + public /verify ──
   signing-service:
     build:
@@ -345,6 +365,9 @@ services:
       TRUST_STORE_DIR: /etc/mdx/trust-store
       TRUST_STORE_INCLUDE_TEST_CA: "true"
       ENABLE_MOCK_PROVIDER: "true"
+      # Dev-only password-confirmation signing scaffold (S09-rev). The
+      # config model + provider + CI gate all refuse this in production.
+      SIGNING_DEV_PASSWORD_ENABLED: "true"
     volumes:
       - ./infra/trust-store:/etc/mdx/trust-store:ro
     ports:

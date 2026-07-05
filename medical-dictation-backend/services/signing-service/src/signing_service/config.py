@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -98,6 +98,48 @@ class Settings(BaseSettings):
 
     # Max size of a locally-signed PDF upload (M1·B4).
     max_upload_mb: int = Field(default=25, alias="SIGNING_MAX_UPLOAD_MB")
+
+    # ── file_key provider (UAPKI backend, ADR-0026) ─────────────────────
+    # Wired only when the UAPKI shared objects are present at uapki_lib_dir.
+    uapki_lib_dir: Path = Field(default=Path("/opt/uapki"), alias="UAPKI_LIB_DIR")
+    uapki_cert_cache_dir: Path = Field(
+        default=Path("/tmp/uapki-cert-cache"), alias="UAPKI_CERT_CACHE_DIR"
+    )
+    uapki_crl_cache_dir: Path = Field(
+        default=Path("/tmp/uapki-crl-cache"), alias="UAPKI_CRL_CACHE_DIR"
+    )
+    uapki_tsp_url: str = Field(default="", alias="UAPKI_TSP_URL")
+    uapki_offline: bool = Field(default=True, alias="UAPKI_OFFLINE")
+    # Max accepted key-container upload (containers are ~2-8 KB).
+    max_key_container_kb: int = Field(default=64, alias="SIGNING_MAX_KEY_CONTAINER_KB")
+
+    # ── dev_password provider — DEVELOPMENT ONLY ─────────────────────────
+    # Guard 2 of 3: this flag is REJECTED outright in production (below);
+    # guard 1 is DevPasswordProvider's own constructor, guard 3 is the CI
+    # gate `check-no-dev-signing-in-prod-config`.
+    enable_dev_password_provider: bool = Field(
+        default=False, alias="SIGNING_DEV_PASSWORD_ENABLED"
+    )
+    # Keycloak confidential client for the password re-auth grant — the
+    # SAME client login uses (env names + defaults mirror auth-service).
+    keycloak_client_id: str = Field(default="mdx-backend", alias="KEYCLOAK_LOGIN_CLIENT_ID")
+    keycloak_client_secret: str = Field(
+        default="dev-secret-change-in-prod-mdx-backend",
+        alias="KEYCLOAK_LOGIN_CLIENT_SECRET",
+    )
+
+    @model_validator(mode="after")
+    def _reject_dev_password_in_production(self) -> Settings:
+        if self.enable_dev_password_provider and self.environment.lower() in (
+            "production",
+            "prod",
+        ):
+            raise ValueError(
+                "SIGNING_DEV_PASSWORD_ENABLED must never be set in production — "
+                "the dev_password provider is a development-only scaffold "
+                "(see docs/adr/0026 and the sprint-09 revision spec)."
+            )
+        return self
 
 
 settings = Settings()

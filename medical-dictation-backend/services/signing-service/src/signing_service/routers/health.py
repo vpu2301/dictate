@@ -19,6 +19,11 @@ async def readyz() -> dict[str, object]:
     state = get_state()
     return {
         "status": "ok",
-        "providers": list(state.providers.providers.keys()),
+        # Session providers (diia, mock, …) AND inline signers (file_key,
+        # dev_password) — the frontend dialog offers only what's listed here.
+        "providers": [
+            *state.providers.providers.keys(),
+            *state.providers.inline.keys(),
+        ],
         "trust_anchors": len(state.trust_store.all_anchors()),
     }
