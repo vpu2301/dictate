@@ -71,5 +71,12 @@ class Settings(BaseSettings):
     telemetry_flush_interval_s: float = Field(default=5.0, alias="MDX_TELEMETRY_FLUSH_S")
     telemetry_flush_batch: int = Field(default=100, alias="MDX_TELEMETRY_FLUSH_BATCH")
 
+    # In-process maintenance loops (partition rotation + nightly roll-up).
+    # Disable when an external scheduler (cron/k8s CronJob) owns these jobs.
+    background_jobs_enabled: bool = Field(default=True, alias="MDX_BACKGROUND_JOBS")
+    background_jobs_interval_s: float = Field(
+        default=86400.0, alias="MDX_BACKGROUND_JOBS_INTERVAL_S"
+    )
+
 
 settings = Settings()

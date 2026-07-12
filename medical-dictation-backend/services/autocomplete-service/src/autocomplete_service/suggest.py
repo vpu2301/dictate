@@ -68,7 +68,10 @@ def suggest_from_trie(
         suffix = c.phrase[len(prefix) :] if phrase_lower.startswith(full_prefix) else c.phrase
         ranked.append((rec, s, suffix))
 
-    ranked.sort(key=lambda t: t[1], reverse=True)
+    # Deterministic total order: the text tiebreak makes equal-score results
+    # stable across runs, machines, and candidate input orderings — response
+    # stability for identical corpus+counters is an API property.
+    ranked.sort(key=lambda t: (-t[1], t[0].phrase))
     deduped = diversity_filter(ranked, levenshtein_threshold=3)
     top = deduped[:limit]
     return [

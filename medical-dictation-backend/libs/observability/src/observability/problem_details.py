@@ -107,11 +107,20 @@ async def http_exception_handler(
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
+    # Pydantic v2 puts the raw exception object into ctx["error"] for
+    # value_error entries (model_validator raising ValueError) — that is
+    # not JSON-serializable and turned every such 422 into a 500. Coerce
+    # ctx values to strings before embedding.
+    errors = []
+    for e in exc.errors():
+        if isinstance(e.get("ctx"), dict):
+            e = {**e, "ctx": {k: str(v) for k, v in e["ctx"].items()}}
+        errors.append(e)
     p = _problem(
         status=422,
         detail="Request validation failed.",
         type_uri="https://datatracker.ietf.org/doc/html/rfc9457#section-3",
-        errors=exc.errors(),
+        errors=errors,
     )
     logger.info(
         "validation_error",

@@ -6,8 +6,9 @@ import logging
 from typing import Annotated, Literal
 from uuid import UUID
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from audit import Severity
 from auth import Claims
@@ -15,7 +16,7 @@ from db import tenant_connection
 
 from .. import audit_kinds
 from .. import repository as repo
-from ..deps import get_state, requires
+from ..deps import get_state, requires, role_for_rls
 from ..scrubber import contains_pii
 
 logger = logging.getLogger(__name__)
@@ -47,50 +48,97 @@ class PhraseDTO(BaseModel):
     acceptance_count: int
 
 
+async def _reject_pii(
+    state, claims: Claims, *, field: str, text: str, target_kind: str
+) -> None:
+    """PII in a corpus write: 422 naming the pattern class ONLY (never the
+    match), a security audit event (text length, not text), a metric the
+    step-07 spike alert reads."""
+    pii_hits = contains_pii(text)
+    if not pii_hits:
+        return
+    for pattern in pii_hits:
+        state.pii_rejections_metric.add(1, {"pattern": pattern})
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.PHRASE_WRITE_REJECTED_PII,
+        actor_sub=claims.sub,
+        actor_role=(claims.roles[0] if claims.roles else None),
+        target_kind=target_kind,
+        target_id=None,
+        payload={"patterns": pii_hits, "field": field, "text_length": len(text)},
+        severity=Severity.SEC,
+    )
+    raise HTTPException(
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={
+            "error": "pii_detected",
+            "patterns": pii_hits,
+            "field": field,
+            "message": "містить дані, схожі на персональні — не збережено",
+        },
+    )
+
+
+async def _check_rate_limit(state, claims: Claims) -> None:
+    allowed, retry_after = await state.phrase_rate_limiter.check(user_id=claims.sub)
+    if not allowed:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"error": "rate_limited", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
 @router.post("/phrases", response_model=PhraseDTO, status_code=status.HTTP_201_CREATED)
 async def create_phrase(
     body: CreatePhraseRequest,
     claims: Annotated[Claims, Depends(requires("report.write", "report"))],
 ) -> PhraseDTO:
     state = get_state()
-    pii_hits = contains_pii(body.phrase)
-    if pii_hits:
-        await state.audit_writer.write_event(
-            tenant_id=claims.tid,
-            kind=audit_kinds.PHRASE_WRITE_REJECTED_PII,
-            actor_sub=claims.sub,
-            actor_role=(claims.roles[0] if claims.roles else None),
-            target_kind="autocomplete_phrases",
-            target_id=None,
-            payload={"patterns": pii_hits},
-            severity=Severity.SEC,
-        )
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "phrase_contains_pii",
-                "patterns": pii_hits,
-                "message": "phrases must not contain patient-identifying information",
-            },
-        )
+    await _check_rate_limit(state, claims)
+    await _reject_pii(
+        state, claims, field="phrase", text=body.phrase,
+        target_kind="autocomplete_phrases",
+    )
 
     owner_user_id = claims.sub if body.source == "user" else None
-    async with tenant_connection(state.app_pool, claims.tid) as conn:
-        await conn.execute("SELECT set_config('app.user_id',   $1, true)", str(claims.sub))
-        await conn.execute(
-            "SELECT set_config('app.user_role', $1, true)",
-            (claims.roles[0] if claims.roles else "clinician"),
-        )
-        phrase_id = await repo.insert_phrase(
-            conn,
-            phrase=body.phrase,
-            language=body.language,
-            specialty=body.specialty,
-            section_hint=body.section_hint,
-            source=body.source,
-            tenant_id=claims.tid,
-            owner_user_id=owner_user_id,
-        )
+    try:
+        async with tenant_connection(state.app_pool, claims.tid) as conn:
+            await conn.execute(
+                "SELECT set_config('app.user_id',   $1, true)", str(claims.sub)
+            )
+            await conn.execute(
+                "SELECT set_config('app.user_role', $1, true)",
+                role_for_rls(claims),
+            )
+            phrase_id = await repo.insert_phrase(
+                conn,
+                phrase=body.phrase,
+                language=body.language,
+                specialty=body.specialty,
+                section_hint=body.section_hint,
+                source=body.source,
+                tenant_id=claims.tid,
+                owner_user_id=owner_user_id,
+            )
+    except asyncpg.UniqueViolationError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"error": "phrase_already_exists"},
+        ) from None
+    except asyncpg.InsufficientPrivilegeError:
+        # RLS WITH CHECK rejection (e.g. clinician posting source='tenant').
+        # Authority lives in the DB; map to a stable code, never SQLSTATE.
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail={"error": "forbidden_scope"},
+        ) from None
+    except asyncpg.CheckViolationError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "validation"},
+        ) from None
 
     await state.audit_writer.write_event(
         tenant_id=claims.tid,
@@ -125,7 +173,7 @@ async def delete_phrase(
         await conn.execute("SELECT set_config('app.user_id',   $1, true)", str(claims.sub))
         await conn.execute(
             "SELECT set_config('app.user_role', $1, true)",
-            (claims.roles[0] if claims.roles else "clinician"),
+            role_for_rls(claims),
         )
         deleted = await repo.soft_delete_phrase(conn, phrase_id=phrase_id)
     if not deleted:
@@ -141,3 +189,138 @@ async def delete_phrase(
         severity=Severity.INFO,
     )
     await state.trie_cache.bump_version_tag(tenant_id=claims.tid)
+
+
+# ── Snippets (write surface; suggest-side lookup lives in suggest.py) ──
+
+
+class CreateSnippetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Mirrors the DB trigger_format CHECK: latin slug, typed as /trigger.
+    trigger: str = Field(
+        min_length=2, max_length=32, pattern=r"^[a-z][a-z0-9_-]{0,30}$",
+        description="Latin slug (DB CHECK ^[a-z][a-z0-9_-]{0,30}$); typed with a leading / at request time.",
+    )
+    expansion: str = Field(min_length=1, max_length=4000)
+    cursor_position: int = Field(default=0, ge=0)
+    language: Literal["uk", "en"]
+    source: Literal["user", "tenant"] = "user"
+
+    @model_validator(mode="after")
+    def _cursor_within_expansion(self) -> CreateSnippetRequest:
+        # (A leading "/" is already excluded by the trigger pattern —
+        # triggers are stored WITHOUT the slash typed at request time.)
+        if self.cursor_position > len(self.expansion):
+            msg = "cursor_position must be within the expansion"
+            raise ValueError(msg)
+        return self
+
+
+class SnippetDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    trigger: str
+    expansion: str
+    cursor_position: int
+    language: str
+    source: str
+
+
+@router.post("/snippets", response_model=SnippetDTO, status_code=status.HTTP_201_CREATED)
+async def create_snippet(
+    body: CreateSnippetRequest,
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+) -> SnippetDTO:
+    state = get_state()
+    await _check_rate_limit(state, claims)
+    await _reject_pii(
+        state, claims, field="trigger", text=body.trigger,
+        target_kind="autocomplete_snippets",
+    )
+    await _reject_pii(
+        state, claims, field="expansion", text=body.expansion,
+        target_kind="autocomplete_snippets",
+    )
+
+    owner_user_id = claims.sub if body.source == "user" else None
+    try:
+        async with tenant_connection(state.app_pool, claims.tid) as conn:
+            await conn.execute(
+                "SELECT set_config('app.user_id',   $1, true)", str(claims.sub)
+            )
+            await conn.execute(
+                "SELECT set_config('app.user_role', $1, true)",
+                role_for_rls(claims),
+            )
+            snippet_id = await repo.insert_snippet(
+                conn,
+                trigger=body.trigger,
+                expansion=body.expansion,
+                cursor_position=body.cursor_position,
+                language=body.language,
+                source=body.source,
+                tenant_id=claims.tid,
+                owner_user_id=owner_user_id,
+            )
+    except asyncpg.UniqueViolationError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"error": "snippet_already_exists"},
+        ) from None
+    except asyncpg.InsufficientPrivilegeError:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail={"error": "forbidden_scope"},
+        ) from None
+    except asyncpg.CheckViolationError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "validation"},
+        ) from None
+
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.SNIPPET_CREATED,
+        actor_sub=claims.sub,
+        actor_role=(claims.roles[0] if claims.roles else None),
+        target_kind="autocomplete_snippets",
+        target_id=snippet_id,
+        payload={"source": body.source, "trigger": body.trigger},
+        severity=Severity.INFO,
+    )
+    return SnippetDTO(
+        id=snippet_id,
+        trigger=body.trigger,
+        expansion=body.expansion,
+        cursor_position=body.cursor_position,
+        language=body.language,
+        source=body.source,
+    )
+
+
+@router.delete("/snippets/{snippet_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_snippet(
+    snippet_id: UUID,
+    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+) -> None:
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        await conn.execute("SELECT set_config('app.user_id',   $1, true)", str(claims.sub))
+        await conn.execute(
+            "SELECT set_config('app.user_role', $1, true)",
+            role_for_rls(claims),
+        )
+        deleted = await repo.soft_delete_snippet(conn, snippet_id=snippet_id)
+    if not deleted:
+        # RLS makes foreign rows look nonexistent — 404, never an oracle.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="snippet not found")
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.SNIPPET_DELETED,
+        actor_sub=claims.sub,
+        actor_role=(claims.roles[0] if claims.roles else None),
+        target_kind="autocomplete_snippets",
+        target_id=snippet_id,
+        payload={},
+        severity=Severity.INFO,
+    )

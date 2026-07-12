@@ -95,6 +95,23 @@ typos at import.
 > `libs/demo/src/demo/audit_kinds.py` (`DEMO_AUDIT_KINDS`) and
 > `scripts/eval/audit_kinds.py` (`EVAL_AUDIT_KINDS`).
 
+## Autocomplete (sprint 10 — autocomplete-service)
+
+Tenant-scoped, hash-chained. Constants in
+`services/autocomplete-service/src/autocomplete_service/audit_kinds.py`
+(also listed in `docs/audit/audit-kinds-sprint-10.md`).
+
+| kind                                      | severity | emitter         | meaning                                              |
+| ----------------------------------------- | -------- | --------------- | ---------------------------------------------------- |
+| `autocomplete.phrase.created`             | info     | phrases router  | Personal/tenant phrase added (`source`, `language`).  |
+| `autocomplete.phrase.updated`             | info     | phrases router  | Phrase changed (`source`, fields_changed).           |
+| `autocomplete.phrase.deleted`             | info     | phrases router  | Phrase soft-deleted.                                 |
+| `autocomplete.phrase.write_rejected_pii`  | sec      | phrases router  | Write rejected by the PII scrubber (`patterns`).     |
+| `autocomplete.snippet.created`            | info     | snippets router | Snippet added (`source`, `trigger`).                 |
+| `autocomplete.snippet.updated`            | info     | snippets router | Snippet changed (`trigger`).                         |
+| `autocomplete.snippet.deleted`            | info     | snippets router | Snippet removed (`trigger`).                         |
+| `autocomplete.rollup.completed`           | info     | roll-up job     | Nightly counter roll-up done (`rollup_date`, `phrases_updated`). |
+
 ## Adding a new kind
 
 1. Define the constant in `services/<service>/src/<service>/audit_kinds.py`.

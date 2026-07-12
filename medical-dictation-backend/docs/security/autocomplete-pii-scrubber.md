@@ -19,16 +19,27 @@ regex change thereafter.
 | med_id    | `\b\d{13}\b`                                       | `<redacted_PII>`  | 13-digit medical identifier        |
 | passport  | `\b[A-Za-zА-ЯЇІЄҐа-яїієґ]{2}\s?\d{6}\b`            | `<redacted_PII>`  | UA passport format                 |
 | dob_like  | `\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b`                | `<redacted_PII>`  | DOB-style dates                    |
-| phone     | `\b\d{7,9}\b`                                      | `<redacted_PII>`  | conservative phone-like sweep      |
+| phone     | `(?<![\d+])\+?\d{7,14}(?!\d)`                      | `<redacted_PII>`  | phone-like sweep incl. int'l `+380…` |
 
 ## Behaviour
 
 - Order-sensitive: more-specific patterns first (10-digit before
-  7-digit).
+  the generic phone sweep).
 - All matches replaced with the literal `<redacted_PII>` placeholder
   (no per-pattern variants — uniform downstream surface).
 - Conservative bias: false positives (over-scrubbing) preferred over
   false negatives (PII leak).
+- Known limitation: digit groups broken by spaces/dashes
+  (`050 123 45 67`) are not caught — widening that far risks eating
+  vitals sequences (`120 80`).
+
+## Revision history
+
+- **2026-07-07** — `phone` widened from `\b\d{7,9}\b` to
+  `(?<![\d+])\+?\d{7,14}(?!\d)`: international `+380501234567`
+  (12 digits) fell between the exact-10 `ipn` and exact-13 `med_id`
+  patterns and leaked verbatim (observed live in the dev stack).
+  **Pending DPO re-review** per the policy below.
 
 ## Call sites
 

@@ -21,6 +21,16 @@ Three candidates were considered:
 
 1. **Postgres-only**: GIN-trigram + `LIKE 'prefix%'` query each request.
    Measured p95 = 25–40 ms cold, dominated by RTT + planner overhead.
+
+   *Verified 2026-07-08 (S10 verification pass)* on the dev stack with a
+   synthetic 10k-row uk corpus (rolled-back txn), 200-iteration loop of
+   `SELECT … WHERE language=$1 AND lower(phrase) LIKE $2 || '%' LIMIT 20`
+   from the host over TCP: first-run 8.0 ms; warm p50 = 7.4 ms,
+   p95 = 7.7 ms (server-side execution 0.06 ms — the cost IS round-trip
+   + driver). The original 25–40 ms band is the conservative
+   cross-network figure; either way the warmed in-process trie lookup
+   (sub-millisecond, no DB hop) is what makes the ≤ 80 ms end-to-end
+   p95 comfortable, and the measured DB path bounds the degraded mode.
 2. **Elasticsearch sidecar**: powerful but adds an operational
    dependency and a network hop for every keystroke.
 3. **In-process trie + Redis cache** (this ADR): build per-tenant
@@ -75,6 +85,39 @@ Negative / accepted:
 | Cache hit ratio < 80% steady-state              | investigate eviction + TTL             |
 | Suggest p95 > 150 ms                            | day-7 alert fires; investigate         |
 | Clinical lead documents > 10 examples of poor quality | consider embedding-similarity sprint |
+
+## Recorded side-decisions (sprint-10 close, step 08)
+
+- **GUC plumbing (step 01):** the write/suggest paths need
+  `app.user_id` + `app.user_role` GUCs beyond `db.tenant_connection`'s
+  `app.tenant_id`. Decision: **inline `set_config` at the call sites**
+  (3 sites; the spec's threshold for extracting an
+  `authed_tenant_connection` helper into `libs/db` is the 4th site).
+  Transaction-locality is test-proven. Caution (verification pass):
+  after any transaction-local `set_config`, the session RESET value of
+  the GUC on that pooled connection is the EMPTY STRING, not NULL —
+  never query an RLS table on a bare pooled connection (see the
+  runbook and the roll-up's nil-tenant corpus count).
+- **Telemetry no-RLS exception:** `autocomplete_telemetry` carries no
+  RLS (allowlisted in `scripts/ci/check-rls-policies.py` with a pointer
+  here). Rationale: append-only, service-written under claims-derived
+  tenant/user ids, never user-queried; reads happen only in the
+  roll-up under explicit tenant grouping. RLS on a high-volume
+  partitioned insert path would buy nothing and cost planner time.
+- **Pilot-tunable ranking constants** (do NOT tune before telemetry
+  exists): diversity-guard Levenshtein threshold **3** — may collapse
+  legitimately distinct short suffixes; Bayesian prior **Beta(1,9)**
+  (zero-history phrase scores exactly 0.1). Both are named constants
+  (`ranking.py`, `suggest.py`).
+- **Metric-name freeze:** dashboard/alert/k6 read
+  `mdx_autocomplete_suggest_latency_ms_histogram*` (path label),
+  `…_cache_lookups_total{hit}`, `…_degraded_total{reason}`,
+  `…_trie_build_seconds*`, `…_trie_size_bytes*`,
+  `…_rollup_last_run_unix_ts`, `…_corpus_size{source}` — renames must
+  touch dashboard + alerts + k6 + tests together. The OTel collector's
+  prometheus exporter must stay **namespace-free** (the sprint-10
+  verification found a `medical_dictation` namespace had silently
+  disconnected every dashboard/alert in the repo).
 
 ## Links
 

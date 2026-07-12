@@ -59,3 +59,27 @@
    content lead; target ≥ 80% useful, 0 harmful.
 3. DPO formal regex sign-off.
 4. Frontend integration: suggest + telemetry + snippet flows.
+
+## Verification addendum (branch S10, 2026-07-07/08)
+
+A step-by-step verification pass against the sprint specs found and
+fixed **27 latent defects** — headline items: the learning loop had
+never executed end-to-end (partition data loss, roll-up date-type
+crash, RLS-no-op'ed counter updates), the phrase write API was
+RLS-deny-all (and real multi-role admin tokens were denied even after
+that fix), Redis outage 500'd suggest, and **the entire repo's
+dashboards/alerts queried metric names the OTel collector never
+exported** (namespace prefix; sprints 02–10 affected). Full ledger:
+project memory `project_sprint10_verification.md`; fixes shipped as
+migrations 0036–0040 + service/infra changes on branch S10.
+
+- Tests now: **autocomplete-service 78 unit + 16 integration = 94**
+  (was 33); `make ci` and `make ci-with-db` green.
+- Live-proven: learning loop closes (accept → telemetry → roll-up →
+  counters → vtag → better ranking), suggest cache-hit p95 4.6 ms
+  local, PII rejection + security audit, scope matrix, alert
+  firability, dashboard populated.
+- Carry-overs (unchanged, tracked in `todo.md` + SPRINT-TODO):
+  **~10k corpus authoring — owner: clinical content lead**;
+  cold-storage telemetry archival before the 90-day drop —
+  **sprint 16**; DPO re-review of the widened phone scrubber pattern.

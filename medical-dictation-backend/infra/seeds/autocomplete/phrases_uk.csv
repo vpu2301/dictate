@@ -1,0 +1,21 @@
+phrase,language,specialty,section_hint
+задишка при фізичному навантаженні,uk,cardiology,anamnesis
+біль за грудиною стискаючого характеру,uk,cardiology,anamnesis
+ритм синусовий правильний,uk,cardiology,examination
+АТ 120/80 мм рт ст,uk,cardiology,examination
+ЧСС 72 за хвилину,uk,cardiology,examination
+тони серця ясні ритмічні,uk,cardiology,examination
+інфаркт міокарда в анамнезі,uk,cardiology,anamnesis
+гіпертонічна хвороба II ст,uk,cardiology,diagnosis
+продовжити прийом бета-блокаторів,uk,cardiology,plan
+повторна консультація через 2 тижні,uk,cardiology,follow_up
+температура тіла нормальна,uk,general,examination
+шкіра звичайного кольору,uk,general,examination
+свідомість ясна,uk,general,examination
+скарг на момент огляду не пред’являє,uk,general,anamnesis
+загальний стан задовільний,uk,general,examination
+цукровий діабет 2 типу,uk,endocrinology,diagnosis
+глікемія натще,uk,endocrinology,examination
+HbA1c контроль через 3 місяці,uk,endocrinology,follow_up
+без вогнищевої патології,uk,radiology,examination
+легеневі поля прозорі,uk,radiology,examination

@@ -105,7 +105,16 @@ GRANT SELECT, INSERT, UPDATE ON signed_envelopes TO app_role;
 -- The public ``GET /verify/{token}`` endpoint runs as a separate
 -- low-privilege role that bypasses RLS via SECURITY DEFINER, allowing
 -- token-based lookups without an authenticated tenant context.
-CREATE ROLE app_public_verify;
+-- Guarded (sprint-10 verification): roles are cluster-global, so an
+-- unguarded CREATE ROLE aborts migrate-up on any additional database in
+-- a cluster where the role already exists (same failure Sprint A1 fixed
+-- for tenant_writer in 0023).
+DO $$
+BEGIN
+    CREATE ROLE app_public_verify;
+EXCEPTION WHEN duplicate_object THEN
+    NULL;
+END $$;
 
 GRANT SELECT (
     id, resource_type, signed_at, verification_token,

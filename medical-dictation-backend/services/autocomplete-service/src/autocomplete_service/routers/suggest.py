@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from typing import Annotated, Literal
 from uuid import UUID
@@ -16,7 +17,7 @@ from db import tenant_connection
 from .. import repository as repo
 from .. import suggest as sug
 from ..config import settings
-from ..deps import get_state, requires
+from ..deps import get_state, requires, role_for_rls
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,14 @@ class SuggestRequest(BaseModel):
     prefix: str = Field(min_length=1, max_length=80)
     language: Literal["uk", "en"]
     limit: int = Field(default=settings.suggest_default_limit, ge=1, le=settings.suggest_max_limit)
-    context: dict | None = None
+    context: dict | None = Field(
+        default=None,
+        description=(
+            "Optional editor context (e.g. {field}). Accepted and forwarded "
+            "to telemetry only — sprint 10 does NO context-aware ranking; "
+            "do not expect behavior from it."
+        ),
+    )
 
 
 class SuggestionDTO(BaseModel):
@@ -58,16 +66,26 @@ async def suggest(
 ) -> SuggestResponse:
     state = get_state()
     request_id = uuid.uuid4()
+    t0 = time.perf_counter()
+
+    def _observe(path: str) -> None:
+        # Interface for the k6 gate + Grafana p95 panel (steps 07/08):
+        # path ∈ hit | miss | degraded | snippet.
+        state.suggest_latency_metric.record(
+            (time.perf_counter() - t0) * 1000.0, {"path": path}
+        )
 
     # Snippet path: leading slash → trigger lookup.
     if sug.is_snippet_prefix(body.prefix):
         trigger = sug.extract_snippet_trigger(body.prefix)
         if not trigger:
+            _observe("snippet")
             return SuggestResponse(request_id=request_id, suggestions=[])
         async with tenant_connection(state.app_pool, claims.tid) as conn:
             await _set_user_ctx(conn, claims)
             row = await repo.fetch_snippet(conn, trigger=trigger, language=body.language)
         if row is None:
+            _observe("snippet")
             return SuggestResponse(request_id=request_id, suggestions=[])
         s = sug.snippet_suggestion(
             snippet_id=str(row["id"]),
@@ -76,6 +94,7 @@ async def suggest(
             source=row["source"],
             trigger=trigger,
         )
+        _observe("snippet")
         return SuggestResponse(
             request_id=request_id,
             suggestions=[
@@ -105,15 +124,16 @@ async def suggest(
             rows=rows,
         )
 
-    trie, hit = await state.trie_cache.get_or_build(
+    trie, status = await state.trie_cache.get_or_build(
         tenant_id=claims.tid,
         language=body.language,
         user_id=claims.sub,
         build_fn=_build,
     )
-    state.suggest_cache_metric.add(1, {"hit": str(hit).lower()})
+    state.suggest_cache_metric.add(1, {"hit": str(status == "hit").lower()})
 
     suggestions = sug.suggest_from_trie(trie=trie, prefix=body.prefix, limit=body.limit)
+    _observe(status)
     return SuggestResponse(
         request_id=request_id,
         suggestions=[
@@ -136,5 +156,5 @@ async def _set_user_ctx(conn, claims: Claims) -> None:
     await conn.execute("SELECT set_config('app.user_id',   $1, true)", str(claims.sub))
     await conn.execute(
         "SELECT set_config('app.user_role', $1, true)",
-        (claims.roles[0] if claims.roles else "clinician"),
+        role_for_rls(claims),
     )

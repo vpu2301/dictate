@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -14,6 +15,7 @@ from observability import bootstrap, register_exception_handlers
 
 from .config import settings
 from .deps import install_state
+from .jobs import partition_rotation, rollup
 from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
 from .routers import health, phrases, suggest, telemetry
@@ -34,6 +36,22 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     state = await build_state()
     app.state.svc = state
     install_state(state)
+    # Maintenance loops run in-process (first iteration fires immediately, so
+    # a fresh deployment self-heals missing telemetry partitions). Both jobs
+    # are idempotent; disable via MDX_BACKGROUND_JOBS when an external
+    # scheduler owns them.
+    jobs: list[asyncio.Task[None]] = []
+    if settings.background_jobs_enabled and not settings.testing:
+        interval = settings.background_jobs_interval_s
+        jobs = [
+            asyncio.create_task(
+                partition_rotation.run_forever(interval_seconds=interval),
+                name="partition-rotation",
+            ),
+            asyncio.create_task(
+                rollup.run_forever(interval_seconds=interval), name="rollup"
+            ),
+        ]
     logger.info(
         "autocomplete-service.started",
         extra={"service": settings.service_name, "env": settings.environment},
@@ -41,6 +59,10 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        for task in jobs:
+            task.cancel()
+        if jobs:
+            await asyncio.gather(*jobs, return_exceptions=True)
         await teardown_state(state)
         logger.info("autocomplete-service.stopped")
 

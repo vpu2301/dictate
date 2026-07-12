@@ -63,26 +63,35 @@ def deserialize_trie(blob: bytes) -> TenantTrie:
         raise SerializerVersionMismatchError(f"version {version}, expected {VERSION}")
     if algo != ALGO_JSONGZ:
         raise SerializerVersionMismatchError(f"algo {algo}, expected {ALGO_JSONGZ}")
-    raw = gzip.decompress(blob[6:])
-    obj = json.loads(raw.decode("utf-8"))
-    entries: dict[str, PhraseTrieEntry] = {}
-    for eid, e in obj["entries"].items():
-        last = e["last_accepted_at"]
-        entries[eid] = PhraseTrieEntry(
-            id=e["id"],
-            phrase=e["phrase"],
-            source=e["source"],
-            impression_count=int(e["impression_count"]),
-            acceptance_count=int(e["acceptance_count"]),
-            last_accepted_at=datetime.fromisoformat(last) if last else None,
-            specialty=e.get("specialty"),
-            section_hint=e.get("section_hint"),
+    try:
+        raw = gzip.decompress(blob[6:])
+        obj = json.loads(raw.decode("utf-8"))
+        entries: dict[str, PhraseTrieEntry] = {}
+        for eid, e in obj["entries"].items():
+            last = e["last_accepted_at"]
+            entries[eid] = PhraseTrieEntry(
+                id=e["id"],
+                phrase=e["phrase"],
+                source=e["source"],
+                impression_count=int(e["impression_count"]),
+                acceptance_count=int(e["acceptance_count"]),
+                last_accepted_at=datetime.fromisoformat(last) if last else None,
+                specialty=e.get("specialty"),
+                section_hint=e.get("section_hint"),
+            )
+        return TenantTrie(
+            tenant_id=obj["tenant_id"],
+            language=obj["language"],
+            user_id=obj["user_id"],
+            prefix_to_ids=obj["prefix_to_ids"],
+            entries=entries,
+            built_at_unix=float(obj["built_at_unix"]),
         )
-    return TenantTrie(
-        tenant_id=obj["tenant_id"],
-        language=obj["language"],
-        user_id=obj["user_id"],
-        prefix_to_ids=obj["prefix_to_ids"],
-        entries=entries,
-        built_at_unix=float(obj["built_at_unix"]),
-    )
+    except SerializerVersionMismatchError:
+        raise
+    except Exception as exc:
+        # Truncated/corrupt payload behind a valid header (partial Redis
+        # write, mid-eviction read, schema drift inside the JSON). Same
+        # contract as a version mismatch: the cache treats it as a miss
+        # and rebuilds — format problems are self-healing by construction.
+        raise SerializerVersionMismatchError(f"corrupt payload: {exc}") from exc

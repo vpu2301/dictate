@@ -48,6 +48,11 @@ run-auth-service: ## Run auth-service on :8000 for the SPA (needs dev-up + migra
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 	uv run --project services/auth-service uvicorn auth_service.main:app --host 0.0.0.0 --port 8000
 
+.PHONY: run-autocomplete-service
+run-autocomplete-service: ## Run autocomplete-service on :8007 (needs dev-up + migrate-up + seed)
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+	uv run --project services/autocomplete-service uvicorn autocomplete_service.main:app --host 0.0.0.0 --port 8007
+
 doctor: ## Diagnose local environment issues
 	@bash scripts/doctor.sh
 
@@ -184,6 +189,9 @@ check-corpus: ## CI gate — WER corpus SHA-256 integrity + PII sweep + eval uni
 	uv run python scripts/eval/check_corpus_pii.py
 	uv run pytest scripts/eval/tests/ -q
 
+check-autocomplete-corpus: ## CI gate — validate the autocomplete seed corpus (sprint 10)
+	uv run python scripts/validate-autocomplete-corpus.py
+
 seed-templates: ## Seed 16 system templates via upsert_system_template() (sprint 06)
 	uv run python scripts/seed/seed_templates.py
 
@@ -232,7 +240,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config validate-templates check-corpus ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config validate-templates check-corpus check-autocomplete-corpus ## Mirror CI gates locally
 
 ci-with-db: ci check-rls openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

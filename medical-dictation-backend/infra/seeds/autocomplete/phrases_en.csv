@@ -1,0 +1,11 @@
+phrase,language,specialty,section_hint
+shortness of breath on exertion,en,cardiology,anamnesis
+chest pain radiating to left arm,en,cardiology,anamnesis
+regular sinus rhythm,en,cardiology,examination
+blood pressure 120/80 mmHg,en,cardiology,examination
+heart rate 72 bpm,en,cardiology,examination
+history of myocardial infarction,en,cardiology,anamnesis
+continue beta-blocker therapy,en,cardiology,plan
+no acute distress,en,general,examination
+alert and oriented x3,en,general,examination
+follow up in two weeks,en,general,follow_up

@@ -1,0 +1,26 @@
+[
+  {
+    "trigger": "cv",
+    "expansion": "Серцево-судинна система: ритм синусовий правильний, тони ясні ритмічні, АТ {_} мм рт ст, ЧСС {_} за хвилину, шумів не вислуховується.",
+    "cursor_position": 70,
+    "language": "uk"
+  },
+  {
+    "trigger": "vitals",
+    "expansion": "Температура {_} °C, АТ {_} мм рт ст, ЧСС {_} за хвилину, ЧДР {_} за хвилину, SpO₂ {_}%.",
+    "cursor_position": 13,
+    "language": "uk"
+  },
+  {
+    "trigger": "ecg",
+    "expansion": "ЕКГ: ритм синусовий, ЧСС {_} за хвилину, без особливостей.",
+    "cursor_position": 21,
+    "language": "uk"
+  },
+  {
+    "trigger": "plan",
+    "expansion": "План: {_}",
+    "cursor_position": 7,
+    "language": "uk"
+  }
+]
