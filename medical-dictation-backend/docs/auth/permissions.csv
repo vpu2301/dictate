@@ -114,16 +114,16 @@ service,template.read,template,true,sprint 06 — dictation-service loads on ses
 service,template.clone,template,false,
 service,template.update,template,false,
 service,template.deprecate,template,false,
-tenant_admin,report.write,report,true,sprint 08 — create/edit/finalize/amend reports
-tenant_admin,report.read,report,true,sprint 08 — read tenant's reports (incl. diff/search)
-clinician,report.write,report,true,sprint 08 — authors own reports
-clinician,report.read,report,true,sprint 08 — reads own reports
-nurse,report.write,report,true,sprint 08 — authors reports
-nurse,report.read,report,true,sprint 08 — reads reports
+tenant_admin,report.write,report,true,sprint 08 — create/edit/finalize/amend reports; sprint 10 — also gates /autocomplete phrase+snippet writes (scope reuse; RLS enforces per-scope authority)
+tenant_admin,report.read,report,true,sprint 08 — read tenant's reports (incl. diff/search); sprint 10 — also gates /autocomplete/* (suggest/phrases/telemetry): deliberate reuse of report.read; granular autocomplete.* scopes deferred until a role needs the distinction
+clinician,report.write,report,true,sprint 08 — authors own reports; sprint 10 — also gates /autocomplete phrase+snippet writes (scope reuse; RLS enforces per-scope authority)
+clinician,report.read,report,true,sprint 08 — reads own reports; sprint 10 — also gates /autocomplete/* (suggest/phrases/telemetry): deliberate reuse of report.read; granular autocomplete.* scopes deferred until a role needs the distinction
+nurse,report.write,report,true,sprint 08 — authors reports; sprint 10 — also gates /autocomplete phrase+snippet writes (scope reuse; RLS enforces per-scope authority)
+nurse,report.read,report,true,sprint 08 — reads reports; sprint 10 — also gates /autocomplete/* (suggest/phrases/telemetry): deliberate reuse of report.read; granular autocomplete.* scopes deferred until a role needs the distinction
 auditor,report.write,report,false,read-only role — no clinical content writes
 auditor,report.read,report,false,clinical content out of audit role (mirrors dictation)
 service,report.write,report,false,user-only authoring
-service,report.read,report,true,sprint 09 — signing-service S2S reads report to sign
+service,report.read,report,true,sprint 09 — signing-service S2S reads report to sign; sprint 10 — also gates /autocomplete/* (suggest/phrases/telemetry): deliberate reuse of report.read; granular autocomplete.* scopes deferred until a role needs the distinction
 tenant_admin,patient.read,patient,true,sprint 11 — read patient roster + record
 tenant_admin,patient.write,patient,true,sprint 11 — create/update patients/encounters/consents/anamnesis/privacy
 clinician,patient.read,patient,true,sprint 11 — reads patients

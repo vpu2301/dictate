@@ -24,7 +24,7 @@ VALUES
     (NULL, NULL, 'температура тіла нормальна', 'uk', 'general', 'examination', 'system'),
     (NULL, NULL, 'шкіра звичайного кольору', 'uk', 'general', 'examination', 'system'),
     (NULL, NULL, 'свідомість ясна', 'uk', 'general', 'examination', 'system'),
-    (NULL, NULL, 'скарг на момент огляду не пред''являє', 'uk', 'general', 'anamnesis', 'system'),
+    (NULL, NULL, 'скарг на момент огляду не пред’являє', 'uk', 'general', 'anamnesis', 'system'),
     (NULL, NULL, 'загальний стан задовільний', 'uk', 'general', 'examination', 'system'),
     -- ── UK / endocrinology ─────────────────────────────────────────
     (NULL, NULL, 'цукровий діабет 2 типу', 'uk', 'endocrinology', 'diagnosis', 'system'),

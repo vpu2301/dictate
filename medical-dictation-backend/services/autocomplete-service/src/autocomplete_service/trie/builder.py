@@ -9,12 +9,19 @@ cost; production at larger scale will swap in marisa-trie's
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 MAX_PREFIX_LEN = 6
 TOP_K_PER_PREFIX = 20
+
+
+def normalize(text: str) -> str:
+    """NFC + lowercase — applied IDENTICALLY at build and lookup time so
+    decomposed uk Cyrillic (й = и + ◌̆) still matches composed corpus text."""
+    return unicodedata.normalize("NFC", text).lower()
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,15 +52,15 @@ class TenantTrie:
     def candidates_for(self, prefix: str, *, k: int = TOP_K_PER_PREFIX) -> list[PhraseTrieEntry]:
         if not prefix:
             return []
-        key = prefix.lower()[:MAX_PREFIX_LEN]
+        norm = normalize(prefix)
+        key = norm[:MAX_PREFIX_LEN]
         ids = self.prefix_to_ids.get(key)
         if not ids:
             # Fall back to scanning entries whose phrase starts with the
             # prefix when no exact prefix-bucket hit (e.g. prefix > 6 chars).
-            full = prefix.lower()
             out: list[PhraseTrieEntry] = []
             for e in self.entries.values():
-                if e.phrase.lower().startswith(full):
+                if normalize(e.phrase).startswith(norm):
                     out.append(e)
                     if len(out) >= k * 2:
                         break
@@ -81,9 +88,9 @@ def build_trie_from_phrases(
             * (e.acceptance_count + 1)
             / (e.impression_count + 10)
         )
-        phrase_lower = e.phrase.lower()
-        for length in range(1, min(MAX_PREFIX_LEN, len(phrase_lower)) + 1):
-            key = phrase_lower[:length]
+        phrase_norm = normalize(e.phrase)
+        for length in range(1, min(MAX_PREFIX_LEN, len(phrase_norm)) + 1):
+            key = phrase_norm[:length]
             by_prefix.setdefault(key, []).append((e.id, coarse))
 
     prefix_to_ids: dict[str, list[str]] = {}

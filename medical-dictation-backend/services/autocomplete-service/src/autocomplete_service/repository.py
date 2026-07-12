@@ -9,7 +9,7 @@ three GUC keys for the ``write_user_phrases`` policy).
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -207,7 +207,7 @@ async def rollup_tenant_day(
     conn: asyncpg.Connection,
     *,
     tenant_id: UUID,
-    day_iso: str,
+    day: date,
 ) -> int:
     """Aggregate one tenant's telemetry for one day into phrase counters.
 
@@ -216,7 +216,7 @@ async def rollup_tenant_day(
     """
     row = await conn.fetchrow(
         "SELECT 1 FROM autocomplete_rollup_progress WHERE rollup_date = $1::date AND tenant_id = $2",
-        day_iso,
+        day,
         tenant_id,
     )
     if row is not None:
@@ -236,30 +236,27 @@ async def rollup_tenant_day(
         GROUP BY phrase_id
         """,
         tenant_id,
-        day_iso,
+        day,
     )
     updated = 0
     for r in impressions:
-        await conn.execute(
-            """
-            UPDATE autocomplete_phrases
-            SET impression_count = impression_count + $2,
-                acceptance_count = acceptance_count + $3,
-                last_accepted_at = COALESCE($4, last_accepted_at),
-                updated_at       = now()
-            WHERE id = $1
-            """,
+        # SECURITY DEFINER function from migration 0037 — the RESTRICTIVE
+        # update policy blocks app_role from touching system-phrase rows,
+        # which silently no-opped a plain UPDATE here.
+        bumped: bool = await conn.fetchval(
+            "SELECT autocomplete_bump_phrase_counters($1, $2, $3, $4)",
             r["phrase_id"],
             int(r["impressions"]),
             int(r["accepts"]),
             r["last_acc"],
         )
-        updated += 1
+        if bumped:
+            updated += 1
 
     await conn.execute(
         "INSERT INTO autocomplete_rollup_progress (rollup_date, tenant_id, events_processed) "
         "VALUES ($1::date, $2, $3)",
-        day_iso,
+        day,
         tenant_id,
         sum(int(r["impressions"]) for r in impressions),
     )
@@ -270,13 +267,23 @@ async def create_next_telemetry_partition(
     conn: asyncpg.Connection, *, start: datetime, end: datetime
 ) -> str:
     """Idempotent partition creation. ``start`` and ``end`` are
-    timezone-aware datetimes at month boundaries."""
-    name = f"autocomplete_telemetry_{start.strftime('%Y_%m')}"
-    await conn.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS {name}
-        PARTITION OF autocomplete_telemetry
-        FOR VALUES FROM ('{start.date().isoformat()}') TO ('{end.date().isoformat()}')
-        """
+    timezone-aware datetimes at month boundaries.
+
+    Goes through the SECURITY DEFINER function from migration 0036 —
+    app_role has no DDL rights on the partitioned table itself.
+    """
+    name: str = await conn.fetchval(
+        "SELECT autocomplete_create_telemetry_partition($1, $2)",
+        start.date(),
+        end.date(),
     )
     return name
+
+
+async def soft_delete_snippet(conn: asyncpg.Connection, *, snippet_id: UUID) -> bool:
+    row = await conn.fetchrow(
+        "UPDATE autocomplete_snippets SET enabled = FALSE, updated_at = now() "
+        "WHERE id = $1 RETURNING id",
+        snippet_id,
+    )
+    return row is not None

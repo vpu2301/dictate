@@ -5,11 +5,15 @@ are preferred over false negatives (PII leak into telemetry).
 
 Patterns redacted:
 - 10-digit unbroken (Ukrainian IPN).
-- 7-digit unbroken (phone-like).
+- 7–14 digit unbroken runs, optional leading ``+`` (phone-like, incl.
+  international ``+380…``).
 - Email (RFC-5322-lite).
 - Passport pattern (2 letters + 6 digits).
 - 13-digit medical ID.
 - Dates in DD.MM.YYYY or DD/MM/YYYY format.
+
+Known limitation: digit groups broken by spaces/dashes ("050 123 45 67")
+are not caught — extending that far risks eating vitals sequences.
 
 Replacement: ``<redacted_PII>``.
 
@@ -34,7 +38,11 @@ _PATTERNS: Final[list[tuple[str, re.Pattern[str]]]] = [
     ("med_id", re.compile(r"\b\d{13}\b")),
     ("passport", re.compile(r"\b[A-Za-zА-ЯЇІЄҐа-яїієґ]{2}\s?\d{6}\b")),
     ("dob_like", re.compile(r"\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b")),
-    ("phone", re.compile(r"\b\d{7,9}\b")),
+    # 7–14 contiguous digits, optional leading "+": covers local numbers
+    # AND international formats (+380501234567 is 12 digits — previously
+    # fell between the exact-10 IPN and exact-13 med-id patterns and
+    # leaked). ipn/med_id run first so their counts stay attributed.
+    ("phone", re.compile(r"(?<![\d+])\+?\d{7,14}(?!\d)")),
 ]
 
 

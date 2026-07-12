@@ -1,5 +1,17 @@
 # Outstanding human / business actions
 
+## Autocomplete (S10 carry-over)
+
+- [ ] **Full clinical corpus authoring (~10k UK / ~3k EN phrases, ~60
+      snippets)** — owner: **clinical content lead**. Engineering ships
+      only the 30-phrase starter set (migration 0026); unreviewed
+      clinical content is a patient-safety risk and must not be
+      authored by engineering. Workflow: author CSV/JSON per
+      `infra/seeds/autocomplete/README.md` → run
+      `scripts/validate-autocomplete-corpus.py` (PII + shape gate) →
+      engineering renders `--emit-sql` into a migration PR → clinical
+      sign-off on the PR.
+
 ## Signing (S09 revision)
 
 - [ ] **Дія.Підпис test credentials** — request the free test

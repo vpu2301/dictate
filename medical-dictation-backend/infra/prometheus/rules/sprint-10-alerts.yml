@@ -1,0 +1,71 @@
+groups:
+  - name: sprint-10-autocomplete
+    interval: 1m
+    rules:
+      # NOTE (accepted decision): this five-alert set substitutes the sprint
+      # doc's "trie size" and "telemetry buffer overflow" alerts with the two
+      # PII-control spike alerts — capacity trends live as dashboard panels
+      # (trie size histogram, dropped counter); PII spikes are security
+      # signals. Recorded in docs/runbooks/autocomplete.md#alerts.
+      #
+      # No Alertmanager routing exists yet: these fire in the Prometheus UI
+      # only (deployment-sprint concern).
+
+      - alert: AutocompleteSuggestLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket{path="hit"}[5m])) by (le))
+          > 150
+        for: 10m
+        labels:
+          severity: page
+          team: backend
+        annotations:
+          summary: "Suggest p95 (cache hit) > 150 ms — the latency budget is breached"
+          runbook: "docs/runbooks/autocomplete.md#alert-suggest-latency"
+
+      - alert: AutocompleteCacheHitRatioLow
+        expr: |
+          sum(rate(mdx_autocomplete_cache_lookups_total{hit="true"}[15m]))
+          / clamp_min(
+              sum(rate(mdx_autocomplete_cache_lookups_total[15m]))
+              + sum(rate(mdx_autocomplete_degraded_total[15m])), 1) < 0.80
+        for: 15m
+        labels:
+          severity: warn
+          team: backend
+        annotations:
+          summary: "Cache hit ratio < 80% — Redis health / eviction / lock storms"
+          runbook: "docs/runbooks/autocomplete.md#alert-cache-hit-ratio"
+
+      - alert: AutocompleteScrubberRedactionSpike
+        expr: |
+          sum(rate(mdx_autocomplete_telemetry_scrubber_redactions_total[15m]))
+            > 4 * sum(rate(mdx_autocomplete_telemetry_scrubber_redactions_total[15m] offset 1d))
+          and sum(rate(mdx_autocomplete_telemetry_scrubber_redactions_total[15m])) > 0.05
+        for: 15m
+        labels:
+          severity: warn
+          team: dpo
+        annotations:
+          summary: "PII redactions spiking — the SPA is leaking field contents into prefixes"
+          runbook: "docs/runbooks/autocomplete.md#alert-scrubber-spike"
+
+      - alert: AutocompletePhraseWritePiiRejectionSpike
+        expr: sum(rate(mdx_autocomplete_phrase_write_pii_rejections_total[15m])) > 0.02
+        for: 15m
+        labels:
+          severity: warn
+          team: security
+        annotations:
+          summary: "Phrase-write PII rejections spiking — users trying to store patient data"
+          runbook: "docs/runbooks/autocomplete.md#alert-pii-rejections"
+
+      - alert: AutocompleteRollupMissed
+        expr: (time() - max(mdx_autocomplete_rollup_last_run_unix_ts)) > 26*3600
+        labels:
+          severity: page
+          team: sre
+        annotations:
+          summary: "Roll-up has not succeeded in > 26 h — the learning loop is broken"
+          runbook: "docs/runbooks/autocomplete.md#alert-rollup-missed"

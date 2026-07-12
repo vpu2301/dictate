@@ -135,3 +135,43 @@ def test_suggest_from_trie_empty_on_unknown_prefix():
         rows=[_entry("a", "інше")],
     )
     assert suggest_from_trie(trie=trie, prefix="zzzzzzz", limit=3) == []
+
+
+def test_normalization_nfc_and_case_at_build_and_lookup():
+    """Decomposed uk Cyrillic + mixed case must match composed corpus text."""
+    import unicodedata
+
+    from autocomplete_service.trie.builder import PhraseTrieEntry, build_trie_from_phrases
+
+    composed = "рИтм синусовий"  # 'и' composed, mixed case
+    trie = build_trie_from_phrases(
+        tenant_id="t", language="uk", user_id="u",
+        rows=[PhraseTrieEntry(
+            id="a", phrase=composed, source="system", impression_count=0,
+            acceptance_count=0, last_accepted_at=None, specialty=None,
+            section_hint=None,
+        )],
+    )
+    # Lookup with a DECOMPOSED (NFD) uppercase prefix.
+    nfd_prefix = unicodedata.normalize("NFD", "РИ")
+    got = trie.candidates_for(nfd_prefix)
+    assert [e.id for e in got] == ["a"]
+    # Long decomposed prefix takes the scan fallback — must also match.
+    nfd_long = unicodedata.normalize("NFD", "ритм синусов")
+    assert [e.id for e in trie.candidates_for(nfd_long)] == ["a"]
+
+
+def test_serializer_corrupt_payload_raises_mismatch_not_crash():
+    import pytest
+    from autocomplete_service.trie.serializer import (
+        ALGO_JSONGZ,
+        MAGIC,
+        VERSION,
+        SerializerVersionMismatchError,
+        deserialize_trie,
+    )
+
+    # valid header, garbage payload (truncated gzip)
+    blob = MAGIC + bytes([VERSION, ALGO_JSONGZ]) + b"\x1f\x8b\x08trunc"
+    with pytest.raises(SerializerVersionMismatchError):
+        deserialize_trie(blob)

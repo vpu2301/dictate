@@ -30,6 +30,192 @@
     "min_avg_probability": 0.85
   },
   {
+    "intent": "dash",
+    "phrases": [["тире"], ["довге", "тире"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "colon",
+    "phrases": [["двокрапка"], ["двокрапку"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "exclamation_mark",
+    "phrases": [["знак", "оклику"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "semicolon",
+    "phrases": [["крапка", "з", "комою"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "ellipsis",
+    "phrases": [["три", "крапки"], ["багатокрапка"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "hyphen",
+    "phrases": [["дефіс"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "en_dash",
+    "phrases": [["коротке", "тире"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "open_double_quote",
+    "phrases": [["відкрити", "подвійні", "лапки"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "close_double_quote",
+    "phrases": [["закрити", "подвійні", "лапки"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "open_single_quote",
+    "phrases": [["відкрити", "одинарні", "лапки"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "close_single_quote",
+    "phrases": [["закрити", "одинарні", "лапки"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "open_paren",
+    "phrases": [["відкрити", "круглу", "дужку"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "close_paren",
+    "phrases": [["закрити", "круглу", "дужку"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "open_bracket",
+    "phrases": [["відкрити", "квадратну", "дужку"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "close_bracket",
+    "phrases": [["закрити", "квадратну", "дужку"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "open_brace",
+    "phrases": [["відкрити", "фігурну", "дужку"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "close_brace",
+    "phrases": [["закрити", "фігурну", "дужку"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "slash",
+    "phrases": [["скісна", "риска"], ["слеш"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "backslash",
+    "phrases": [["зворотна", "скісна", "риска"], ["бекслеш"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "apostrophe",
+    "phrases": [["апостроф"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "asterisk",
+    "phrases": [["зірочка"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "hash",
+    "phrases": [["решітка"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "numero_sign",
+    "phrases": [["знак", "номера"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "percent_sign",
+    "phrases": [["знак", "відсотка"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "ampersand",
+    "phrases": [["амперсанд"], ["і", "комерційне"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "at_sign",
+    "phrases": [["собачка"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "plus_sign",
+    "phrases": [["знак", "плюс"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "minus_sign",
+    "phrases": [["знак", "мінус"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "equals_sign",
+    "phrases": [["знак", "дорівнює"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "underscore",
+    "phrases": [["нижнє", "підкреслення"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "vertical_bar",
+    "phrases": [["вертикальна", "риска"]],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
     "intent": "section.diagnosis",
     "phrases": [["розділ", "діагноз"], ["перейти", "до", "діагнозу"]],
     "requires_pause_before_ms": 350,
@@ -65,19 +251,19 @@
   },
   {
     "intent": "save_draft",
-    "phrases": [["зберегти", "чернетку"], ["зберегти", "як", "чернетку"]],
+    "phrases": [["зберегти", "чернетку"], ["зберегти", "як", "чернетку"], ["зберегти"]],
     "requires_pause_before_ms": 300,
     "min_avg_probability": 0.85
   },
   {
     "intent": "undo_last",
-    "phrases": [["відмінити", "останнє"], ["скасувати", "останнє"]],
+    "phrases": [["відмінити", "останнє"], ["скасувати", "останнє"], ["скасувати"]],
     "requires_pause_before_ms": 300,
     "min_avg_probability": 0.85
   },
   {
     "intent": "stop_dictation",
-    "phrases": [["стоп", "диктування"], ["зупинити", "диктування"], ["закінчити", "диктування"]],
+    "phrases": [["стоп", "диктування"], ["зупинити", "диктування"], ["закінчити", "диктування"], ["кінець", "диктування"]],
     "requires_pause_before_ms": 350,
     "min_avg_probability": 0.85
   },

@@ -54,3 +54,11 @@
 - [x] `docs/signoffs/sprint-10-dpo.md` template
 - [x] SIGN-OFF + RETRO + SPRINT-TODO
 - [x] Memory entry + MEMORY.md index
+
+## Carry-overs (named owners — not silently dropped)
+
+- [ ] **Full clinical corpus authoring (~10k UK / ~3k EN phrases, ~60
+      snippets)** — owner: **clinical content lead**. Starter set
+      (migration 0026, 30 phrases + 7 snippets) is the engineering
+      ceiling; authoring contract + validator workflow in
+      `infra/seeds/autocomplete/README.md`; also tracked in `todo.md`.

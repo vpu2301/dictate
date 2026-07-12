@@ -72,5 +72,12 @@ GRANT SELECT, INSERT, UPDATE ON signing_sessions TO app_role;
 -- by ``provider_session_id`` first (no tenant context yet), then
 -- transitions the row. Granted via SECURITY DEFINER function in
 -- the service layer.
-CREATE ROLE app_callback_writer;
+-- Guarded (sprint-10 verification): see the matching note in 0019 —
+-- cluster-global role, unguarded CREATE aborts on a second database.
+DO $$
+BEGIN
+    CREATE ROLE app_callback_writer;
+EXCEPTION WHEN duplicate_object THEN
+    NULL;
+END $$;
 GRANT SELECT, UPDATE ON signing_sessions TO app_callback_writer;

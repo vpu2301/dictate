@@ -1,0 +1,380 @@
+{
+  "title": "Sprint 10 — Autocomplete",
+  "uid": "sprint-10-autocomplete",
+  "tags": [
+    "sprint-10",
+    "autocomplete"
+  ],
+  "timezone": "utc",
+  "refresh": "30s",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "schemaVersion": 39,
+  "version": 2,
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Latency — budget: p95 ≤ 80 ms on cache hit (page at 150 ms)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Suggest latency by path (p95)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket[5m])) by (le, path))",
+          "legendFormat": "p95 {{path}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Reference lines: 80 ms budget, 150 ms page threshold (AutocompleteSuggestLatencyHigh).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Suggest p50 / p95 / p99 (hit path)",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket{path=\"hit\"}[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket{path=\"hit\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_bucket{path=\"hit\"}[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Request rate by path",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_suggest_latency_ms_histogram_count[5m])) by (path)",
+          "legendFormat": "{{path}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Cache",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "panels": []
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Cache lookups & degraded",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_cache_lookups_total{hit=\"true\"}[5m]))",
+          "legendFormat": "hit",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(mdx_autocomplete_cache_lookups_total{hit=\"false\"}[5m]))",
+          "legendFormat": "miss",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(mdx_autocomplete_degraded_total[5m])) by (reason)",
+          "legendFormat": "degraded {{reason}}",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Hit ratio (15 m, alert < 0.80)",
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 8,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_cache_lookups_total{hit=\"true\"}[15m])) / clamp_min(sum(rate(mdx_autocomplete_cache_lookups_total[15m])) + sum(rate(mdx_autocomplete_degraded_total[15m])), 1)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Trie build duration (p95)",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mdx_autocomplete_trie_build_seconds_bucket[15m])) by (le))",
+          "legendFormat": "build p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Trie size p95 (bytes) — capacity watch",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mdx_autocomplete_trie_size_bytes_bucket[1h])) by (le))",
+          "legendFormat": "size p95",
+          "refId": "A"
+        }
+      ],
+      "description": "Capacity watch replacing the sprint doc's trie-size ALERT (accepted substitution): any tenant crossing 50k phrases triggers the marisa-trie swap behind TenantTrie.candidates_for — see ADR-0025 and the runbook.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Learning loop",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Telemetry events by type",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 19
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_telemetry_events_total[5m])) by (event)",
+          "legendFormat": "{{event}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Telemetry rows dropped — capacity watch",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 8,
+        "y": 19
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_telemetry_dropped_total[5m])) by (reason)",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Capacity watch replacing the sprint doc's buffer-overflow ALERT (accepted substitution): shedding is by design; sustained drops mean the flush path or DB needs attention."
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Roll-up last success age (page > 26 h)",
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 14,
+        "y": 19
+      },
+      "targets": [
+        {
+          "expr": "time() - max(mdx_autocomplete_rollup_last_run_unix_ts)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Scrubber redactions by pattern",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 19
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_telemetry_scrubber_redactions_total[15m])) by (patterns)",
+          "legendFormat": "{{patterns}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Corpus & safety",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Phrase/snippet write & delete rate (audit events)",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 28
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_telemetry_events_total{event=\"accepted\"}[15m]))",
+          "legendFormat": "accepts (proxy)",
+          "refId": "A"
+        }
+      ],
+      "description": "Direct write-rate metrics arrive with the sprint-16 admin surface; accepts are the write-driver proxy this sprint."
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "PII write rejections by pattern (alert > 0.02/s)",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 28
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_autocomplete_phrase_write_pii_rejections_total[15m])) by (pattern)",
+          "legendFormat": "{{pattern}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Corpus size by source",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 28
+      },
+      "targets": [
+        {
+          "expr": "mdx_autocomplete_corpus_size",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Refreshed at roll-up. RLS limits the unscoped count to system rows; tenant/user scope counts are a sprint-16 admin-surface concern."
+    }
+  ]
+}

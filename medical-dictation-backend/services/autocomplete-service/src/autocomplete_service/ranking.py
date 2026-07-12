@@ -47,6 +47,10 @@ def bayesian_acceptance(impressions: int, accepts: int) -> float:
 def recency_boost(last_accepted_at: datetime | None, *, now: datetime | None = None) -> float:
     if last_accepted_at is None:
         return 1.0
+    # Defensive: naive datetimes (e.g. asyncpg's decoding of ±infinity) must
+    # degrade to "no boost", never crash the suggest path.
+    if last_accepted_at.tzinfo is None:
+        return 1.0
     now = now or datetime.now(UTC)
     days_ago = (now - last_accepted_at).total_seconds() / 86400.0
     if days_ago < 0 or days_ago > 30:

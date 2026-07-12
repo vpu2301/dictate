@@ -29,6 +29,26 @@ def test_phone_redacted():
     assert "0501234567" not in out.text
 
 
+def test_intl_phone_redacted():
+    # Regression: +380501234567 is a 12-digit run — used to fall between
+    # the exact-10 IPN and exact-13 med-id patterns and leak verbatim.
+    out = scrub_prefix("пацієнт тел +380501234567 вранці")
+    assert "380501234567" not in out.text
+    assert out.redactions["phone"] == 1
+
+
+def test_11_and_12_digit_runs_redacted():
+    for run in ("38050123456", "380501234567"):
+        out = scrub_prefix(f"номер {run} у файлі")
+        assert run not in out.text, f"leaked: {run}"
+
+
+def test_vitals_not_scrubbed():
+    safe = "АТ 120/80 мм рт ст, ЧСС 72 за хвилину"
+    out = scrub_prefix(safe)
+    assert out.text == safe
+
+
 def test_passport_redacted():
     out = scrub_prefix("серія АВ 123456 паспорт")
     assert "АВ 123456" not in out.text
@@ -70,7 +90,16 @@ def test_scrub_corpus_completeness():
         "дата народження 12.05.1980",
         "ID 1234567890123",
         "email john.doe+tag@example.co.uk",
+        "мобільний +380501234567",
+        "тел 380501234567",
     ]
     for c in cases:
         out = scrub_prefix(c)
         assert REDACTED in out.text, f"PII not scrubbed: {c!r}"
+
+
+def test_passport_latin_no_space_redacted():
+    # §8: passport both as "АБ 123456" (covered above) and "AB123456".
+    out = scrub_prefix("passport AB123456 on file")
+    assert "AB123456" not in out.text
+    assert out.redactions.get("passport") == 1

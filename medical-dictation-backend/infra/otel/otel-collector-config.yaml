@@ -25,10 +25,14 @@ exporters:
     tls:
       insecure: true
 
-  # Metrics → Prometheus scrape endpoint
+  # Metrics → Prometheus scrape endpoint.
+  # NO namespace here: every dashboard and alert rule in the repo queries
+  # the bare `mdx_*` names (mdx_ IS the app-level namespace). The former
+  # `namespace: medical_dictation` silently prefixed every exported metric
+  # and left ALL sprint dashboards/alerts querying nonexistent names
+  # (found in the sprint-10 verification pass).
   prometheus:
     endpoint: "0.0.0.0:8889"
-    namespace: medical_dictation
 
   # Logs → Loki
   loki:

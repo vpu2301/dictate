@@ -1,0 +1,20 @@
+[
+  {
+    "trigger": "cv",
+    "expansion": "Cardiovascular: regular sinus rhythm, no murmurs, BP {_} mmHg, HR {_} bpm.",
+    "cursor_position": 50,
+    "language": "en"
+  },
+  {
+    "trigger": "vitals",
+    "expansion": "Vitals: T {_} °C, BP {_} mmHg, HR {_} bpm, RR {_} /min, SpO₂ {_}%.",
+    "cursor_position": 11,
+    "language": "en"
+  },
+  {
+    "trigger": "plan",
+    "expansion": "Plan: {_}",
+    "cursor_position": 6,
+    "language": "en"
+  }
+]

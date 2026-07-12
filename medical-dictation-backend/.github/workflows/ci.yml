@@ -92,6 +92,7 @@ jobs:
           make check-no-crypto
           make validate-templates
           make check-corpus
+          make check-autocomplete-corpus
 
   # ──────────────────────────────────────────────────────────────
   test:
