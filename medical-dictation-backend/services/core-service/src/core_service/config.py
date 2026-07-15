@@ -9,6 +9,8 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from secret import Secret
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -64,6 +66,26 @@ class Settings(BaseSettings):
 
     # Roster list page size ceiling.
     patient_list_max_limit: int = Field(default=200, alias="MDX_PATIENT_LIST_MAX_LIMIT")
+
+    # ── Patient identity (ІПН) — S11 step 01 ────────────────────────
+    # HMAC key for the ipn_hmac lookup token. Deliberately independent from
+    # signing-service's SIGNER_IPN_HMAC_KEY (ADR-0027): patient identity and
+    # signer identity are separate spaces; unifying them later is a config
+    # change, not a schema change. Rotation orphans every stored hmac and
+    # requires a re-HMAC migration under maintenance — do not rotate casually.
+    patient_ipn_hmac_key: Secret[str] = Field(
+        default_factory=lambda: Secret("00" * 32), alias="MDX_PATIENT_IPN_HMAC_KEY"
+    )
+    # Raw-ІПН retention (envelope-encrypted). OFF pending DPO sign-off —
+    # see todo.md; the hmac path is unaffected either way.
+    patient_ipn_raw_enabled: bool = Field(default=False, alias="PATIENT_IPN_RAW_ENABLED")
+
+    # Envelope-encryption wiring, needed only when raw retention is enabled.
+    db_crypto_writer_dsn: str = Field(
+        default="postgresql://crypto_writer:crypto_writer@localhost:5432/medical_dictation",
+        alias="DB_CRYPTO_WRITER_DSN",
+    )
+    master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
 
 
 settings = Settings()

@@ -127,7 +127,7 @@ def test_list_paginates_with_cursor(
 ) -> None:
     from core_service.domain import patients_repository
 
-    async def _list(conn, *, query, limit, cursor):  # noqa: ANN001
+    async def _list(conn, *, query, limit, cursor, **kwargs):  # noqa: ANN001, ANN003
         # Repository fetches limit+1 to signal a next page.
         return [
             _patient_row(id=UUID(int=i), last_visit_at=datetime(2026, 6, i + 1, tzinfo=UTC))
@@ -147,7 +147,7 @@ def test_list_no_next_cursor_when_exhausted(
 ) -> None:
     from core_service.domain import patients_repository
 
-    async def _list(conn, *, query, limit, cursor):  # noqa: ANN001
+    async def _list(conn, *, query, limit, cursor, **kwargs):  # noqa: ANN001, ANN003
         return [_patient_row()]
 
     monkeypatch.setattr(patients_repository, "list_patients", _list)
@@ -195,7 +195,11 @@ def test_update_patient(
         seen.update(fields)
         return _patient_row(status="inactive", tags=["htn"])
 
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
     monkeypatch.setattr(patients_repository, "update_patient", _update)
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
     resp = client.put(
         f"/patients/{PATIENT_ID}",
         json={"status": "inactive", "tags": ["htn"]},

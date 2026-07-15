@@ -1,5 +1,22 @@
 # Outstanding human / business actions
 
+## Patient identity & privacy (S11)
+
+- [ ] **Raw-ІПН retention decision** — owner: **DPO**. The platform
+      stores the patient ІПН as an HMAC lookup token only;
+      envelope-encrypted raw retention exists behind
+      `PATIENT_IPN_RAW_ENABLED` (default **false**). Flip only with a
+      documented lawful basis (Law 2297-VI data-minimization); the flag
+      flip is the whole change (columns + crypto path already shipped,
+      ADR-0027 decision B).
+- [ ] **ІПН-hmac-at-erasure confirmation** — owner: **DPO**. ADR-0027
+      records that erasure NULLs `ipn_hmac` (total identity
+      destruction; no "previously erased" tombstone match on
+      re-registration). Confirm, or direct the alternative (keep the
+      hmac on the erased row for duplicate warnings — legal under the
+      partial unique index, but retains a derived identifier of an
+      erased person). Step-07 erasure engine consumes this decision.
+
 ## Autocomplete (S10 carry-over)
 
 - [ ] **Full clinical corpus authoring (~10k UK / ~3k EN phrases, ~60

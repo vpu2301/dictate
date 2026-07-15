@@ -542,6 +542,17 @@
             ],
             "title": "Dob"
           },
+          "ipn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ipn"
+          },
           "mrn": {
             "default": "",
             "title": "Mrn",
@@ -632,6 +643,11 @@
             ],
             "title": "Dob"
           },
+          "has_ipn": {
+            "default": false,
+            "title": "Has Ipn",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -710,6 +726,17 @@
             ],
             "title": "Dob"
           },
+          "ipn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ipn"
+          },
           "mrn": {
             "anyOf": [
               {
@@ -753,7 +780,8 @@
                 "enum": [
                   "active",
                   "inactive",
-                  "deceased"
+                  "deceased",
+                  "erased"
                 ],
                 "type": "string"
               },
@@ -1512,6 +1540,16 @@
                 }
               ],
               "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_erased",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Erased",
+              "type": "boolean"
             }
           },
           {
