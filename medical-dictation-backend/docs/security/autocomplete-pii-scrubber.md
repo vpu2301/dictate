@@ -63,3 +63,28 @@ grows it via DPO + clinical content lead review.
 
 Any regex change requires a new row above + a re-review of the test
 corpus.
+
+
+## Change log
+
+### Sprint-11 review (2026-07-15) — one gap closed, boundary documented
+
+**Gap check outcome:** the sprint's free-text intake fields were
+inventoried. One path crosses the trust boundary: the erasure
+``rejection_reason`` is echoed into the audit payload (convention: ids
+only). Closed by scrub-on-write via ``core_service/scrub.py`` — a
+VERBATIM copy of this document's pattern set (services must not import
+services); byte-for-byte parity is pinned by
+``core-service/tests/unit/test_closeout_guards.py`` — a change to
+either copy fails CI and is a DPO re-review of BOTH.
+
+**No regex extension required.** Privacy-request ``reason`` stays out
+of audit payloads entirely; consent rows carry no free-text note field.
+
+**The clinical-content boundary (deliberate non-scrubbing):** clinical
+bodies — notes, anamnesis, report content, transcripts — are PHI *by
+design* and are NOT scrubbed. Their protection is RLS + envelope
+encryption inside the trust boundary; redaction there would corrupt the
+medical record. Scrubbing applies only to text that LEAVES the boundary
+(telemetry prefixes, audit payload fragments, metric labels — the last
+verified label-free of free text by the same test module).

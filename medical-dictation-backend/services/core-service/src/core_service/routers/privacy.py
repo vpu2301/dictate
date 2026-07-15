@@ -36,6 +36,7 @@ from .. import audit_helper, audit_kinds
 from ..config import settings
 from ..deps import get_state, requires
 from ..domain import patients_repository, privacy_repository
+from ..scrub import scrub_free_text
 
 router = APIRouter(tags=["privacy"])
 
@@ -366,7 +367,9 @@ async def reject_request(
         target_id=row["patient_id"],
         payload={
             "request_id": str(request_id),
-            "rejection_reason": body.rejection_reason.strip()[:200],
+            # Free text leaving the trust boundary: PII-shapes scrubbed on
+            # write (audit convention: ids only, never identity strings).
+            "rejection_reason": scrub_free_text(body.rejection_reason.strip())[:200],
         },
         severity=Severity.SEC,
     )

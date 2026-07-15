@@ -105,3 +105,54 @@ identity data; retained: 1 signed clinical report
   append-only, the engine writes THROUGH it (every destruction is an
   event), and the chain verifier passes end-to-end after every erasure
   — asserted in the step-07 battery.
+
+## Who may do what
+
+| action | permission | roles |
+|---|---|---|
+| request erasure / DSAR-adjacent record writes | `patient.write` | tenant_admin, clinician, nurse |
+| **approve / reject** an erasure (second person) | `privacy.approve` | tenant_admin ONLY — and never the requester (403 `two_person_rule` + DB CHECK) |
+| trigger / download a DSAR package | `patient.dsar` | tenant_admin ONLY |
+| execute destruction | nobody over HTTP — the engine's `mdx_erasure` DB credential, cron/manual only |
+
+## Explaining retained items to a patient (basis → human text, uk)
+
+| basis string | що сказати пацієнтові |
+|---|---|
+| `retention:clinical_record_signed` | «Підписаний медичний звіт зберігається протягом встановленого законодавством строку зберігання медичної документації (до <дата>); після його спливу він буде знищений.» |
+| `retention:consent_record` | «Запис про надану Вами згоду зберігається як підтвердження законності обробки, що вже відбулася; він не містить Ваших медичних даних.» |
+| `retention:qualified_signature` | «Кваліфікований електронний підпис зберігається як юридичний доказ цілісності підписаного документа (Закон № 2155-VIII).» |
+| `retention:erasure_paper_trail` | «Запис про сам запит на видалення зберігається як підтвердження того, що видалення було виконано.» |
+
+> Wording review by the clinical lead is a named carry-over
+> (SIGN-OFF.md) — do not hand this table to patients before it.
+
+## The three questions patients actually ask
+
+1. **"Що саме видалили?"** — read `report_of_execution.destroyed[]`
+   to them by kind and count; every artifact is listed by id.
+2. **"Чому щось залишилось?"** — the `retained[]` list with the table
+   above; nothing is retained silently.
+3. **"Як отримати свої дані?"** — a DSAR export (`patient.dsar`,
+   tenant admin) — see the DSAR section above; the package README
+   explains its own contents in Ukrainian.
+
+## Alert response
+
+| alert | severity | first response |
+|---|---|---|
+| `ErasureRequestStuckExecuting` | page | Read `last_error` on the row; run the manual entry (`core_service.erasure.run`) — the idempotent re-run IS the fix. If it fails again, the error names the artifact class; check MinIO/DB reachability for that store. |
+| `ErasureApprovedOverdue` | page | The scheduler cron is dead: check the ops-host crontab + `/var/log/mdx/erasure-scheduler.log`, verify `mdx_erasure_scheduler_last_run_unix_ts`. Execute overdue requests manually while restoring cron. |
+| `DsarExportSlow` | warn | A stale export is auto-taken-over on the next POST. Investigate MinIO connectivity if recurring. |
+| `ErasureExecutionError` | warn | The scheduler retries on its next sweep. Escalate to page only if the same request stays errored across two sweeps. |
+
+## Open items and where their answers get configured
+
+| decision | owner | config knob |
+|---|---|---|
+| raw-ІПН retention | DPO | `PATIENT_IPN_RAW_ENABLED` |
+| ІПН-hmac at erasure (NULLed today) | DPO | ADR-0027 branch; eraser `overwrite_patient_identity` |
+| subject-accessible audit kinds | DPO | `DSAR_AUDIT_KINDS` |
+| raw audio in DSAR packages | DPO | `DSAR_INCLUDE_RAW_AUDIO` |
+| clinical-record retention period | legal counsel | `REPORT_RETENTION_YEARS` |
+| consent text wording | legal counsel + clinical lead | `infra/seeds/consents/*-v2.md` (new version, never edits) |

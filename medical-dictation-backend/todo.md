@@ -17,6 +17,19 @@
       partial unique index, but retains a derived identifier of an
       erased person). Step-07 erasure engine consumes this decision.
 
+- [ ] **DSAR subject-accessible audit-kind allowlist** — owner: **DPO**.
+      `DSAR_AUDIT_KINDS` ships with a conservative lifecycle-only default
+      (patient/consent/privacy kinds). Widening what a patient sees of
+      the audit trail is a policy decision — config change only
+      (docs/runbooks/erasure.md).
+- [ ] **Raw audio in DSAR packages** — owner: **DPO**.
+      `DSAR_INCLUDE_RAW_AUDIO=false` ships; the manifest/README say
+      "available on request". Flipping it streams decrypted recordings
+      into the package — config change only.
+- [ ] **Runbook patient-explanation wording (uk) review** — owner:
+      **clinical lead**. The basis→human-text table in
+      docs/runbooks/erasure.md will be read to actual patients; review
+      before pilot use.
 - [ ] **Clinical-record retention period confirmation** — owner:
       **legal counsel**. The erasure engine retains signed reports for
       `REPORT_RETENTION_YEARS` (default 25, per the common МОЗ

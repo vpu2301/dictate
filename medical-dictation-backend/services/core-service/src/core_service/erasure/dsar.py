@@ -49,6 +49,17 @@ from .fanout import ExportItem, FanoutInventory, enumerate_patient
 
 logger = logging.getLogger(__name__)
 
+# S11 step 08 — observability. Labels: enums only, never ids.
+from opentelemetry import metrics as _otel_metrics  # noqa: E402
+
+_meter = _otel_metrics.get_meter("core-service.dsar")
+_export_seconds = _meter.create_histogram(
+    "mdx_dsar_export_seconds", unit="s", description="DSAR package build duration"
+)
+_package_bytes = _meter.create_histogram(
+    "mdx_dsar_package_bytes", unit="By", description="DSAR ZIP size"
+)
+
 ENGINE_VERSION = "dsar-engine/1"
 MANIFEST_FORMAT_VERSION = "1"
 
@@ -421,6 +432,9 @@ async def run_export(
     """Background task: assemble → store → complete (or fail honestly)."""
     runtime = await get_runtime(state)
     workdir = Path(tempfile.mkdtemp(prefix="dsar-"))
+    import time as _time
+
+    started_monotonic = _time.monotonic()
     try:
         async with tenant_connection(state.app_pool, tenant_id) as conn:
             zip_path, manifest = await assemble_package(
@@ -458,7 +472,14 @@ async def run_export(
             },
             severity=Severity.SEC,
         )
+        _export_seconds.record(
+            _time.monotonic() - started_monotonic, attributes={"status": "completed"}
+        )
+        _package_bytes.record(len(zip_bytes))
     except Exception as exc:  # noqa: BLE001 — the row must record the failure
+        _export_seconds.record(
+            _time.monotonic() - started_monotonic, attributes={"status": "failed"}
+        )
         logger.exception("dsar.export_failed request=%s", request_id)
         try:
             async with tenant_connection(state.app_pool, tenant_id) as conn:

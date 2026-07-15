@@ -58,6 +58,20 @@ from .fanout import enumerate_patient
 
 logger = logging.getLogger(__name__)
 
+# S11 step 08 — observability. Labels: enums only, never ids. Recorded in
+# whatever MeterProvider the process configured (the scheduler pushes via
+# OTLP + flush; the manual CLI runs with the no-op provider unless the
+# operator exports OTEL_* — metrics are advisory, audit is the record).
+from opentelemetry import metrics as _otel_metrics  # noqa: E402
+
+_meter = _otel_metrics.get_meter("core-service.erasure")
+_execution_seconds = _meter.create_histogram(
+    "mdx_erasure_execution_seconds", unit="s", description="Erasure execution duration"
+)
+_artifacts_destroyed = _meter.create_counter(
+    "mdx_erasure_artifacts_destroyed_total", description="Destroyed artifacts by kind"
+)
+
 ENGINE_VERSION = "erasure-engine/1"
 
 
@@ -177,6 +191,9 @@ async def execute_erasure(
 async def _execute_locked(
     runtime: ErasureRuntime, *, tenant_id: UUID, request_id: UUID, operator: str
 ) -> dict[str, Any]:
+    import time as _time
+
+    _exec_started = _time.monotonic()
     # ── Phase 1: preflight ────────────────────────────────────────────
     async with tenant_connection(runtime.app_pool, tenant_id) as conn:
         row = await privacy_repository.get_request(conn, request_id=request_id)
@@ -275,6 +292,7 @@ async def _execute_locked(
             "inventory_before": inventory.counts,
         },
     }
+    _execution_seconds.record(_time.monotonic() - _exec_started)
     async with tenant_connection(runtime.app_pool, tenant_id) as conn:
         completed = await privacy_repository.mark_completed(
             conn, request_id=request_id, report_of_execution=report
@@ -300,6 +318,8 @@ async def _execute_locked(
         },
         severity=Severity.SEC,
     )
+    for item in destroyed:
+        _artifacts_destroyed.add(1, attributes={"kind": item.kind})
     logger.info(
         "erasure.completed request=%s destroyed=%d retained=%d",
         request_id, len(destroyed), len(retained),
