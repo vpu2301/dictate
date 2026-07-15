@@ -1026,6 +1026,18 @@
       "PrivacyRequestOut": {
         "additionalProperties": false,
         "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1044,10 +1056,50 @@
             "title": "Reason",
             "type": "string"
           },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
           "requested_at": {
             "format": "date-time",
             "title": "Requested At",
             "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
           },
           "scheduled_for": {
             "anyOf": [
@@ -1072,6 +1124,7 @@
           "kind",
           "reason",
           "status",
+          "requested_by",
           "requested_at",
           "scheduled_for"
         ],
@@ -1094,6 +1147,20 @@
           "db"
         ],
         "title": "ReadyResponse",
+        "type": "object"
+      },
+      "RejectBody": {
+        "additionalProperties": false,
+        "properties": {
+          "rejection_reason": {
+            "title": "Rejection Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rejection_reason"
+        ],
+        "title": "RejectBody",
         "type": "object"
       },
       "Timeline": {
@@ -2599,7 +2666,7 @@
     },
     "/patients/{patient_id}/erasure": {
       "post": {
-        "operationId": "schedule_erasure_patients__patient_id__erasure_post",
+        "operationId": "request_erasure_patients__patient_id__erasure_post",
         "parameters": [
           {
             "in": "path",
@@ -2660,7 +2727,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Schedule erasure of a patient (grace period applies).",
+        "summary": "Request erasure of a patient (two-person approval + grace apply).",
         "tags": [
           "privacy"
         ]
@@ -2723,6 +2790,291 @@
         "summary": "Dictated reports (and, later, scribe sessions) for the patient.",
         "tags": [
           "patients"
+        ]
+      }
+    },
+    "/privacy-requests": {
+      "get": {
+        "operationId": "list_privacy_requests_privacy_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "requested",
+                    "review",
+                    "approved",
+                    "executing",
+                    "completed",
+                    "rejected",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "dsar",
+                    "erasure"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PrivacyRequestOut"
+                  },
+                  "title": "Response List Privacy Requests Privacy Requests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin queue: privacy requests across the tenant.",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/approve": {
+      "post": {
+        "operationId": "approve_request_privacy_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve an erasure request (second person; starts the grace period).",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/reject": {
+      "post": {
+        "operationId": "reject_request_privacy_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject (or cancel during grace) an erasure request, with a reason.",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/review": {
+      "post": {
+        "operationId": "review_request_privacy_requests__request_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark an erasure request as under review.",
+        "tags": [
+          "privacy"
         ]
       }
     },

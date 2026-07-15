@@ -79,7 +79,11 @@ typos at import.
 | `consent.signed`                  | info     | core-service POST /patients/{id}/consents/{cid}/sign | S11 step 03 — КЕП envelope linked to a digital consent (inline tiers; the envelope itself is audited by signing-service's `signing.envelope.persisted`). Payload: consent_id, envelope_id, signature_level, is_qualified |
 | `anamnesis.updated`               | info     | core-service PUT /patients/{id}/anamnesis | Sprint 11 — structured history saved. |
 | `privacy.dsar_requested`          | sec      | core-service POST /patients/{id}/dsar | Sprint 11 — data-subject access request logged. Payload: request_id, kind |
-| `privacy.erasure_scheduled`       | sec      | core-service POST /patients/{id}/erasure | Sprint 11 — patient erasure scheduled (grace period). Payload: request_id, kind |
+| `privacy.erasure_scheduled`       | sec      | *(superseded S11 step 04)* | Historical (S11-M2): emitted when erasure requests auto-scheduled at creation. Replaced by `privacy.erasure_requested` + `privacy.erasure_approved`; existing chain rows remain valid. |
+| `privacy.erasure_requested`       | sec      | core-service POST /patients/{id}/erasure | S11 step 04 — erasure requested; awaits second-person approval. Payload: request_id, kind |
+| `privacy.erasure_reviewed`        | info     | core-service POST /privacy-requests/{id}/review | S11 step 04 — request marked under review. Payload: request_id |
+| `privacy.erasure_approved`        | sec      | core-service POST /privacy-requests/{id}/approve | S11 step 04 — second-person approval; grace period starts. Payload: request_id, scheduled_for, grace_days |
+| `privacy.erasure_rejected`        | sec      | core-service POST /privacy-requests/{id}/reject | S11 step 04 — rejected/cancelled with written reason (incl. during grace). Payload: request_id, rejection_reason |
 | `demo.rate_limit_hit`             | warn     | `libs/demo` rate limiter         | Sprint 07 — a demo request was rejected by the three-axis limiter (per-IP / per-user / per-session). |
 | `demo.session_capped`            | warn     | `libs/demo` rate limiter         | Sprint 07 — demo session duration exceeded the per-session cap. |
 | `demo.daily_minutes_capped`      | warn     | `libs/demo` rate limiter         | Sprint 07 — per-user daily wall-clock minute budget exhausted. |

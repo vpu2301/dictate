@@ -97,5 +97,11 @@ class Settings(BaseSettings):
         default="infra/seeds/consents", alias="MDX_CONSENT_TEXTS_DIR"
     )
 
+    # ── Erasure workflow (S11 step 04) ───────────────────────────────
+    # Grace period between approval and the engine being ALLOWED to
+    # execute (data-layer enforced via scheduled_for). Absorbs "the
+    # patient changed their mind" — cheaper than any undelete.
+    erasure_grace_days: int = Field(default=7, alias="ERASURE_GRACE_DAYS")
+
 
 settings = Settings()

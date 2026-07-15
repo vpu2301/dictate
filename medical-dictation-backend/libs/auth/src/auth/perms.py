@@ -145,6 +145,10 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("clinician", "patient.write", "patient"): True,
     ("nurse", "patient.read", "patient"): True,
     ("nurse", "patient.write", "patient"): True,
+    # Erasure approval (S11 step 04): the SECOND person of the two-person
+    # rule. tenant_admin only — requesting stays under patient.write, and
+    # the service layer + DB CHECK forbid approving one's own request.
+    ("tenant_admin", "privacy.approve", "patient"): True,
     # Clinical notes (SOAP/APSO/DAP/free) bound to a patient.
     ("tenant_admin", "note.read", "note"): True,
     ("tenant_admin", "note.write", "note"): True,

@@ -27,4 +27,10 @@ ANAMNESIS_UPDATED: Final = "anamnesis.updated"
 
 # ── privacy (DSAR / erasure) ────────────────────────────────────────
 PRIVACY_DSAR_REQUESTED: Final = "privacy.dsar_requested"
-PRIVACY_ERASURE_SCHEDULED: Final = "privacy.erasure_scheduled"
+# S11 step 04 — the two-person workflow. `privacy.erasure_scheduled`
+# (S11-M2) is superseded: requests now start at `requested` and the
+# schedule is set at approval.
+PRIVACY_ERASURE_REQUESTED: Final = "privacy.erasure_requested"
+PRIVACY_ERASURE_REVIEWED: Final = "privacy.erasure_reviewed"
+PRIVACY_ERASURE_APPROVED: Final = "privacy.erasure_approved"
+PRIVACY_ERASURE_REJECTED: Final = "privacy.erasure_rejected"
