@@ -76,6 +76,7 @@ typos at import.
 | `note.signed`                     | info     | core-service POST /notes/{id}/sign | Sprint 11 — note signed (becomes immutable). |
 | `consent.granted`                 | info     | core-service POST /patients/{id}/consents | Sprint 11 — consent recorded. Payload: consent_id, type |
 | `consent.withdrawn`               | info     | core-service POST /patients/{id}/consents/{cid}/withdraw | Sprint 11 — consent withdrawn. Payload: consent_id |
+| `consent.signed`                  | info     | core-service POST /patients/{id}/consents/{cid}/sign | S11 step 03 — КЕП envelope linked to a digital consent (inline tiers; the envelope itself is audited by signing-service's `signing.envelope.persisted`). Payload: consent_id, envelope_id, signature_level, is_qualified |
 | `anamnesis.updated`               | info     | core-service PUT /patients/{id}/anamnesis | Sprint 11 — structured history saved. |
 | `privacy.dsar_requested`          | sec      | core-service POST /patients/{id}/dsar | Sprint 11 — data-subject access request logged. Payload: request_id, kind |
 | `privacy.erasure_scheduled`       | sec      | core-service POST /patients/{id}/erasure | Sprint 11 — patient erasure scheduled (grace period). Payload: request_id, kind |

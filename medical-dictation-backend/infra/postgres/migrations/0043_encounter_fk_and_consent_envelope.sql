@@ -6,8 +6,11 @@
 -- and CI can't guard. Promote it to a real FK so
 -- recording → encounter → patient is a join, not a convention.
 --
--- Step 03 half is appended by the consent-signing step (same coordinated
--- PR): `patient_consents.signed_envelope_id`.
+-- Step 03 half (bottom of this file): `patient_consents.signed_envelope_id`
+-- + `canonical_hash` — a digital consent's КЕП envelope lands on the
+-- consent row, written by signing-service's `mark_resource_signed` in the
+-- same transaction that persists the envelope (the report linking pattern,
+-- mirrored — one pattern in the codebase, not two).
 
 -- ── Step 02: audio_files.encounter_id real FK ───────────────────────
 
@@ -38,3 +41,23 @@ ALTER TABLE audio_files
 CREATE INDEX IF NOT EXISTS idx_audio_files_encounter
     ON audio_files (tenant_id, encounter_id)
     WHERE encounter_id IS NOT NULL;
+
+-- ── Step 03: consent ↔ signing linkage ──────────────────────────────
+
+-- `signed_envelope_id`: set once by signing-service when a КЕП envelope
+-- for resource_type='consent' is persisted. Deliberately NO CHECK tying
+-- method='digital' to a non-NULL envelope — the envelope arrives
+-- asynchronously after row creation; the service enforces the state
+-- machine and the nightly verify job reports stragglers.
+--
+-- `canonical_hash`: sha256 of the consent's canonical (RFC 8785) document
+-- computed at capture. The link UPDATE requires it to still match at
+-- signing time, so a row mutated between capture and signing can never
+-- acquire an envelope (the whole signing transaction aborts).
+ALTER TABLE patient_consents
+    ADD COLUMN signed_envelope_id UUID REFERENCES signed_envelopes(id),
+    ADD COLUMN canonical_hash BYTEA;
+
+CREATE INDEX idx_consents_envelope
+    ON patient_consents (signed_envelope_id)
+    WHERE signed_envelope_id IS NOT NULL;

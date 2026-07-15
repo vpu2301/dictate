@@ -17,6 +17,13 @@
       partial unique index, but retains a derived identifier of an
       erased person). Step-07 erasure engine consumes this decision.
 
+- [ ] **Consent text legal review** — owner: **legal counsel +
+      clinical lead**. `infra/seeds/consents/*.md` (ai_scribe-v1,
+      data_processing-v1) are engineering drafts; the КЕП signature
+      binds their exact bytes (S11 step 03), so wording changes after
+      review must ship as NEW versions (`-v2.md`), never edits. Review
+      required before pilot use of digital consents.
+
 ## Autocomplete (S10 carry-over)
 
 - [ ] **Full clinical corpus authoring (~10k UK / ~3k EN phrases, ~60

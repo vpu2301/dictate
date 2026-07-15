@@ -141,10 +141,11 @@ async def receive_callback(
     ipn = envelope.parsed.signer_ipn
     ipn_hmac_bytes = ipn_hmac(ipn, settings.signer_ipn_hmac_key_hex) if ipn else None
     token = new_verification_token()
-    async with (
-        tenant_connection(state.app_pool, session_row["tenant_id"]) as conn,
-        conn.transaction(),
-    ):
+    try:
+        async with (
+            tenant_connection(state.app_pool, session_row["tenant_id"]) as conn,
+            conn.transaction(),
+        ):
             envelope_id = await repo.insert_envelope(
                 conn,
                 tenant_id=session_row["tenant_id"],
@@ -192,6 +193,30 @@ async def receive_callback(
                 to="signed",
                 signed_envelope_id=envelope_id,
             )
+
+    except repo.ResourceLinkError as exc:
+        # Strict-link resources (consent, S11 step 03): the transaction
+        # rolled back — no envelope was persisted. Fail the session with
+        # the cause; the provider gets a no-info 409.
+        async with tenant_connection(state.app_pool, session_row["tenant_id"]) as conn:
+            await repo.transition_session(
+                conn,
+                session_id=session_row["id"],
+                expected_from="verifying",
+                to="failed",
+                failure_reason=f"resource_link_failed:{exc.code}"[:200],
+            )
+        await state.audit_writer.write_event(
+            tenant_id=session_row["tenant_id"],
+            kind=audit_kinds.SIGNING_SESSION_FAILED,
+            actor_sub=None,
+            actor_role="provider",
+            target_kind="signing_session",
+            target_id=session_row["id"],
+            payload={"reason": f"resource_link_failed:{exc.code}"},
+            severity=Severity.SEC,
+        )
+        return _no_info_response(409)
 
     await state.audit_writer.write_event(
         tenant_id=session_row["tenant_id"],

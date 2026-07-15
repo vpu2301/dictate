@@ -1,5 +1,12 @@
 -- Down for 0043 — reverse both halves in order (step 03 half first,
--- once it lands; then the step 02 FK half).
+-- then the step 02 FK half).
+
+-- ── Step 03 half ────────────────────────────────────────────────────
+
+DROP INDEX IF EXISTS idx_consents_envelope;
+ALTER TABLE patient_consents
+    DROP COLUMN signed_envelope_id,
+    DROP COLUMN canonical_hash;
 
 -- ── Step 02 half ────────────────────────────────────────────────────
 

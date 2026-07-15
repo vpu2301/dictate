@@ -20,6 +20,7 @@ NOTE_SIGNED: Final = "note.signed"
 # ── consents ────────────────────────────────────────────────────────
 CONSENT_GRANTED: Final = "consent.granted"
 CONSENT_WITHDRAWN: Final = "consent.withdrawn"
+CONSENT_SIGNED: Final = "consent.signed"
 
 # ── anamnesis ───────────────────────────────────────────────────────
 ANAMNESIS_UPDATED: Final = "anamnesis.updated"

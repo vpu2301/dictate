@@ -60,6 +60,36 @@ provider:
 - The canonical shape is the legal contract; `CANONICAL_VERSION = "1.0"`
   is locked.
 
+### Consents (S11 step 03)
+
+`resource_type='consent'` signs the **canonical consent document v1**
+(`core_service/domain/consent_canonical.py`, `CONSENT_CANONICAL_VERSION
+= "1"`): consent/tenant/patient ids, patient display name (uk), consent
+type, text version **and the sha256 of the approved consent-text file**
+(`infra/seeds/consents/<type>-<version>.md`) — the signature binds the
+exact wording — plus `granted_at` and the attesting clinician (sub +
+display name).
+
+Conventions that differ from reports:
+
+- **`resource_version_id == consent id`** — consents are not versioned;
+  the `signed_envelopes` per-resource uniqueness therefore allows exactly
+  one envelope per consent, ever.
+- **Strict linking**: `repository.mark_resource_signed` for a consent
+  requires the row to exist, be unsigned, and still carry the
+  `canonical_hash` captured at creation. Any miss raises
+  `ResourceLinkError` and aborts the persist transaction — a consent row
+  mutated between capture and signing can never acquire an envelope
+  (reports, by contrast, use lenient guarded UPDATEs).
+- Withdrawal never touches the envelope: a signed-then-withdrawn consent
+  keeps `signed_envelope_id` (the grant is a historical fact) alongside
+  `withdrawn_at`.
+- core-service (`POST /patients/{id}/consents/{cid}/sign`) proxies to
+  `/signing/inline` (file_key, dev_password) or `/signing/sessions`
+  (diia) exactly like report-service's sign route; authz on the signing
+  routes stays `report.write` (route-level, resource-type-agnostic —
+  as-built S09 semantics).
+
 ## PDF rendering (ADR-0022)
 
 - Deterministic WeasyPrint render (sprint-09 day-3) with the canonical
@@ -118,6 +148,9 @@ Two paths:
 - Sprint-08 (Reports): `POST /v1/reports/{id}/sign` placeholder
   becomes a thin wrapper that calls signing-service. Status transitions
   `finalized → signed → amended` move forward when the envelope persists.
-- Sprint-11 (Patients): shares HMAC-of-IPN pattern with this sprint.
+- Sprint-11 (Patients): shares HMAC-of-IPN pattern with this sprint;
+  step 03 wires `patient_consents.signed_envelope_id` via
+  `mark_resource_signed` (strict consent branch, see Canonical bytes →
+  Consents above).
 - Sprint-17 (FHIR): `Provenance.signature` / `Composition.signature`
   reference `signed_envelopes`.

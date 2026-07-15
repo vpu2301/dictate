@@ -85,6 +85,101 @@
         "title": "ConsentCreate",
         "type": "object"
       },
+      "ConsentCreated": {
+        "additionalProperties": false,
+        "properties": {
+          "encounter_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Id"
+          },
+          "granted_at": {
+            "format": "date-time",
+            "title": "Granted At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "signed_envelope_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed Envelope Id"
+          },
+          "signing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsentSigningHint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "encounter_id",
+          "type",
+          "method",
+          "version",
+          "status",
+          "granted_at",
+          "withdrawn_at"
+        ],
+        "title": "ConsentCreated",
+        "type": "object"
+      },
       "ConsentOut": {
         "additionalProperties": false,
         "properties": {
@@ -118,6 +213,18 @@
             "format": "uuid",
             "title": "Patient Id",
             "type": "string"
+          },
+          "signed_envelope_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed Envelope Id"
           },
           "status": {
             "title": "Status",
@@ -156,6 +263,91 @@
           "withdrawn_at"
         ],
         "title": "ConsentOut",
+        "type": "object"
+      },
+      "ConsentSignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "key_container_b64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Container B64"
+          },
+          "key_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Password"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "provider": {
+            "enum": [
+              "file_key",
+              "dev_password",
+              "diia"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "ConsentSignRequest",
+        "type": "object"
+      },
+      "ConsentSigningHint": {
+        "additionalProperties": false,
+        "description": "What the FE needs to open the standard S09 sign dialog.",
+        "properties": {
+          "canonical_hash_hex": {
+            "title": "Canonical Hash Hex",
+            "type": "string"
+          },
+          "resource_id": {
+            "format": "uuid",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "const": "consent",
+            "default": "consent",
+            "title": "Resource Type",
+            "type": "string"
+          },
+          "resource_version_id": {
+            "format": "uuid",
+            "title": "Resource Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_id",
+          "resource_version_id",
+          "canonical_hash_hex"
+        ],
+        "title": "ConsentSigningHint",
         "type": "object"
       },
       "EncounterCreate": {
@@ -2036,7 +2228,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsentOut"
+                  "$ref": "#/components/schemas/ConsentCreated"
                 }
               }
             },
@@ -2053,7 +2245,84 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Record a consent.",
+        "summary": "Record a consent (digital consents become signable).",
+        "tags": [
+          "consents"
+        ]
+      }
+    },
+    "/patients/{patient_id}/consents/{consent_id}/sign": {
+      "post": {
+        "operationId": "sign_consent_patients__patient_id__consents__consent_id__sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "consent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Consent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentSignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign a digital consent with \u041a\u0415\u041f via the S09 signing stack.",
         "tags": [
           "consents"
         ]
@@ -2061,6 +2330,7 @@
     },
     "/patients/{patient_id}/consents/{consent_id}/withdraw": {
       "post": {
+        "description": "Withdrawal is always allowed, signed or not: a signed-then-withdrawn\nconsent keeps its envelope (the grant is a historical fact) and gains\n``withdrawn_at`` \u2014 the timeline and DSAR must show both facts.",
         "operationId": "withdraw_consent_patients__patient_id__consents__consent_id__withdraw_post",
         "parameters": [
           {

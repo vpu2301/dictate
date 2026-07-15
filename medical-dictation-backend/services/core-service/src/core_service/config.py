@@ -87,5 +87,15 @@ class Settings(BaseSettings):
     )
     master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
 
+    # ── Consent signing (S11 step 03) ────────────────────────────────
+    signing_service_base_url: str = Field(
+        default="http://localhost:8008", alias="SIGNING_SERVICE_BASE_URL"
+    )
+    # Approved consent texts (`<type>-<version>.md`); the default resolves
+    # for repo-local dev runs, containers mount/bake the directory.
+    consent_texts_dir: str = Field(
+        default="infra/seeds/consents", alias="MDX_CONSENT_TEXTS_DIR"
+    )
+
 
 settings = Settings()
