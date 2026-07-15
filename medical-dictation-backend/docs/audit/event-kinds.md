@@ -29,7 +29,7 @@ typos at import.
 | `tenant.switched`                 | info     | auth-service POST /tenants/{id}/switch | User switched their active tenant                            |
 | `audit.chain_verified`            | info/sec | nightly verifier                 | One per tenant per verify run. severity flips to `sec` on divergence |
 | `asr.audio_uploaded`              | info     | asr-service POST /asr/jobs       | Audio file enveloped + persisted; row inserted in `audio_files`    |
-| `asr.audio_deleted`               | sec      | *(sprint 11)*                    | Right-to-erasure delete of an audio object                         |
+| `asr.audio_deleted`               | sec      | core-service erasure engine (S11 step 07) | Right-to-erasure crypto-shred of a recording: MinIO object + metadata row (its wrapped DEK) destroyed. Payload: request_id, detail |
 | `asr.job_queued`                  | info     | asr-service POST /asr/jobs       | Job durably recorded + enqueued on Redis Streams                   |
 | `asr.transcription_started`       | info     | asr-worker processor             | Worker picked the job up; row moved to `running`                   |
 | `asr.transcription_complete`      | info     | asr-worker processor             | Inference + encrypted transcript stored; row moved to `complete`   |
@@ -88,6 +88,9 @@ typos at import.
 | `dsar.export.failed`              | sec      | core-service DSAR engine | S11 step 06 — export failed; row → 'failed'. Payload: request_id, error_class |
 | `dsar.download.link_issued`       | sec      | core-service GET /privacy-requests/{id} | S11 step 06 — a download pointer was minted (per status call). Payload: request_id |
 | `dsar.package.downloaded`         | sec      | core-service GET /privacy-requests/{id}/download | S11 step 06 — the package was actually served (decrypt-and-stream). Payload: request_id, bytes |
+| `erasure.executing`               | sec      | core-service erasure engine | S11 step 07 — execution started (or resumed after a crash). Payload: request_id, operator, inventory_counts |
+| `erasure.artifact_destroyed`      | sec      | core-service erasure engine | S11 step 07 — one artifact destroyed (kind+id in target; ids only, never identity strings). Payload: request_id, detail |
+| `erasure.executed`                | sec      | core-service erasure engine | S11 step 07 — request completed; report_of_execution written. Emitted exactly once per completion. Payload: request_id, destroyed, retained, engine_version |
 | `demo.rate_limit_hit`             | warn     | `libs/demo` rate limiter         | Sprint 07 — a demo request was rejected by the three-axis limiter (per-IP / per-user / per-session). |
 | `demo.session_capped`            | warn     | `libs/demo` rate limiter         | Sprint 07 — demo session duration exceeded the per-session cap. |
 | `demo.daily_minutes_capped`      | warn     | `libs/demo` rate limiter         | Sprint 07 — per-user daily wall-clock minute budget exhausted. |

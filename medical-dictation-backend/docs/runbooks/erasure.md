@@ -58,3 +58,50 @@ DSAR volume is per-request-tiny; the engine is an in-service
 `asyncio` task with DB-state recovery (stale-takeover). A Redis-stream
 worker would add an infra dependency for no throughput need — revisit
 only if exports start timing out under real load.
+
+## Erasure execution (step 07)
+
+### Flow (the clinic's seat)
+
+request (`patient.write`) → **second-person** approval
+(`privacy.approve`, never the requester) → grace period
+(`ERASURE_GRACE_DAYS`, default 7 — rejectable/cancellable throughout) →
+automatic execution (cron every 15 min) → a readable
+`report_of_execution` on the request:
+*"destroyed: recording, transcript, dictation session, draft report,
+identity data; retained: 1 signed clinical report
+(retention:clinical_record_signed), N consent records
+(retention:consent_record), the privacy requests themselves
+(retention:erasure_paper_trail)."*
+
+### Operator procedures
+
+- **Supervised manual run** (same advisory lock as cron — double-running
+  is impossible):
+  `uv run --project services/core-service python -m core_service.erasure.run --tenant <tid> --request <rid>`
+- **A run failed?** The request stays `executing` with `last_error` on
+  the row. The recovery requires no judgment: **run it again.** Every
+  eraser tolerates already-gone; the re-run completes the inventory and
+  `erasure.executed` fires exactly once, at completion.
+- **Grace not elapsed** → refusal `grace_period_active` (cron skips it
+  silently until due).
+- **Patient already erased on a fresh request** → refusal; reject the
+  request with a reason instead.
+
+### Answers for the DPO
+
+- **"Prove the audio is gone."** The battery's own proof: the MinIO
+  object 404s, and the row that carried its wrapped DEK is deleted —
+  crypto-shred per ADR-0027. `report_of_execution.destroyed[]` lists
+  every artifact by id.
+- **"Why does a signed report survive?"** Statutory retention
+  (`REPORT_RETENTION_YEARS`): it is *reported* as retained with its
+  legal basis — never silently skipped. Outside the window it is
+  destroyed together with its envelope.
+- **"Does the retained report still verify?"** Yes — `/verify/{token}`
+  on a legally retained record is unaffected by its subject's erasure;
+  the envelope binds the report content, not the roster row.
+- **"Does erasure damage the audit log?"** Never. The chain is
+  append-only, the engine writes THROUGH it (every destruction is an
+  event), and the chain verifier passes end-to-end after every erasure
+  — asserted in the step-07 battery.

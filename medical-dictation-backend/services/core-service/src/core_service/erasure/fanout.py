@@ -53,7 +53,7 @@ class Erasability(StrEnum):
 # Machine-stable legal-basis identifiers (human text in
 # docs/architecture/erasure.md).
 BASIS_CLINICAL_RECORD_SIGNED = "retention:clinical_record_signed"
-BASIS_SIGNED_CONSENT_EVIDENCE = "retention:signed_consent_evidence"
+BASIS_CONSENT_RECORD = "retention:consent_record"
 BASIS_QUALIFIED_SIGNATURE = "retention:qualified_signature"
 BASIS_ERASURE_PAPER_TRAIL = "retention:erasure_paper_trail"
 
@@ -155,10 +155,12 @@ FANOUT: tuple[Artifact, ...] = (
             FROM patient_consents x WHERE patient_id = $1
         """,
         exportable=True,
-        erasability=Erasability.RETAIN_IF_SIGNED,
-        retention_basis=BASIS_SIGNED_CONSENT_EVIDENCE,
-        notes="Signed consents (signed_envelope_id set) are the clinic's "
-              "proof of lawful basis — retained; unsigned are hard-deleted.",
+        erasability=Erasability.NEVER,
+        retention_basis=BASIS_CONSENT_RECORD,
+        notes="Consents are ALWAYS retained (S11 step 07): the lawful-basis "
+              "proof must survive its subject's erasure — surfaced in "
+              "retained[], never hidden. They reference only the tombstone "
+              "patient row.",
     ),
     Artifact(
         kind="privacy_request",

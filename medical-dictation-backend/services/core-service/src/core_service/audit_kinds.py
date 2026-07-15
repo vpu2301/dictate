@@ -39,3 +39,9 @@ DSAR_EXPORT_COMPLETED: Final = "dsar.export.completed"
 DSAR_EXPORT_FAILED: Final = "dsar.export.failed"
 DSAR_DOWNLOAD_LINK_ISSUED: Final = "dsar.download.link_issued"
 DSAR_PACKAGE_DOWNLOADED: Final = "dsar.package.downloaded"
+# S11 step 07 — the erasure engine.
+ERASURE_EXECUTING: Final = "erasure.executing"
+ERASURE_ARTIFACT_DESTROYED: Final = "erasure.artifact_destroyed"
+ERASURE_EXECUTED: Final = "erasure.executed"
+# Reserved since sprint 03 (0007's DELETE comment); real as of step 07.
+ASR_AUDIO_DELETED: Final = "asr.audio_deleted"

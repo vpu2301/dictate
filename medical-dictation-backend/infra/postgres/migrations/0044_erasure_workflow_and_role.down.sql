@@ -8,7 +8,7 @@ BEGIN
         'audio_files', 'transcription_jobs', 'dictation_sessions',
         'reports', 'report_versions', 'report_synthesis_jobs',
         'encounters', 'clinical_notes', 'patient_consents',
-        'patient_anamnesis', 'signing_sessions'
+        'patient_anamnesis', 'signing_sessions', 'signed_envelopes'
     ] LOOP
         -- (report_versions' policies were created explicitly, but the
         -- DROP POLICY IF EXISTS naming matches — one loop covers all.)
@@ -25,8 +25,8 @@ DROP POLICY IF EXISTS patient_privacy_requests_erasure_update ON patient_privacy
 REVOKE ALL ON audio_files, transcription_jobs, dictation_sessions,
              reports, report_versions, report_synthesis_jobs,
              encounters, clinical_notes, patient_consents,
-             patient_anamnesis, signing_sessions, patients,
-             patient_privacy_requests
+             patient_anamnesis, signing_sessions, signed_envelopes,
+             patients, patient_privacy_requests
 FROM mdx_erasure;
 
 ALTER TABLE patient_privacy_requests DROP CONSTRAINT privacy_approved_has_review;
@@ -54,4 +54,5 @@ ALTER TABLE patient_privacy_requests
     DROP COLUMN completed_at,
     DROP COLUMN report_of_execution,
     DROP COLUMN package_object_key,
-    DROP COLUMN package_deleted_at;
+    DROP COLUMN package_deleted_at,
+    DROP COLUMN last_error;

@@ -143,6 +143,12 @@ class Settings(BaseSettings):
         default="postgresql://audit_reader:audit_reader@localhost:5432/medical_dictation",
         alias="DB_AUDIT_READER_DSN",
     )
+    # The ONLY credential that can destroy PHI rows (S11 steps 04/07) —
+    # held exclusively by the erasure engine, never by request handlers.
+    db_erasure_dsn: str = Field(
+        default="postgresql://mdx_erasure:mdx_erasure@localhost:5432/medical_dictation",
+        alias="DB_ERASURE_DSN",
+    )
 
 
 settings = Settings()

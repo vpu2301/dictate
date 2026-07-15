@@ -32,7 +32,11 @@ ALTER TABLE patient_privacy_requests
     -- while it exists, and the TTL-deletion stamp once the cleanup job
     -- removes it (download answers 410 package_expired afterwards).
     ADD COLUMN package_object_key  TEXT,
-    ADD COLUMN package_deleted_at  TIMESTAMPTZ;
+    ADD COLUMN package_deleted_at  TIMESTAMPTZ,
+    -- Erasure failure recording (S11 step 07): an erasure execution error
+    -- leaves the request in 'executing' (no failed state by design — the
+    -- idempotent re-run IS the recovery) with the error preserved here.
+    ADD COLUMN last_error          TEXT;
 
 -- ── Status remap + per-kind state machine ───────────────────────────
 
@@ -93,9 +97,12 @@ GRANT SELECT, DELETE ON clinical_notes           TO mdx_erasure;
 GRANT SELECT, DELETE ON patient_consents         TO mdx_erasure;
 GRANT SELECT, DELETE ON patient_anamnesis        TO mdx_erasure;
 -- signing_sessions hold canonical_json (patient names) — transient
--- operational rows the engine hard-deletes; the envelopes themselves
--- are retained (legal) and deliberately NOT granted.
+-- operational rows the engine hard-deletes.
 GRANT SELECT, DELETE ON signing_sessions         TO mdx_erasure;
+-- signed_envelopes: retained for RETAINED resources (legal evidence), but
+-- an OUT-OF-RETENTION-WINDOW signed report is destroyed together with its
+-- envelope — the grant enables that; the engine's classification decides.
+GRANT SELECT, DELETE ON signed_envelopes         TO mdx_erasure;
 GRANT SELECT, UPDATE ON patients                 TO mdx_erasure;  -- identity overwrite
 GRANT SELECT, UPDATE ON patient_privacy_requests TO mdx_erasure;  -- engine transitions
 
@@ -107,7 +114,8 @@ BEGIN
     FOREACH t IN ARRAY ARRAY[
         'audio_files', 'transcription_jobs', 'dictation_sessions',
         'reports', 'report_synthesis_jobs', 'encounters', 'clinical_notes',
-        'patient_consents', 'patient_anamnesis', 'signing_sessions'
+        'patient_consents', 'patient_anamnesis', 'signing_sessions',
+        'signed_envelopes'
     ] LOOP
         EXECUTE format(
             'CREATE POLICY %I ON %I FOR SELECT TO mdx_erasure

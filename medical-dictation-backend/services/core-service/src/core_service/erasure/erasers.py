@@ -29,9 +29,9 @@ import asyncpg
 
 from .fanout import (
     BASIS_CLINICAL_RECORD_SIGNED,
+    BASIS_CONSENT_RECORD,
     BASIS_ERASURE_PAPER_TRAIL,
     BASIS_QUALIFIED_SIGNATURE,
-    BASIS_SIGNED_CONSENT_EVIDENCE,
     FANOUT,
     Artifact,
 )
@@ -50,6 +50,10 @@ class EraserContext:
     audio_store: ObjectStore | None = None
     transcript_store: ObjectStore | None = None
     report_retention_years: int = 25
+    # Deletes a signed-PDF object by its full storage URI (bucket varies) —
+    # used only for out-of-retention-window envelopes. None in tests that
+    # don't exercise that path.
+    pdf_object_deleter: Any | None = None
 
 
 @dataclass(frozen=True)
@@ -214,24 +218,18 @@ async def erase_encounters(
 # ── RETAIN_IF_SIGNED ────────────────────────────────────────────────
 
 
-async def erase_consents(
+async def retain_consents(
     conn: asyncpg.Connection, patient_id: UUID, ctx: EraserContext
 ) -> Outcome:
-    destroyed = await _delete_rows(
-        conn,
-        "consent",
-        "DELETE FROM patient_consents WHERE patient_id = $1 "
-        "AND signed_envelope_id IS NULL RETURNING id",
-        patient_id,
-    )
-    retained_rows = await conn.fetch(
+    """Consents are ALWAYS retained (S11 step 07): the lawful-basis proof
+    must survive its subject's erasure — surfaced, never hidden."""
+    rows = await conn.fetch(
         "SELECT id FROM patient_consents WHERE patient_id = $1", patient_id
     )
-    retained = [
-        RetainedItem(kind="consent", id=r["id"], legal_basis=BASIS_SIGNED_CONSENT_EVIDENCE)
-        for r in retained_rows
+    return [], [
+        RetainedItem(kind="consent", id=r["id"], legal_basis=BASIS_CONSENT_RECORD)
+        for r in rows
     ]
-    return destroyed, retained
 
 
 async def erase_report_family(
@@ -254,6 +252,30 @@ async def erase_report_family(
         "(SELECT id FROM reports WHERE patient_id = $1) RETURNING id",
         patient_id,
     )
+
+    # An OUT-of-retention-window signed report is destroyed together with
+    # its envelope (row + stored PDF object) — the retention boundary cuts
+    # the whole record, not just the content (S11 step 07 §8).
+    doomed_envelopes = await conn.fetch(
+        f"""
+        SELECT id, pdf_storage_uri FROM signed_envelopes
+        WHERE resource_type IN ('report', 'amendment')
+          AND resource_id IN (SELECT id FROM reports WHERE patient_id = $1)
+          AND resource_id NOT IN ({_RETAINED_REPORTS_SQL})
+        """,
+        patient_id,
+        cutoff,
+    )
+    for env in doomed_envelopes:
+        if env["pdf_storage_uri"] and ctx.pdf_object_deleter is not None:
+            await ctx.pdf_object_deleter(env["pdf_storage_uri"])
+        await conn.execute("DELETE FROM signed_envelopes WHERE id = $1", env["id"])
+        destroyed.append(
+            DestroyedItem(
+                kind="signed_envelope", id=env["id"],
+                detail="out-of-retention-window envelope destroyed with its report",
+            )
+        )
 
     await conn.execute("SET CONSTRAINTS reports_current_version_fk DEFERRED")
     destroyed += await _delete_rows(
@@ -338,7 +360,7 @@ ERASERS_IN_ORDER: tuple = (
     erase_signing_sessions,
     erase_report_family,
     erase_clinical_notes,
-    erase_consents,
+    retain_consents,
     erase_anamnesis,
     retain_signed_envelopes,
     retain_privacy_requests,

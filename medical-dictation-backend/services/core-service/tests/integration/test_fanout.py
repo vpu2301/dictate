@@ -195,38 +195,52 @@ async def build_fixture_patient_with_everything(
 
 
 async def cleanup_fixture(su: asyncpg.Connection) -> None:
+    # Fixture patients are found by marker name OR (post-erasure tombstones,
+    # renamed to 'ERASED') via their marker privacy requests.
+    pids = [
+        r["id"] for r in await su.fetch(
+            "SELECT id FROM patients WHERE name_uk = $1 "
+            "UNION SELECT patient_id FROM patient_privacy_requests WHERE reason = $1",
+            MARK,
+        )
+    ]
     await su.execute("DELETE FROM signing_sessions WHERE provider_session_id LIKE $1", f"{MARK}%")
     await su.execute(
-        "UPDATE patient_consents SET signed_envelope_id = NULL WHERE patient_id IN "
-        "(SELECT id FROM patients WHERE name_uk = $1)", MARK
+        "UPDATE patient_consents SET signed_envelope_id = NULL "
+        "WHERE signed_envelope_id IN (SELECT id FROM signed_envelopes WHERE signer_full_name = $1) "
+        "OR patient_id = ANY($2::uuid[])",
+        MARK, pids,
     )
     await su.execute("DELETE FROM signed_envelopes WHERE signer_full_name = $1", MARK)
+    await su.execute("DELETE FROM patient_privacy_requests WHERE patient_id = ANY($1::uuid[])", pids)
+    await su.execute("DELETE FROM patient_consents WHERE patient_id = ANY($1::uuid[])", pids)
     await su.execute(
         "DELETE FROM transcription_jobs WHERE audio_id IN (SELECT a.id FROM audio_files a "
-        "JOIN encounters e ON e.id = a.encounter_id JOIN patients p ON p.id = e.patient_id "
-        "WHERE p.name_uk = $1)", MARK
+        "JOIN encounters e ON e.id = a.encounter_id WHERE e.patient_id = ANY($1::uuid[]))",
+        pids,
     )
     await su.execute(
-        "DELETE FROM dictation_sessions WHERE encounter_id IN (SELECT e.id FROM encounters e "
-        "JOIN patients p ON p.id = e.patient_id WHERE p.name_uk = $1)", MARK
+        "DELETE FROM dictation_sessions WHERE encounter_id IN "
+        "(SELECT id FROM encounters WHERE patient_id = ANY($1::uuid[]))", pids,
     )
     await su.execute(
-        "DELETE FROM audio_files WHERE encounter_id IN (SELECT e.id FROM encounters e "
-        "JOIN patients p ON p.id = e.patient_id WHERE p.name_uk = $1)", MARK
+        "DELETE FROM audio_files WHERE encounter_id IN "
+        "(SELECT id FROM encounters WHERE patient_id = ANY($1::uuid[]))", pids,
     )
     await su.execute(
-        "UPDATE reports SET current_version_id = NULL WHERE patient_id IN "
-        "(SELECT id FROM patients WHERE name_uk = $1)", MARK
+        "UPDATE reports SET current_version_id = NULL WHERE patient_id = ANY($1::uuid[])",
+        pids,
     )
     await su.execute(
-        "DELETE FROM report_versions WHERE report_id IN (SELECT id FROM reports "
-        "WHERE patient_id IN (SELECT id FROM patients WHERE name_uk = $1))", MARK
+        "DELETE FROM report_versions WHERE report_id IN "
+        "(SELECT id FROM reports WHERE patient_id = ANY($1::uuid[]))", pids,
     )
     await su.execute(
-        "DELETE FROM reports WHERE patient_id IN (SELECT id FROM patients WHERE name_uk = $1)",
-        MARK,
+        "DELETE FROM reports WHERE patient_id = ANY($1::uuid[])", pids,
     )
-    await su.execute("DELETE FROM patients WHERE name_uk = $1", MARK)
+    await su.execute(
+        "DELETE FROM patients WHERE name_uk = $1 OR id = ANY($2::uuid[])", MARK, pids
+    )
 
 
 async def test_everything_fixture_is_fully_enumerated() -> None:
