@@ -27,7 +27,12 @@ ALTER TABLE patient_privacy_requests
     ADD COLUMN rejection_reason    TEXT,
     ADD COLUMN executing_at        TIMESTAMPTZ,
     ADD COLUMN completed_at        TIMESTAMPTZ,
-    ADD COLUMN report_of_execution JSONB;
+    ADD COLUMN report_of_execution JSONB,
+    -- DSAR package (S11 step 06): the envelope-encrypted ZIP's object key
+    -- while it exists, and the TTL-deletion stamp once the cleanup job
+    -- removes it (download answers 410 package_expired afterwards).
+    ADD COLUMN package_object_key  TEXT,
+    ADD COLUMN package_deleted_at  TIMESTAMPTZ;
 
 -- ── Status remap + per-kind state machine ───────────────────────────
 

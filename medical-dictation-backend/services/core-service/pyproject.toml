@@ -20,6 +20,7 @@ dependencies = [
     "db",
     "secret",
     "crypto",
+    "storage",
 ]
 
 [tool.uv.sources]
@@ -29,6 +30,7 @@ audit = { workspace = true }
 db = { workspace = true }
 secret = { workspace = true }
 crypto = { workspace = true }
+storage = { workspace = true }
 
 [project.optional-dependencies]
 dev = [

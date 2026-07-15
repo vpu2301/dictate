@@ -84,6 +84,10 @@ typos at import.
 | `privacy.erasure_reviewed`        | info     | core-service POST /privacy-requests/{id}/review | S11 step 04 — request marked under review. Payload: request_id |
 | `privacy.erasure_approved`        | sec      | core-service POST /privacy-requests/{id}/approve | S11 step 04 — second-person approval; grace period starts. Payload: request_id, scheduled_for, grace_days |
 | `privacy.erasure_rejected`        | sec      | core-service POST /privacy-requests/{id}/reject | S11 step 04 — rejected/cancelled with written reason (incl. during grace). Payload: request_id, rejection_reason |
+| `dsar.export.completed`           | sec      | core-service DSAR engine (background task) | S11 step 06 — package assembled + stored. Payload: request_id, item_count, package_sha256. (`privacy.dsar_requested` covers the request — one canonical set.) |
+| `dsar.export.failed`              | sec      | core-service DSAR engine | S11 step 06 — export failed; row → 'failed'. Payload: request_id, error_class |
+| `dsar.download.link_issued`       | sec      | core-service GET /privacy-requests/{id} | S11 step 06 — a download pointer was minted (per status call). Payload: request_id |
+| `dsar.package.downloaded`         | sec      | core-service GET /privacy-requests/{id}/download | S11 step 06 — the package was actually served (decrypt-and-stream). Payload: request_id, bytes |
 | `demo.rate_limit_hit`             | warn     | `libs/demo` rate limiter         | Sprint 07 — a demo request was rejected by the three-axis limiter (per-IP / per-user / per-session). |
 | `demo.session_capped`            | warn     | `libs/demo` rate limiter         | Sprint 07 — demo session duration exceeded the per-session cap. |
 | `demo.daily_minutes_capped`      | warn     | `libs/demo` rate limiter         | Sprint 07 — per-user daily wall-clock minute budget exhausted. |

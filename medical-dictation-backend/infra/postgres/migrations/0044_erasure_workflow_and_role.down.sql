@@ -52,4 +52,6 @@ ALTER TABLE patient_privacy_requests
     DROP COLUMN rejection_reason,
     DROP COLUMN executing_at,
     DROP COLUMN completed_at,
-    DROP COLUMN report_of_execution;
+    DROP COLUMN report_of_execution,
+    DROP COLUMN package_object_key,
+    DROP COLUMN package_deleted_at;

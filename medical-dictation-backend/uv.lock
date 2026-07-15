@@ -934,6 +934,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-json-logger" },
     { name = "secret" },
+    { name = "storage" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -967,6 +968,7 @@ requires-dist = [
     { name = "python-json-logger", specifier = ">=2.0.7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "secret", editable = "libs/secret" },
+    { name = "storage", editable = "libs/storage" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29.0" },
 ]
 provides-extras = ["dev"]

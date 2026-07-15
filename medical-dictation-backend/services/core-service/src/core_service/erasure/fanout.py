@@ -99,7 +99,9 @@ FANOUT: tuple[Artifact, ...] = (
         ids_sql="SELECT id FROM patients WHERE id = $1",
         export_sql=f"""
             SELECT id, created_at,
-                   {_sanitize("ipn_hmac", "ipn_encrypted", "ipn_dek")} AS payload,
+                   ({_sanitize("ipn_hmac", "ipn_encrypted", "ipn_dek")})
+                       || jsonb_build_object('has_ipn', x.ipn_hmac IS NOT NULL)
+                       AS payload,
                    NULL::text AS object_ref
             FROM patients x WHERE id = $1
         """,

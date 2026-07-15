@@ -350,6 +350,26 @@
         "title": "ConsentSigningHint",
         "type": "object"
       },
+      "DownloadInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "title": "DownloadInfo",
+        "type": "object"
+      },
       "EncounterCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1129,6 +1149,141 @@
           "scheduled_for"
         ],
         "title": "PrivacyRequestOut",
+        "type": "object"
+      },
+      "PrivacyRequestStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Summary"
+          },
+          "package_expired": {
+            "default": false,
+            "title": "Package Expired",
+            "type": "boolean"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "scheduled_for": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled For"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "kind",
+          "reason",
+          "status",
+          "requested_by",
+          "requested_at",
+          "scheduled_for"
+        ],
+        "title": "PrivacyRequestStatus",
         "type": "object"
       },
       "ReadyResponse": {
@@ -2467,6 +2622,7 @@
     },
     "/patients/{patient_id}/dsar": {
       "post": {
+        "description": "S11 step 06: no longer a log entry \u2014 kicks off the export engine.\n\nScope tightened from patient.write to the dedicated ``patient.dsar``\n(tenant_admin only): the package is the complete PHI record.",
         "operationId": "request_dsar_patients__patient_id__dsar_post",
         "parameters": [
           {
@@ -2507,7 +2663,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2528,7 +2684,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Log a data-subject access request.",
+        "summary": "Trigger the DSAR export (assembles the full patient package).",
         "tags": [
           "privacy"
         ]
@@ -2891,6 +3047,65 @@
         ]
       }
     },
+    "/privacy-requests/{request_id}": {
+      "get": {
+        "operationId": "get_privacy_request_privacy_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Status of one privacy request (+ DSAR download when ready).",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
     "/privacy-requests/{request_id}/approve": {
       "post": {
         "operationId": "approve_request_privacy_requests__request_id__approve_post",
@@ -2945,6 +3160,64 @@
           }
         },
         "summary": "Approve an erasure request (second person; starts the grace period).",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/download": {
+      "get": {
+        "description": "Architecture rule: presigned URLs serve ciphertext \u2014 useless to the\ndata subject \u2014 so the package is decrypted through the envelope path\nand streamed on an AUTHENTICATED endpoint; every download is audited.",
+        "operationId": "download_dsar_package_privacy_requests__request_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download the DSAR package (authenticated decrypt-and-stream).",
         "tags": [
           "privacy"
         ]

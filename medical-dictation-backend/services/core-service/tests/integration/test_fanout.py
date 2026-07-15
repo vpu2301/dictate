@@ -40,8 +40,8 @@ MARK = "itest-fanout-s11s05"
 
 async def build_fixture_patient_with_everything(
     su: asyncpg.Connection,
-) -> tuple[UUID, UUID]:
-    """(tenant_id, patient_id) with one of every artifact class planted.
+) -> tuple[UUID, UUID, dict]:
+    """(tenant_id, patient_id, ids) with one of every artifact class planted.
 
     Rows are SQL-planted (the S02/S03 live E2Es already proved the real
     creation paths); MinIO objects are step 07's crypto-shred proof and
@@ -72,9 +72,10 @@ async def build_fixture_patient_with_everything(
         tenant_id, user, b"\x00" * 32, f"minio://mdx-audio/{tenant_id}/{MARK}.enc", encounter_id,
     )
     prompt_id = await su.fetchval("SELECT id FROM medical_prompts LIMIT 1")
-    await su.execute(
+    job_id = await su.fetchval(
         "INSERT INTO transcription_jobs (tenant_id, audio_id, requester_sub, "
-        "prompt_id, language, result_storage_uri) VALUES ($1, $2, $3, $4, 'uk', $5)",
+        "prompt_id, language, result_storage_uri) VALUES ($1, $2, $3, $4, 'uk', $5) "
+        "RETURNING id",
         tenant_id, audio_id, user, prompt_id,
         f"minio://mdx-transcripts/{tenant_id}/{MARK}.json.enc",
     )
@@ -120,8 +121,21 @@ async def build_fixture_patient_with_everything(
         )
         return rid, vid
 
-    _draft_report, _ = await _report("draft")
+    draft_report, _draft_version = await _report("draft")
     signed_report, signed_version = await _report("signed")
+    # Amendment history: a second version on the signed report.
+    amendment_version = await su.fetchval(
+        "INSERT INTO report_versions (report_id, version_number, created_by, "
+        "content_jsonb, parent_version_id, is_amendment, amendment_type, "
+        "amendment_reason) "
+        "VALUES ($1, 2, $2, '{\"amended\": true}'::jsonb, $3, true, "
+        "'correction', 'itest amendment') RETURNING id",
+        signed_report, user, signed_version,
+    )
+    await su.execute(
+        "UPDATE reports SET current_version_id = $2 WHERE id = $1",
+        signed_report, amendment_version,
+    )
 
     async def _envelope(resource_type: str, resource_id: UUID, version_id: UUID) -> UUID:
         return await su.fetchval(
@@ -166,7 +180,18 @@ async def build_fixture_patient_with_everything(
         "'{\"patient\": \"" + MARK + "\"}')",
         tenant_id, user, consent_signed, f"{MARK}-{uuid4().hex[:8]}",
     )
-    return tenant_id, patient_id
+    return tenant_id, patient_id, {
+        "user": user,
+        "encounter": encounter_id,
+        "audio": audio_id,
+        "job": job_id,
+        "draft_report": draft_report,
+        "signed_report": signed_report,
+        "signed_version": signed_version,
+        "amendment_version": amendment_version,
+        "consent_signed": consent_signed,
+        "consent_envelope": consent_envelope,
+    }
 
 
 async def cleanup_fixture(su: asyncpg.Connection) -> None:
@@ -211,7 +236,7 @@ async def test_everything_fixture_is_fully_enumerated() -> None:
     app_pool = await create_pool(APP_DSN, application_name="itest", min_size=1, max_size=1)
     try:
         await cleanup_fixture(su)
-        tenant_id, patient_id = await build_fixture_patient_with_everything(su)
+        tenant_id, patient_id, _ids = await build_fixture_patient_with_everything(su)
 
         async with tenant_connection(app_pool, tenant_id) as conn:
             inventory = await enumerate_patient(conn, patient_id)
@@ -224,7 +249,7 @@ async def test_everything_fixture_is_fully_enumerated() -> None:
             "consent": 2,           # signed + unsigned
             "privacy_request": 1,
             "report": 2,            # draft + signed
-            "report_version": 2,
+            "report_version": 3,  # draft v1 + signed v1 + amendment v2
             "synthesis_job": 0,     # none planted (no live synthesis run)
             "recording": 1,
             "transcription_job": 1,

@@ -1,0 +1,4 @@
+# DSAR package TTL cleanup (S11 step 06) — daily at 03:50 UTC, after the
+# nightly audit verify. Install on the ops host crontab (compose stays
+# infra-only per CLAUDE.md; a job container would need an ADR amendment).
+50 3 * * * cd /opt/medical-dictation-backend && /usr/local/bin/uv run python scripts/jobs/dsar_package_cleanup.py >> /var/log/mdx/dsar-cleanup.log 2>&1

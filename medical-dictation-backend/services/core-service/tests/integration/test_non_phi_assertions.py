@@ -31,7 +31,7 @@ async def test_telemetry_and_audit_carry_no_identity_strings() -> None:
     su = await asyncpg.connect(SU_DSN)
     try:
         await cleanup_fixture(su)
-        tenant_id, patient_id = await build_fixture_patient_with_everything(su)
+        tenant_id, patient_id, _ids = await build_fixture_patient_with_everything(su)
 
         # (a) autocomplete telemetry: scrubbed prefixes + ids only — the
         # fixture patient's marker name and the ІПН shape never appear.

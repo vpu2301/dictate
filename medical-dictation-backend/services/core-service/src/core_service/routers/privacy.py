@@ -19,6 +19,7 @@ approved request can still be rejected (cancelled) during grace.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 from uuid import UUID
@@ -148,21 +149,92 @@ async def _create(
 @router.post(
     "/patients/{patient_id}/dsar",
     response_model=PrivacyRequestOut,
-    status_code=status.HTTP_201_CREATED,
-    summary="Log a data-subject access request.",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger the DSAR export (assembles the full patient package).",
 )
 async def request_dsar(
     patient_id: UUID,
     body: PrivacyRequestBody,
-    claims: Annotated[Claims, Depends(requires("patient.write", "patient"))],
+    claims: Annotated[Claims, Depends(requires("patient.dsar", "patient"))],
 ) -> PrivacyRequestOut:
-    return await _create(
+    """S11 step 06: no longer a log entry — kicks off the export engine.
+
+    Scope tightened from patient.write to the dedicated ``patient.dsar``
+    (tenant_admin only): the package is the complete PHI record.
+    """
+    import asyncio
+
+    from ..erasure import dsar as dsar_engine
+
+    state = get_state()
+    stale_before = datetime.now(UTC) - timedelta(minutes=settings.dsar_stale_minutes)
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        patient = await patients_repository.get_patient(conn, patient_id=patient_id)
+        if patient is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if patient["status"] == "erased":
+            raise _http_error(
+                status.HTTP_409_CONFLICT,
+                "the patient is erased; the erasure execution report is the "
+                "document of record — a DSAR would be definitionally empty",
+                code="patient_erased",
+            )
+        active = await privacy_repository.find_active_dsar(conn, patient_id=patient_id)
+        row = None
+        if active is not None:
+            if active["status"] == "executing":
+                taken_over = await privacy_repository.revert_stale_executing(
+                    conn, request_id=active["id"], stale_before=stale_before
+                )
+                if taken_over is None:
+                    raise _http_error(
+                        status.HTTP_409_CONFLICT,
+                        "a DSAR export for this patient is already running",
+                        code="dsar_already_running",
+                        request_id=str(active["id"]),
+                    )
+                row = taken_over  # stale worker — take over and re-run
+            else:
+                row = active  # 'requested' (e.g. failed kick-off) — re-run it
+        if row is None:
+            row = await privacy_repository.create_request(
+                conn,
+                tenant_id=claims.tid,
+                patient_id=patient_id,
+                requested_by=claims.sub,
+                kind="dsar",
+                reason=body.reason.strip(),
+                status="requested",
+                scheduled_for=None,
+            )
+        started = await privacy_repository.mark_executing(conn, request_id=row["id"])
+        assert started is not None
+
+    await audit_helper.emit(
+        state,
         claims,
-        patient_id,
-        kind="dsar",
-        reason=body.reason,
-        audit_kind=audit_kinds.PRIVACY_DSAR_REQUESTED,
+        audit_kinds.PRIVACY_DSAR_REQUESTED,
+        target_kind="patient",
+        target_id=patient_id,
+        payload={"request_id": str(row["id"]), "kind": "dsar"},
+        severity=Severity.SEC,
     )
+    task = asyncio.create_task(
+        dsar_engine.run_export(
+            state,
+            tenant_id=claims.tid,
+            request_id=row["id"],
+            patient_id=patient_id,
+            actor_sub=claims.sub,
+        )
+    )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return _to_out(started)
+
+
+# Keep strong references so the event loop never GCs a running export.
+_background_tasks: set = set()
 
 
 @router.post(
@@ -299,6 +371,107 @@ async def reject_request(
         severity=Severity.SEC,
     )
     return _to_out(row)
+
+
+class DownloadInfo(_Strict):
+    url: str
+    expires_at: datetime
+
+
+class PrivacyRequestStatus(PrivacyRequestOut):
+    download: DownloadInfo | None = None
+    package_expired: bool = False
+    manifest_summary: dict | None = None
+
+
+@router.get(
+    "/privacy-requests/{request_id}",
+    response_model=PrivacyRequestStatus,
+    summary="Status of one privacy request (+ DSAR download when ready).",
+)
+async def get_privacy_request(
+    request_id: UUID,
+    claims: Annotated[Claims, Depends(requires("patient.dsar", "patient"))],
+) -> PrivacyRequestStatus:
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        row = await _load_request(conn, request_id)
+
+    out = PrivacyRequestStatus(**_to_out(row).model_dump())
+    if row["kind"] == "dsar" and row["status"] == "completed":
+        raw_summary = row["report_of_execution"]
+        if raw_summary:
+            out.manifest_summary = (
+                raw_summary if isinstance(raw_summary, dict) else json.loads(raw_summary)
+            )
+        if row["package_deleted_at"] is not None:
+            out.package_expired = True
+        elif row["package_object_key"]:
+            expires = row["completed_at"] + timedelta(days=settings.dsar_package_ttl_days)
+            out.download = DownloadInfo(
+                url=f"/privacy-requests/{request_id}/download", expires_at=expires
+            )
+            # Every mint of a download pointer is audited.
+            await audit_helper.emit(
+                state,
+                claims,
+                audit_kinds.DSAR_DOWNLOAD_LINK_ISSUED,
+                target_kind="patient",
+                target_id=row["patient_id"],
+                payload={"request_id": str(request_id)},
+                severity=Severity.SEC,
+            )
+    return out
+
+
+@router.get(
+    "/privacy-requests/{request_id}/download",
+    summary="Download the DSAR package (authenticated decrypt-and-stream).",
+)
+async def download_dsar_package(
+    request_id: UUID,
+    claims: Annotated[Claims, Depends(requires("patient.dsar", "patient"))],
+):
+    """Architecture rule: presigned URLs serve ciphertext — useless to the
+    data subject — so the package is decrypted through the envelope path
+    and streamed on an AUTHENTICATED endpoint; every download is audited."""
+    from fastapi.responses import Response
+
+    from ..erasure import dsar as dsar_engine
+
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        row = await _load_request(conn, request_id)
+    if row["kind"] != "dsar" or row["status"] != "completed":
+        raise _invalid_transition(row["status"])
+    if row["package_deleted_at"] is not None or not row["package_object_key"]:
+        raise _http_error(
+            status.HTTP_410_GONE,
+            f"the package was deleted after {settings.dsar_package_ttl_days} days "
+            "(retention TTL); trigger a fresh export",
+            code="package_expired",
+        )
+
+    runtime = await dsar_engine.get_runtime(state)
+    zip_bytes = await runtime.dsar_store.get(
+        key=row["package_object_key"], tenant_id=claims.tid, aad=request_id.bytes
+    )
+    await audit_helper.emit(
+        state,
+        claims,
+        audit_kinds.DSAR_PACKAGE_DOWNLOADED,
+        target_kind="patient",
+        target_id=row["patient_id"],
+        payload={"request_id": str(request_id), "bytes": len(zip_bytes)},
+        severity=Severity.SEC,
+    )
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="dsar-{request_id}.zip"'
+        },
+    )
 
 
 @router.get(

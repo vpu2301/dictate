@@ -149,6 +149,9 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # rule. tenant_admin only — requesting stays under patient.write, and
     # the service layer + DB CHECK forbid approving one's own request.
     ("tenant_admin", "privacy.approve", "patient"): True,
+    # DSAR export (S11 step 06): produces the complete PHI package —
+    # admin-only, like erasure approval.
+    ("tenant_admin", "patient.dsar", "patient"): True,
     # Clinical notes (SOAP/APSO/DAP/free) bound to a patient.
     ("tenant_admin", "note.read", "note"): True,
     ("tenant_admin", "note.write", "note"): True,

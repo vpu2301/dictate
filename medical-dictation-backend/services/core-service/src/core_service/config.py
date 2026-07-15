@@ -107,5 +107,42 @@ class Settings(BaseSettings):
     # Ukrainian clinical-record rules; legal confirmation in todo.md.
     report_retention_years: int = Field(default=25, alias="REPORT_RETENTION_YEARS")
 
+    # ── DSAR export engine (S11 step 06) ─────────────────────────────
+    # Raw audio excluded by default; the DPO decision is a config flip.
+    dsar_include_raw_audio: bool = Field(default=False, alias="DSAR_INCLUDE_RAW_AUDIO")
+    # Raw ІПН never leaves the row unless the DPO enables it AND an
+    # encrypted copy exists (PATIENT_IPN_RAW_ENABLED captured one).
+    dsar_include_raw_ipn: bool = Field(default=False, alias="DSAR_INCLUDE_RAW_IPN")
+    # Subject-accessible audit slice: the DPO's knob. Comma-separated kinds.
+    dsar_audit_kinds: str = Field(
+        default=(
+            "patient.created,patient.updated,consent.granted,consent.withdrawn,"
+            "consent.signed,privacy.dsar_requested,privacy.erasure_requested,"
+            "privacy.erasure_approved,privacy.erasure_rejected"
+        ),
+        alias="DSAR_AUDIT_KINDS",
+    )
+    dsar_stale_minutes: int = Field(default=30, alias="DSAR_STALE_MINUTES")
+    dsar_package_ttl_days: int = Field(default=14, alias="DSAR_PACKAGE_TTL_DAYS")
+
+    @property
+    def dsar_audit_kinds_list(self) -> list[str]:
+        return [k.strip() for k in self.dsar_audit_kinds.split(",") if k.strip()]
+
+    # Object storage + audit-read wiring for the DSAR engine (lazy-built;
+    # the service runs fine without MinIO until the first export).
+    s3_endpoint: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT")
+    s3_region: str = Field(default="us-east-1", alias="S3_REGION")
+    s3_access_key: str = Field(default="minioadmin", alias="S3_ACCESS_KEY")
+    s3_secret_key: str = Field(default="minioadmin", alias="S3_SECRET_KEY")
+    s3_use_ssl: bool = Field(default=False, alias="S3_USE_SSL")
+    s3_audio_bucket: str = Field(default="mdx-audio", alias="S3_AUDIO_BUCKET")
+    s3_transcripts_bucket: str = Field(default="mdx-transcripts", alias="S3_TRANSCRIPTS_BUCKET")
+    s3_dsar_bucket: str = Field(default="mdx-dsar", alias="S3_DSAR_BUCKET")
+    db_audit_reader_dsn: str = Field(
+        default="postgresql://audit_reader:audit_reader@localhost:5432/medical_dictation",
+        alias="DB_AUDIT_READER_DSN",
+    )
+
 
 settings = Settings()

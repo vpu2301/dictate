@@ -34,3 +34,8 @@ PRIVACY_ERASURE_REQUESTED: Final = "privacy.erasure_requested"
 PRIVACY_ERASURE_REVIEWED: Final = "privacy.erasure_reviewed"
 PRIVACY_ERASURE_APPROVED: Final = "privacy.erasure_approved"
 PRIVACY_ERASURE_REJECTED: Final = "privacy.erasure_rejected"
+# S11 step 06 — DSAR export engine.
+DSAR_EXPORT_COMPLETED: Final = "dsar.export.completed"
+DSAR_EXPORT_FAILED: Final = "dsar.export.failed"
+DSAR_DOWNLOAD_LINK_ISSUED: Final = "dsar.download.link_issued"
+DSAR_PACKAGE_DOWNLOADED: Final = "dsar.package.downloaded"

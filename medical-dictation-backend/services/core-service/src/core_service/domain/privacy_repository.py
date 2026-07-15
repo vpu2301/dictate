@@ -30,7 +30,8 @@ _COLUMNS = """
     id, tenant_id, patient_id, kind, reason, status,
     requested_by, requested_at, scheduled_for,
     reviewed_by, reviewed_at, rejection_reason,
-    executing_at, completed_at, report_of_execution
+    executing_at, completed_at, report_of_execution,
+    package_object_key, package_deleted_at
 """
 
 
@@ -181,6 +182,56 @@ async def reject(
         request_id,
         reviewer,
         rejection_reason,
+    )
+
+
+# ── DSAR engine support (step 06) ────────────────────────────────────
+
+
+async def find_active_dsar(
+    conn: asyncpg.Connection, *, patient_id: UUID
+) -> asyncpg.Record | None:
+    """The patient's in-flight DSAR (requested/executing), if any."""
+    return await conn.fetchrow(
+        f"""
+        SELECT {_COLUMNS} FROM patient_privacy_requests
+        WHERE patient_id = $1 AND kind = 'dsar'
+          AND status IN ('requested', 'executing')
+        ORDER BY requested_at DESC LIMIT 1
+        """,
+        patient_id,
+    )
+
+
+async def revert_stale_executing(
+    conn: asyncpg.Connection, *, request_id: UUID, stale_before: datetime
+) -> asyncpg.Record | None:
+    """Take over a DSAR whose worker died mid-build: 'executing' older
+    than the staleness cutoff reverts to 'requested' so the caller can
+    re-run it (idempotent — the package is rebuilt, the object replaced).
+    On-request recovery, not on-startup: tenants are RLS-invisible to
+    app_role, so a cross-tenant startup scan is impossible by design."""
+    return await conn.fetchrow(
+        f"""
+        UPDATE patient_privacy_requests
+        SET status = 'requested', executing_at = NULL
+        WHERE id = $1 AND kind = 'dsar' AND status = 'executing'
+          AND executing_at < $2
+        RETURNING {_COLUMNS}
+        """,
+        request_id,
+        stale_before,
+    )
+
+
+async def set_package_key(
+    conn: asyncpg.Connection, *, request_id: UUID, key: str
+) -> None:
+    await conn.execute(
+        "UPDATE patient_privacy_requests SET package_object_key = $2, "
+        "package_deleted_at = NULL WHERE id = $1",
+        request_id,
+        key,
     )
 
 
