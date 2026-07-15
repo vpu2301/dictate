@@ -940,6 +940,29 @@
             "title": "Date",
             "type": "string"
           },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "encounter_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Id"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -2375,7 +2398,7 @@
     },
     "/patients/{patient_id}/timeline": {
       "get": {
-        "description": "Reports filed against this patient, newest first.\n\nThe SPA merges this with encounters / notes / consents (each fetched from\nits own endpoint) to build the on-screen feed, and reads ``kind='dictate'``\nrows here to populate the Reports tab \u2014 so this endpoint deliberately\nreturns reports only, not the core-owned records, to avoid double-counting.",
+        "description": "Reports and encounter-linked recordings for this patient, newest first.\n\nThe SPA merges this with encounters / notes / consents (each fetched from\nits own endpoint) to build the on-screen feed, and reads ``kind='dictate'``\nrows here to populate the Reports tab \u2014 so this endpoint deliberately\nskips the core-owned records to avoid double-counting. ``kind='recording'``\nrows (S11 step 02) carry metadata only \u2014 never a media URL; audio access\nstays on the ASR surface with its own authz + audit.",
         "operationId": "patient_timeline_patients__patient_id__timeline_get",
         "parameters": [
           {

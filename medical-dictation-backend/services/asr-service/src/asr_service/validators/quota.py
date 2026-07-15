@@ -24,7 +24,14 @@ async def validate_quota(
 
     Caller must hold an RLS-scoped transaction (``tenant_connection``)
     so the SELECT only sees this tenant's rows and the subsequent
-    INSERT is part of the same transaction (preventing TOCTOU).
+    INSERT is part of the same transaction. The check is advisory, not
+    serialized: locking the SELECTed rows cannot fence concurrent
+    INSERTs anyway (new rows aren't covered by row locks), and the
+    original ``FOR UPDATE`` here was invalid SQL outright — Postgres
+    rejects FOR UPDATE with aggregates, which 500'd every upload. A
+    burst of parallel uploads can therefore overshoot the soft monthly
+    cap by at most the in-flight uploads' sizes; the cap is a billing
+    guard, not a security boundary.
     """
     row = await conn.fetchrow(
         """
@@ -32,7 +39,6 @@ async def validate_quota(
         FROM audio_files
         WHERE created_at >= date_trunc('month', now())
           AND status <> 'deleted'
-        FOR UPDATE
         """,
     )
     used = int(row["used_bytes"]) if row is not None else 0

@@ -23,6 +23,10 @@ class ErrorCode(StrEnum):
     RETRANSMIT_TOO_LARGE = "retransmit_too_large"
     SESSION_NOT_FOUND = "session_not_found"
     RATE_LIMITED = "rate_limited"
+    # S11 step 02 — start-time encounter linkage validation. Both are
+    # terminal: the client must fix the encounter reference, not retry.
+    ENCOUNTER_INVALID = "encounter_invalid"
+    ENCOUNTER_CLOSED = "encounter_closed"
 
     # 5xx-ish (server side)
     WORKER_FAILED = "worker_failed"

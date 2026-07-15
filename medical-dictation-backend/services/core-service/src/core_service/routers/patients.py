@@ -91,11 +91,14 @@ class PatientList(_Strict):
 
 class TimelineItem(_Strict):
     id: UUID
-    kind: str  # encounter | note | consent
+    kind: str  # dictate | recording
     title: str
     date: datetime
     status: str | None = None
     by: str | None = None
+    # kind == "recording" only (S11 step 02): metadata, never a media URL.
+    encounter_id: UUID | None = None
+    duration_s: float | None = None
 
 
 class Timeline(_Strict):
@@ -424,18 +427,23 @@ async def patient_timeline(
     patient_id: UUID,
     claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
 ) -> Timeline:
-    """Reports filed against this patient, newest first.
+    """Reports and encounter-linked recordings for this patient, newest first.
 
     The SPA merges this with encounters / notes / consents (each fetched from
     its own endpoint) to build the on-screen feed, and reads ``kind='dictate'``
     rows here to populate the Reports tab — so this endpoint deliberately
-    returns reports only, not the core-owned records, to avoid double-counting.
+    skips the core-owned records to avoid double-counting. ``kind='recording'``
+    rows (S11 step 02) carry metadata only — never a media URL; audio access
+    stays on the ASR surface with its own authz + audit.
     """
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         if await patients_repository.get_patient(conn, patient_id=patient_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         reports = await timeline_repository.list_patient_reports(
+            conn, patient_id=patient_id
+        )
+        recordings = await timeline_repository.list_patient_recordings(
             conn, patient_id=patient_id
         )
 
@@ -448,7 +456,19 @@ async def patient_timeline(
             status=r["status"],
         )
         for r in reports
+    ] + [
+        TimelineItem(
+            id=a["id"],
+            kind="recording",
+            title="Recording",
+            date=a["created_at"],
+            status=a["status"],
+            encounter_id=a["encounter_id"],
+            duration_s=(a["duration_ms"] / 1000.0) if a["duration_ms"] is not None else None,
+        )
+        for a in recordings
     ]
+    items.sort(key=lambda i: i.date, reverse=True)
     return Timeline(items=items)
 
 
