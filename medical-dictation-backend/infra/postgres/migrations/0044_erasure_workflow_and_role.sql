@@ -82,10 +82,15 @@ GRANT SELECT, DELETE ON transcription_jobs       TO mdx_erasure;
 GRANT SELECT, DELETE ON dictation_sessions       TO mdx_erasure;
 GRANT SELECT, DELETE ON reports                  TO mdx_erasure;
 GRANT SELECT, DELETE ON report_versions          TO mdx_erasure;
+GRANT SELECT, DELETE ON report_synthesis_jobs    TO mdx_erasure;
 GRANT SELECT, DELETE ON encounters               TO mdx_erasure;
 GRANT SELECT, DELETE ON clinical_notes           TO mdx_erasure;
 GRANT SELECT, DELETE ON patient_consents         TO mdx_erasure;
 GRANT SELECT, DELETE ON patient_anamnesis        TO mdx_erasure;
+-- signing_sessions hold canonical_json (patient names) — transient
+-- operational rows the engine hard-deletes; the envelopes themselves
+-- are retained (legal) and deliberately NOT granted.
+GRANT SELECT, DELETE ON signing_sessions         TO mdx_erasure;
 GRANT SELECT, UPDATE ON patients                 TO mdx_erasure;  -- identity overwrite
 GRANT SELECT, UPDATE ON patient_privacy_requests TO mdx_erasure;  -- engine transitions
 
@@ -96,8 +101,8 @@ DECLARE t TEXT;
 BEGIN
     FOREACH t IN ARRAY ARRAY[
         'audio_files', 'transcription_jobs', 'dictation_sessions',
-        'reports', 'encounters', 'clinical_notes',
-        'patient_consents', 'patient_anamnesis'
+        'reports', 'report_synthesis_jobs', 'encounters', 'clinical_notes',
+        'patient_consents', 'patient_anamnesis', 'signing_sessions'
     ] LOOP
         EXECUTE format(
             'CREATE POLICY %I ON %I FOR SELECT TO mdx_erasure

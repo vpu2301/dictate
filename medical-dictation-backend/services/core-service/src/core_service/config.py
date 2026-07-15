@@ -102,6 +102,10 @@ class Settings(BaseSettings):
     # execute (data-layer enforced via scheduled_for). Absorbs "the
     # patient changed their mind" — cheaper than any undelete.
     erasure_grace_days: int = Field(default=7, alias="ERASURE_GRACE_DAYS")
+    # Signed clinical records inside this window are RETAINED at erasure
+    # (fan-out map basis retention:clinical_record_signed). Default per
+    # Ukrainian clinical-record rules; legal confirmation in todo.md.
+    report_retention_years: int = Field(default=25, alias="REPORT_RETENTION_YEARS")
 
 
 settings = Settings()

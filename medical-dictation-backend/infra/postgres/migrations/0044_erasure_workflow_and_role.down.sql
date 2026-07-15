@@ -6,8 +6,9 @@ DECLARE t TEXT;
 BEGIN
     FOREACH t IN ARRAY ARRAY[
         'audio_files', 'transcription_jobs', 'dictation_sessions',
-        'reports', 'report_versions', 'encounters', 'clinical_notes',
-        'patient_consents', 'patient_anamnesis'
+        'reports', 'report_versions', 'report_synthesis_jobs',
+        'encounters', 'clinical_notes', 'patient_consents',
+        'patient_anamnesis', 'signing_sessions'
     ] LOOP
         -- (report_versions' policies were created explicitly, but the
         -- DROP POLICY IF EXISTS naming matches — one loop covers all.)
@@ -22,8 +23,9 @@ DROP POLICY IF EXISTS patient_privacy_requests_erasure_select ON patient_privacy
 DROP POLICY IF EXISTS patient_privacy_requests_erasure_update ON patient_privacy_requests;
 
 REVOKE ALL ON audio_files, transcription_jobs, dictation_sessions,
-             reports, report_versions, encounters, clinical_notes,
-             patient_consents, patient_anamnesis, patients,
+             reports, report_versions, report_synthesis_jobs,
+             encounters, clinical_notes, patient_consents,
+             patient_anamnesis, signing_sessions, patients,
              patient_privacy_requests
 FROM mdx_erasure;
 

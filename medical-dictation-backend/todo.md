@@ -17,6 +17,13 @@
       partial unique index, but retains a derived identifier of an
       erased person). Step-07 erasure engine consumes this decision.
 
+- [ ] **Clinical-record retention period confirmation** — owner:
+      **legal counsel**. The erasure engine retains signed reports for
+      `REPORT_RETENTION_YEARS` (default 25, per the common МОЗ
+      clinical-record retention reading). Confirm the exact period for
+      the pilot clinic's record classes before the first production
+      erasure; the config flip is the whole change
+      (docs/architecture/erasure.md).
 - [ ] **Consent text legal review** — owner: **legal counsel +
       clinical lead**. `infra/seeds/consents/*.md` (ai_scribe-v1,
       data_processing-v1) are engineering drafts; the КЕП signature
