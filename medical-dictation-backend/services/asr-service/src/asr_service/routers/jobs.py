@@ -35,13 +35,14 @@ from opentelemetry import metrics
 
 from asr_models import (
     JobEnqueuePayload,
-    JobResultView,
     JobStatus,
     TranscriptionJobView,
+    TranscriptionOutput,
 )
 from audit import Severity
 from auth import Claims
 from db import tenant_connection
+from storage import ObjectNotFoundError
 
 from .. import audit_kinds
 from ..config import settings
@@ -302,13 +303,17 @@ async def get_job(
 
 @router.get(
     "/jobs/{job_id}/result",
-    response_model=JobResultView,
-    summary="Fetch a completed job's pre-signed result URL (409 if not ready).",
+    response_model=TranscriptionOutput,
+    summary="Fetch a completed job's transcript (409 if not ready).",
 )
 async def get_job_result(
     job_id: UUID,
     claims: Annotated[Claims, Depends(requires("asr.read", "asr_job"))] = ...,  # type: ignore[assignment]
-) -> JobResultView:
+) -> TranscriptionOutput:
+    """Architecture rule: presigned URLs serve ciphertext — useless to a
+    browser — so the transcript is decrypted through the envelope path and
+    returned on this AUTHENTICATED endpoint (ADR-0011 forbids client-side
+    decrypt). Every plaintext read is audited."""
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         view = await repository.get_job(conn, job_id=job_id)
@@ -331,15 +336,39 @@ async def get_job_result(
                 "job_status": view.status.value,
             },
         )
-    url = await state.transcript_store.presigned_url(
-        key=f"{claims.tid}/{job_id}.json.enc",
-        expires_in=settings.s3_presigned_ttl_seconds,
+    try:
+        raw = await state.transcript_store.get(
+            key=f"{claims.tid}/{job_id}.json.enc",
+            tenant_id=claims.tid,
+            aad=job_id.bytes,
+        )
+    except ObjectNotFoundError:
+        # Job says complete but the ciphertext is gone — retention TTL or
+        # the S11 erasure engine removed it after the row was written.
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={
+                "type": "urn:mdx:asr:result:erased",
+                "title": "Transcription result no longer exists",
+                "status": status.HTTP_410_GONE,
+                "detail": (
+                    f"job {job_id} is complete but its transcript object "
+                    "has been deleted (retention/erasure)"
+                ),
+            },
+        ) from None
+    output = TranscriptionOutput.model_validate_json(raw)
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.TRANSCRIPT_ACCESSED,
+        actor_sub=claims.sub,
+        actor_role=(claims.roles[0] if claims.roles else None),
+        target_kind="asr_job",
+        target_id=str(job_id),
+        payload={"audio_id": str(view.audio_id), "bytes": len(raw)},
+        severity=Severity.INFO,
     )
-    return JobResultView(
-        job_id=job_id,
-        presigned_url=url,
-        expires_in=settings.s3_presigned_ttl_seconds,
-    )
+    return output
 
 
 @router.get(

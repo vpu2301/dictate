@@ -25,6 +25,19 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
+class ObjectNotFoundError(Exception):
+    """The requested key does not exist in the bucket.
+
+    Raised instead of leaking ``botocore.ClientError`` so callers can
+    map "object gone" (retention TTL / erasure) without importing boto.
+    """
+
+    def __init__(self, *, bucket: str, key: str) -> None:
+        self.bucket = bucket
+        self.key = key
+        super().__init__(f"object not found: s3://{bucket}/{key}")
+
+
 class S3Client:
     """Lazily-bound aioboto3 session + per-call client context.
 
@@ -76,7 +89,15 @@ class S3Client:
 
     async def get_object(self, *, bucket: str, key: str) -> bytes:
         async with self._client() as c:
-            resp = await c.get_object(Bucket=bucket, Key=key)
+            try:
+                resp = await c.get_object(Bucket=bucket, Key=key)
+            except ClientError as exc:
+                # getattr: the import-guard fallback aliases ClientError to
+                # Exception, which has no ``response`` attribute.
+                code = str(getattr(exc, "response", {}).get("Error", {}).get("Code", ""))
+                if code in ("NoSuchKey", "404"):
+                    raise ObjectNotFoundError(bucket=bucket, key=key) from exc
+                raise
             body = resp["Body"]
             return await body.read()
 

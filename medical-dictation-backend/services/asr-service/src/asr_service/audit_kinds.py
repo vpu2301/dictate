@@ -13,6 +13,7 @@ JOB_QUEUED: Final = "asr.job_queued"
 TRANSCRIPTION_STARTED: Final = "asr.transcription_started"
 TRANSCRIPTION_COMPLETE: Final = "asr.transcription_complete"
 TRANSCRIPTION_FAILED: Final = "asr.transcription_failed"
+TRANSCRIPT_ACCESSED: Final = "asr.transcript_accessed"
 JOB_CANCELLED: Final = "asr.job_cancelled"
 
 # Quota
