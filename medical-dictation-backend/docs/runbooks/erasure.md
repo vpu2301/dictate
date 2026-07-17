@@ -27,7 +27,9 @@
 | `DSAR_INCLUDE_RAW_AUDIO` | `false` | Raw recordings in the package (streamed through envelope decrypt). Off = the manifest + README say "available on request" — never a silent gap. |
 | `DSAR_INCLUDE_RAW_IPN` | `false` | Raw ІПН in `patient.json` — only possible when `PATIENT_IPN_RAW_ENABLED` captured a ciphertext. |
 | `DSAR_STALE_MINUTES` | 30 | An `executing` export older than this is presumed dead; the next POST takes it over and re-runs (idempotent — the object is replaced). |
-| `DSAR_PACKAGE_TTL_DAYS` | 14 | The cleanup cron (`scripts/jobs/dsar_package_cleanup.py`, `infra/compose/cron/dsar-package-cleanup.cron`) deletes the ZIP and stamps `package_deleted_at`; downloads then answer `410 package_expired`. |
+| `DSAR_PACKAGE_TTL_DAYS` | 14 (compose sets **7**) | The cleanup cron (`scripts/jobs/dsar_package_cleanup.py`, `infra/compose/cron/dsar-package-cleanup.cron`) deletes the ZIP and stamps `package_deleted_at`; downloads then answer `410 package_expired`. The `mdx-dsar` bucket's 7-day ILM expiry rule (minio-init) is the object-storage backstop — keep the two aligned. |
+| `DSAR_DOWNLOAD_TOKEN_TTL_SECONDS` | 900 | Download links minted by the status endpoint carry a 15-minute HMAC token (ADR-0028) — the platform's presigned-at-15-min equivalent (raw presigned URLs serve ciphertext, rule 3). Expired link → `403 download_link_expired`; re-fetch status for a fresh one (each mint is audited). |
+| `DSAR_DOWNLOAD_TOKEN_HMAC_KEY` | dev constant | Hex HMAC key for the download tokens. Rotate like the signing-service `*_HMAC_KEY`s; rotation invalidates outstanding links only. |
 
 ### Answers for the front desk
 
@@ -38,8 +40,11 @@
 - **"Where's the audio?"** Excluded by default; the manifest's
   `excluded` section and the README say so explicitly. Flip
   `DSAR_INCLUDE_RAW_AUDIO` per DPO decision.
-- **"The download says expired."** The package auto-deletes after
-  14 days. Trigger a fresh export — it rebuilds from live data.
+- **"The download says expired."** Two different expiries: a
+  `403 download_link_expired` just means the 15-minute link lapsed —
+  re-open the request status for a fresh one; a `410 package_expired`
+  means the package passed `DSAR_PACKAGE_TTL_DAYS` (7 in compose) and
+  was deleted — trigger a fresh export, it rebuilds from live data.
 - **"Export stuck in executing?"** POST again after
   `DSAR_STALE_MINUTES`; the engine takes the stale request over.
 
@@ -136,6 +141,55 @@ identity data; retained: 1 signed clinical report
 3. **"Як отримати свої дані?"** — a DSAR export (`patient.dsar`,
    tenant admin) — see the DSAR section above; the package README
    explains its own contents in Ukrainian.
+
+## Backups vs the right to erasure (S11 deployment, ADR-0028)
+
+The erasure engine destroys data in the **live** database and object
+store. Backups are a separate, slower medium — this section is the
+written policy, and the mechanics are implemented, not aspirational.
+
+### Policy
+
+1. **Backups are encrypted and access-controlled.** `deploy/scripts/backup.sh`
+   produces AES-256-encrypted `pg_dump` archives (passphrase in
+   `deploy/secrets/backup.passphrase`, gitignored — escrow it with the
+   master key). Nothing readable ever sits in the bucket.
+2. **Erased data persists in backups until rotation — say so honestly.**
+   The `mdx-backups` bucket carries a **35-day ILM expiry rule**
+   (minio-init, both compose stacks): 35 days is the MAXIMUM backup
+   retention window (`BACKUP_RETENTION_DAYS`). An erasure is therefore
+   complete against backups after one full rotation.
+3. **The completion horizon is recorded per execution.** The engine
+   stamps `backups_purged_by = executed_at + BACKUP_RETENTION_DAYS`
+   into every `report_of_execution` — that is the "fully purged from
+   backups by <date>" answer the DPO gives the data subject.
+4. **Restoring erased patients is forbidden.** Every restore MUST
+   re-run erasures completed after the backup was taken. This is
+   scripted, not manual archaeology — see below.
+
+### Restore procedure (the only sanctioned path)
+
+```
+deploy/scripts/restore.sh --latest        # or an explicit backup_id
+```
+
+The script enforces the policy end-to-end:
+
+1. captures the **erasure ledger** (completed erasure requests) from
+   the live DB into `deploy/var/ledgers/` *before* overwriting it;
+2. downloads + sha256-verifies + decrypts the chosen backup, then
+   `pg_restore --clean` into `medical_dictation`;
+3. runs `deploy/scripts/rerun_erasures.py` inside the privacy-ops
+   erasure job container: every ledger entry with
+   `completed_at > backup.taken_at` is forced back to `executing` and
+   re-executed through the idempotent engine (operator
+   `restore-rerun`, fully audited, fresh `report_of_execution`).
+
+If the live DB is already dead (step 1 impossible), pass a previously
+captured ledger: `restore.sh <id> --ledger <file>`. If no ledger
+survives at all, reconstruct one from `audit.events`
+(`kind='erasure.executed'`) in the restored backup PLUS any newer
+audit export — and treat that gap as an incident.
 
 ## Alert response
 

@@ -124,6 +124,24 @@ class Settings(BaseSettings):
     )
     dsar_stale_minutes: int = Field(default=30, alias="DSAR_STALE_MINUTES")
     dsar_package_ttl_days: int = Field(default=14, alias="DSAR_PACKAGE_TTL_DAYS")
+    # S11 deployment (ADR-0028): download links are short-lived HMAC
+    # tokens on the authenticated decrypt-and-stream endpoint — the
+    # platform's honest equivalent of "presigned at 15 minutes"
+    # (raw presigned URLs serve ciphertext, rule 3). Key idiom follows
+    # signing-service's *_HMAC_KEY hex fields; dev default is NOT a
+    # production value.
+    dsar_download_token_ttl_seconds: int = Field(
+        default=900, alias="DSAR_DOWNLOAD_TOKEN_TTL_SECONDS"
+    )
+    dsar_download_token_hmac_key_hex: str = Field(
+        default="33" * 32, alias="DSAR_DOWNLOAD_TOKEN_HMAC_KEY"
+    )
+    # Backups-vs-erasure completion horizon (docs/runbooks/erasure.md):
+    # encrypted DB backups expire from mdx-backups after this many days
+    # (bucket ILM rule), so a completed erasure is fully purged from
+    # backups once one full rotation has passed. Recorded per-execution
+    # in report_of_execution.backups_purged_by.
+    backup_retention_days: int = Field(default=35, alias="BACKUP_RETENTION_DAYS")
 
     @property
     def dsar_audit_kinds_list(self) -> list[str]:

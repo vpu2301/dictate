@@ -39,6 +39,20 @@ groups:
             the next POST (DSAR_STALE_MINUTES); investigate object-store
             connectivity if it recurs.
 
+      - alert: DsarExportFailed
+        # 'failed' rows are permanent history; count only failures not yet
+        # superseded by a newer completed export for the same patient.
+        expr: max_over_time(mdx_privacy_dsar_failed_unresolved_count[30m]) > 0
+        labels:
+          severity: warn
+        annotations:
+          summary: "Unresolved failed DSAR export(s)"
+          description: >
+            An export crashed and was marked failed (dsar.export.failed in
+            audit names the error class) and no newer export has completed
+            for that patient. A fresh POST re-triggers the export;
+            investigate recurring failures via the core-service logs.
+
       - alert: ErasureExecutionError
         expr: max_over_time(mdx_privacy_requests_with_error_count[30m]) > 0
         labels:

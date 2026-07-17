@@ -3167,7 +3167,7 @@
     },
     "/privacy-requests/{request_id}/download": {
       "get": {
-        "description": "Architecture rule: presigned URLs serve ciphertext \u2014 useless to the\ndata subject \u2014 so the package is decrypted through the envelope path\nand streamed on an AUTHENTICATED endpoint; every download is audited.",
+        "description": "Architecture rule: presigned URLs serve ciphertext \u2014 useless to the\ndata subject \u2014 so the package is decrypted through the envelope path\nand streamed on an AUTHENTICATED endpoint; every download is audited.\nA 15-minute HMAC token (``t``, minted by the status endpoint) bounds\nthe link's life on top of auth (ADR-0028).",
         "operationId": "download_dsar_package_privacy_requests__request_id__download_get",
         "parameters": [
           {
@@ -3177,6 +3177,16 @@
             "schema": {
               "format": "uuid",
               "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "t",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "T",
               "type": "string"
             }
           },

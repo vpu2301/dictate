@@ -71,6 +71,13 @@ async def _emit_queue_gauges(scan: asyncpg.Connection) -> None:
         "mdx_privacy_requests_with_error_count",
         description="Requests carrying last_error (stuck executions)",
     )
+    # 'failed' rows are permanent history — a recovered patient gets a NEW
+    # completed request. Alerting must count only failures no newer export
+    # has superseded, or DsarExportFailed would fire forever (ADR-0028).
+    dsar_failed_unresolved = meter.create_gauge(
+        "mdx_privacy_dsar_failed_unresolved_count",
+        description="Failed DSAR requests with no newer completed export for the same patient",
+    )
     last_run = meter.create_gauge(
         "mdx_erasure_scheduler_last_run_unix_ts", description="Scheduler heartbeat"
     )
@@ -94,6 +101,19 @@ async def _emit_queue_gauges(scan: asyncpg.Connection) -> None:
     errors.set(
         await scan.fetchval(
             "SELECT count(*) FROM patient_privacy_requests WHERE last_error IS NOT NULL"
+        )
+    )
+    dsar_failed_unresolved.set(
+        await scan.fetchval(
+            """
+            SELECT count(*) FROM patient_privacy_requests f
+            WHERE f.kind = 'dsar' AND f.status = 'failed'
+              AND NOT EXISTS (
+                SELECT 1 FROM patient_privacy_requests n
+                WHERE n.patient_id = f.patient_id AND n.kind = 'dsar'
+                  AND n.status = 'completed'
+                  AND n.requested_at > f.requested_at)
+            """
         )
     )
     last_run.set(int(time.time()))

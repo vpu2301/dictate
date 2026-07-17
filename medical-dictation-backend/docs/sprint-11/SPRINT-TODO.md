@@ -52,3 +52,16 @@
       alerts (fire-tested against a planted stuck row through the real
       OTLP→collector→Prometheus pipeline), runbook completed, records +
       carry-overs. (this commit)
+- [x] **09 — Deployment (ADR-0028)** — `deploy/` privacy-ops overlay:
+      erasure credential isolated to job containers (two-direction psql
+      proof: app_role `permission denied`, mdx_erasure `DELETE 0`);
+      first real backups (encrypted pg_dump → `mdx-backups`, 35-day ILM
+      = the erasure completion horizon, `backups_purged_by` stamped into
+      every report_of_execution); restore.sh with MANDATORY scripted
+      post-restore erasure re-run (proven live: backup → erase →
+      restore → re-erased, `operator=restore-rerun`); `mdx-dsar` 7-day
+      ILM backstop + 15-minute HMAC download links (presigned-TTL
+      equivalent under the ciphertext rule); alert data path fixed
+      (job containers set OTLP endpoint), `DsarExportFailed` added on an
+      unresolved-failures gauge, stuck-erasure alert fire-tested.
+      Details + transcripts: `deploy/README.md`.

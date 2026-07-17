@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -275,10 +275,18 @@ async def _execute_locked(
         raise
 
     # ── Phase 5: completion ───────────────────────────────────────────
+    _executed_at = datetime.now(UTC)
     report = {
-        "executed_at": datetime.now(UTC).isoformat(),
+        "executed_at": _executed_at.isoformat(),
         "engine_version": ENGINE_VERSION,
         "operator": operator,
+        # Backups-vs-erasure horizon (ADR-0028, runbooks/erasure.md):
+        # erased data persists in encrypted backups until the retention
+        # rotation completes — this is the "fully purged from backups
+        # by" date the DPO reports to the data subject.
+        "backups_purged_by": (
+            _executed_at + timedelta(days=settings.backup_retention_days)
+        ).date().isoformat(),
         "destroyed": [
             {"kind": i.kind, "id": str(i.id), "detail": i.detail} for i in destroyed
         ],

@@ -37,6 +37,7 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0025  | [Autocomplete trie + Redis cache](0025-autocomplete-trie-redis.md)               | Accepted |
 | 0026  | [Server-side file-key signing via UAPKI; dev_password scaffold](0026-file-key-uapki-and-dev-password-scaffold.md) | Accepted |
 | 0027  | [Patient identity (ІПН) & crypto-shredding strategy](0027-patient-identity-and-crypto-shredding.md) | Accepted |
+| 0028  | [Privacy-ops deployment: erasure job isolation, backups vs erasure, export lifecycle](0028-privacy-ops-deployment.md) | Accepted |
 
 ## Template
 

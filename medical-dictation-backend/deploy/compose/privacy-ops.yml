@@ -1,0 +1,82 @@
+# ══════════════════════════════════════════════════════════════════
+# S11 deployment — privacy ops overlay (erasure scheduler, DSAR
+# cleanup, backup tooling). ADR-0028.
+#
+# A SEPARATE compose project that joins the running full stack's
+# network. Start the main stack first (docker compose up -d in the
+# repo root), then:
+#
+#   docker compose -f deploy/compose/privacy-ops.yml up -d
+#
+# Credential posture (the reason this overlay exists):
+#   * DB_ERASURE_DSN — the ONLY credential that can DELETE PHI rows —
+#     lives in deploy/secrets/erasure.env (gitignored; template at
+#     deploy/compose/erasure.env.example) and is injected ONLY into
+#     the job containers below. It must never appear in any request-
+#     serving service's environment (core-service et al.).
+#   * The jobs reuse the already-built core-service image — same code,
+#     different credentials and no listening port.
+# ══════════════════════════════════════════════════════════════════
+name: medical-dictation-privacy-ops
+
+x-job-env: &job-env
+  ENVIRONMENT: development
+  LOG_LEVEL: INFO
+  # Cross-tenant queue scan (RLS-exempt operational sweep) — dev only;
+  # production points this at a dedicated ops role, never superuser.
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/medical_dictation
+  DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+  DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+  DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+  S3_ENDPOINT: http://minio:9000
+  MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+  # Without this the scheduler's queue gauges default to localhost:4317
+  # and the sprint-11 privacy alerts stay dataless (OBS gap, EXPLORE).
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+
+services:
+  # ── erasure-scheduler — the erasure engine's ONLY runtime home ────
+  # 15-minute sweep: executes approved requests whose grace elapsed,
+  # re-runs crashed 'executing' rows (idempotent), pushes queue gauges.
+  erasure-scheduler:
+    image: medical-dictation-core-service
+    restart: unless-stopped
+    environment:
+      <<: *job-env
+    env_file:
+      - ../secrets/erasure.env   # DB_ERASURE_DSN — the privileged DSN
+    volumes:
+      - ../../infra/dev/master.key:/etc/mdx/master.key:ro
+      - ../../scripts/jobs:/jobs:ro
+      - ../scripts:/ops:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "erasure-scheduler loop: every 900s"
+        while true; do
+          python /jobs/erasure_scheduler.py || echo "sweep exited $$?"
+          sleep 900
+        done
+
+  # ── dsar-package-cleanup — daily TTL enforcement (app-side; the
+  #    bucket ILM rule is the independent backstop) ──────────────────
+  dsar-package-cleanup:
+    image: medical-dictation-core-service
+    restart: unless-stopped
+    environment:
+      <<: *job-env
+    volumes:
+      - ../../scripts/jobs:/jobs:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "dsar-package-cleanup loop: every 86400s"
+        while true; do
+          python /jobs/dsar_package_cleanup.py || echo "cleanup exited $$?"
+          sleep 86400
+        done
+
+networks:
+  default:
+    name: medical-dictation_default
+    external: true

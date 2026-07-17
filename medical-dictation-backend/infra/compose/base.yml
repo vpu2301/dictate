@@ -79,10 +79,18 @@ services:
         mc mb --ignore-existing local/mdx-audio
         mc mb --ignore-existing local/mdx-transcripts
         mc mb --ignore-existing local/mdx-dsar
+        mc mb --ignore-existing local/mdx-backups
         # Object lock prevents accidental deletion in dev; in prod the bucket
         # is created with versioning + retention via Terraform (sprint 16).
         mc version enable local/mdx-audio || true
         mc version enable local/mdx-transcripts || true
+        # S11 deployment (ADR-0028): DSAR packages expire at 7 days
+        # (backstop under the app-side TTL cron); DB backups expire at
+        # 35 days — the erasure completion horizon (runbooks/erasure.md).
+        mc ilm rule rm --all --force local/mdx-dsar 2>/dev/null || true
+        mc ilm rule add --expire-days 7 local/mdx-dsar
+        mc ilm rule rm --all --force local/mdx-backups 2>/dev/null || true
+        mc ilm rule add --expire-days 35 local/mdx-backups
         echo "minio-init: buckets ready"
     restart: "no"
 

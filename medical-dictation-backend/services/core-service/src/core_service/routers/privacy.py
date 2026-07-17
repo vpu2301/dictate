@@ -35,7 +35,7 @@ from db import tenant_connection
 from .. import audit_helper, audit_kinds
 from ..config import settings
 from ..deps import get_state, requires
-from ..domain import patients_repository, privacy_repository
+from ..domain import download_tokens, patients_repository, privacy_repository
 from ..scrub import scrub_free_text
 
 router = APIRouter(tags=["privacy"])
@@ -410,9 +410,18 @@ async def get_privacy_request(
         if row["package_deleted_at"] is not None:
             out.package_expired = True
         elif row["package_object_key"]:
-            expires = row["completed_at"] + timedelta(days=settings.dsar_package_ttl_days)
+            # Short-lived link (ADR-0028): a 15-minute HMAC token, not
+            # the package TTL — re-fetch status for a fresh one (each
+            # mint is audited). expires_at reflects the LINK's life.
+            token, exp_unix = download_tokens.mint(
+                settings.dsar_download_token_hmac_key_hex,
+                tenant_id=claims.tid,
+                request_id=request_id,
+                ttl_seconds=settings.dsar_download_token_ttl_seconds,
+            )
             out.download = DownloadInfo(
-                url=f"/privacy-requests/{request_id}/download", expires_at=expires
+                url=f"/privacy-requests/{request_id}/download?t={token}",
+                expires_at=datetime.fromtimestamp(exp_unix, tz=UTC),
             )
             # Every mint of a download pointer is audited.
             await audit_helper.emit(
@@ -434,15 +443,31 @@ async def get_privacy_request(
 async def download_dsar_package(
     request_id: UUID,
     claims: Annotated[Claims, Depends(requires("patient.dsar", "patient"))],
+    t: str = "",
 ):
     """Architecture rule: presigned URLs serve ciphertext — useless to the
     data subject — so the package is decrypted through the envelope path
-    and streamed on an AUTHENTICATED endpoint; every download is audited."""
+    and streamed on an AUTHENTICATED endpoint; every download is audited.
+    A 15-minute HMAC token (``t``, minted by the status endpoint) bounds
+    the link's life on top of auth (ADR-0028)."""
     from fastapi.responses import Response
 
     from ..erasure import dsar as dsar_engine
 
     state = get_state()
+    if not download_tokens.verify(
+        settings.dsar_download_token_hmac_key_hex,
+        tenant_id=claims.tid,
+        request_id=request_id,
+        token=t,
+    ):
+        raise _http_error(
+            status.HTTP_403_FORBIDDEN,
+            "download link missing or expired "
+            f"({settings.dsar_download_token_ttl_seconds}s TTL) — "
+            "re-fetch the request status for a fresh link",
+            code="download_link_expired",
+        )
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         row = await _load_request(conn, request_id)
     if row["kind"] != "dsar" or row["status"] != "completed":

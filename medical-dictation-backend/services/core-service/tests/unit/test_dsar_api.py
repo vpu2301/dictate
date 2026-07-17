@@ -41,6 +41,20 @@ def _dsar_row(**over: object) -> dict:
     return base
 
 
+def _token(request_id: UUID = REQUEST_ID, ttl_seconds: int = 900) -> str:
+    """A valid download token for the test tenant (ADR-0028)."""
+    from core_service.config import settings
+    from core_service.domain import download_tokens
+
+    token, _ = download_tokens.mint(
+        settings.dsar_download_token_hmac_key_hex,
+        tenant_id=TENANT_ID,
+        request_id=request_id,
+        ttl_seconds=ttl_seconds,
+    )
+    return token
+
+
 def _stub_repo(monkeypatch: pytest.MonkeyPatch, name: str, result) -> dict:
     from core_service.domain import privacy_repository
 
@@ -175,7 +189,11 @@ def test_status_completed_mints_audited_download(
     resp = admin.get(f"/privacy-requests/{REQUEST_ID}")
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["download"]["url"].endswith(f"/privacy-requests/{REQUEST_ID}/download")
+    # ADR-0028: the link carries a short-lived HMAC token; expires_at
+    # reflects the 15-minute link TTL, not the package TTL.
+    assert f"/privacy-requests/{REQUEST_ID}/download?t=" in body["download"]["url"]
+    expires = datetime.fromisoformat(body["download"]["expires_at"])
+    assert expires - datetime.now(UTC) <= timedelta(minutes=15)
     assert body["manifest_summary"]["item_count"] == 5
     assert not body["package_expired"]
     kinds = [c["kind"] for c in admin.audit_calls]  # type: ignore[attr-defined]
@@ -203,7 +221,7 @@ def test_download_after_ttl_delete_410(
         monkeypatch, "get_request",
         _dsar_row(status="completed", completed_at=NOW, package_deleted_at=NOW),
     )
-    resp = admin.get(f"/privacy-requests/{REQUEST_ID}/download")
+    resp = admin.get(f"/privacy-requests/{REQUEST_ID}/download?t={_token()}")
     assert resp.status_code == 410, resp.text
     assert resp.json()["code"] == "package_expired"
 
@@ -230,9 +248,57 @@ def test_download_streams_zip_and_audits(
 
     monkeypatch.setattr(engine, "get_runtime", _runtime)
 
-    resp = admin.get(f"/privacy-requests/{REQUEST_ID}/download")
+    resp = admin.get(f"/privacy-requests/{REQUEST_ID}/download?t={_token()}")
     assert resp.status_code == 200, resp.text
     assert resp.content == b"PK-fake-zip"
     assert resp.headers["content-type"] == "application/zip"
     kinds = [c["kind"] for c in admin.audit_calls]  # type: ignore[attr-defined]
     assert "dsar.package.downloaded" in kinds
+
+
+# ── download-link token (S11 deployment, ADR-0028) ──────────────────
+
+
+@pytest.mark.parametrize(
+    "bad_token",
+    ["", "garbage", "123.deadbeef", "notanint.abc"],
+    ids=["missing", "garbage", "wrong-mac", "malformed-exp"],
+)
+def test_download_without_valid_token_403(
+    make_client: Callable[[list[str]], TestClient],
+    monkeypatch: pytest.MonkeyPatch,
+    bad_token: str,
+) -> None:
+    admin = _admin(make_client)
+    _stub_repo(
+        monkeypatch, "get_request",
+        _dsar_row(
+            status="completed", completed_at=NOW,
+            package_object_key=f"dsar/{TENANT_ID}/{REQUEST_ID}.zip",
+        ),
+    )
+    resp = admin.get(f"/privacy-requests/{REQUEST_ID}/download?t={bad_token}")
+    assert resp.status_code == 403, resp.text
+    assert resp.json()["code"] == "download_link_expired"
+
+
+def test_download_expired_token_403(
+    make_client: Callable[[list[str]], TestClient], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    admin = _admin(make_client)
+    resp = admin.get(
+        f"/privacy-requests/{REQUEST_ID}/download?t={_token(ttl_seconds=-1)}"
+    )
+    assert resp.status_code == 403, resp.text
+    assert resp.json()["code"] == "download_link_expired"
+
+
+def test_download_token_bound_to_request_403(
+    make_client: Callable[[list[str]], TestClient], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    other = UUID("88888888-8888-8888-8888-888888888888")
+    admin = _admin(make_client)
+    resp = admin.get(
+        f"/privacy-requests/{REQUEST_ID}/download?t={_token(request_id=other)}"
+    )
+    assert resp.status_code == 403, resp.text

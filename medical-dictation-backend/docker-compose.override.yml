@@ -68,8 +68,19 @@ services:
         mc alias set local http://minio:9000 "${MINIO_ROOT_USER:-minioadmin}" "${MINIO_ROOT_PASSWORD:-minioadmin}"
         mc mb --ignore-existing local/mdx-audio
         mc mb --ignore-existing local/mdx-transcripts
+        mc mb --ignore-existing local/mdx-dsar
+        mc mb --ignore-existing local/mdx-backups
         mc version enable local/mdx-audio || true
         mc version enable local/mdx-transcripts || true
+        # S11 deployment (ADR-0028): DSAR packages expire at 7 days —
+        # the object-storage backstop under the app-side TTL cron; DB
+        # backups expire at 35 days — the erasure completion horizon
+        # (docs/runbooks/erasure.md). Idempotent: rm any prior rule
+        # for a clean re-add on every up.
+        mc ilm rule rm --all --force local/mdx-dsar 2>/dev/null || true
+        mc ilm rule add --expire-days 7 local/mdx-dsar
+        mc ilm rule rm --all --force local/mdx-backups 2>/dev/null || true
+        mc ilm rule add --expire-days 35 local/mdx-backups
         echo "minio-init: buckets ready"
     restart: "no"
 
@@ -300,6 +311,20 @@ services:
     restart: unless-stopped
     environment:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
+      # S11 privacy: DSAR export engine (see core_service/config.py).
+      # DB_ERASURE_DSN is deliberately ABSENT — the erasure credential
+      # lives only in the deploy/compose/privacy-ops.yml job containers
+      # (ADR-0028); core-service never builds the erasure runtime.
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      DB_AUDIT_READER_DSN: postgresql://audit_reader:audit_reader@postgres:5432/medical_dictation
+      DSAR_PACKAGE_TTL_DAYS: 7
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      SIGNING_SERVICE_BASE_URL: http://signing-service:8000
+      MDX_CONSENT_TEXTS_DIR: /etc/mdx/consents
+    volumes:
+      - ./infra/dev/master.key:/etc/mdx/master.key:ro
+      - ./infra/seeds/consents:/etc/mdx/consents:ro
     ports:
       - "8003:8000"
     healthcheck: *svc-healthcheck
@@ -308,6 +333,10 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
 
