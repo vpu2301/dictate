@@ -66,31 +66,6 @@
         "title": "HealthResponse",
         "type": "object"
       },
-      "JobResultView": {
-        "description": "Pre-signed result fetch for a COMPLETE job.\n\nReturned by ``GET /asr/jobs/{id}/result``. The dedicated endpoint exists so\na client can fetch the (short-TTL) URL without polling the whole job view,\nand so \"not ready yet\" is an explicit 409 rather than a 200 with a null URL.",
-        "properties": {
-          "expires_in": {
-            "title": "Expires In",
-            "type": "integer"
-          },
-          "job_id": {
-            "format": "uuid",
-            "title": "Job Id",
-            "type": "string"
-          },
-          "presigned_url": {
-            "title": "Presigned Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "job_id",
-          "presigned_url",
-          "expires_in"
-        ],
-        "title": "JobResultView",
-        "type": "object"
-      },
       "JobStatus": {
         "enum": [
           "queued",
@@ -158,6 +133,45 @@
           "s3"
         ],
         "title": "ReadyResponse",
+        "type": "object"
+      },
+      "Segment": {
+        "properties": {
+          "avg_confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Avg Confidence",
+            "type": "number"
+          },
+          "end_ms": {
+            "minimum": 0.0,
+            "title": "End Ms",
+            "type": "integer"
+          },
+          "start_ms": {
+            "minimum": 0.0,
+            "title": "Start Ms",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "words": {
+            "items": {
+              "$ref": "#/components/schemas/WordTiming"
+            },
+            "title": "Words",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "start_ms",
+          "end_ms",
+          "avg_confidence"
+        ],
+        "title": "Segment",
         "type": "object"
       },
       "TranscriptionJobView": {
@@ -281,6 +295,92 @@
         "title": "TranscriptionJobView",
         "type": "object"
       },
+      "TranscriptionMetadata": {
+        "properties": {
+          "beam_size": {
+            "minimum": 1.0,
+            "title": "Beam Size",
+            "type": "integer"
+          },
+          "gpu_seconds": {
+            "default": 0.0,
+            "minimum": 0.0,
+            "title": "Gpu Seconds",
+            "type": "number"
+          },
+          "infer_seconds": {
+            "minimum": 0.0,
+            "title": "Infer Seconds",
+            "type": "number"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "peak_gpu_mem_mb": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Peak Gpu Mem Mb",
+            "type": "integer"
+          },
+          "prompt_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Id"
+          },
+          "vad_seconds_speech": {
+            "minimum": 0.0,
+            "title": "Vad Seconds Speech",
+            "type": "number"
+          }
+        },
+        "required": [
+          "model",
+          "vad_seconds_speech",
+          "infer_seconds",
+          "beam_size"
+        ],
+        "title": "TranscriptionMetadata",
+        "type": "object"
+      },
+      "TranscriptionOutput": {
+        "properties": {
+          "language": {
+            "pattern": "^(uk|en)$",
+            "title": "Language",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/TranscriptionMetadata"
+          },
+          "schema_version": {
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "title": "Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "language",
+          "segments",
+          "metadata"
+        ],
+        "title": "TranscriptionOutput",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -319,6 +419,38 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WordTiming": {
+        "properties": {
+          "end_ms": {
+            "minimum": 0.0,
+            "title": "End Ms",
+            "type": "integer"
+          },
+          "probability": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Probability",
+            "type": "number"
+          },
+          "start_ms": {
+            "minimum": 0.0,
+            "title": "Start Ms",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "start_ms",
+          "end_ms",
+          "probability"
+        ],
+        "title": "WordTiming",
         "type": "object"
       }
     }
@@ -607,6 +739,7 @@
     },
     "/asr/jobs/{job_id}/result": {
       "get": {
+        "description": "Architecture rule: presigned URLs serve ciphertext \u2014 useless to a\nbrowser \u2014 so the transcript is decrypted through the envelope path and\nreturned on this AUTHENTICATED endpoint (ADR-0011 forbids client-side\ndecrypt). Every plaintext read is audited.",
         "operationId": "get_job_result_asr_jobs__job_id__result_get",
         "parameters": [
           {
@@ -641,7 +774,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobResultView"
+                  "$ref": "#/components/schemas/TranscriptionOutput"
                 }
               }
             },
@@ -658,7 +791,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Fetch a completed job's pre-signed result URL (409 if not ready).",
+        "summary": "Fetch a completed job's transcript (409 if not ready).",
         "tags": [
           "asr"
         ]

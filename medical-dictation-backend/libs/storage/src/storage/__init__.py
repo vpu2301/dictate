@@ -19,11 +19,12 @@ from .object_store import (
     ObjectHeader,
     ObjectStoreDisabledError,
 )
-from .s3_client import S3Client
+from .s3_client import ObjectNotFoundError, S3Client
 
 __all__ = [
     "EncryptedObjectStore",
     "ObjectHeader",
+    "ObjectNotFoundError",
     "ObjectStoreDisabledError",
     "S3Client",
 ]
