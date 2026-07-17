@@ -29,7 +29,7 @@ typos at import.
 | `tenant.switched`                 | info     | auth-service POST /tenants/{id}/switch | User switched their active tenant                            |
 | `audit.chain_verified`            | info/sec | nightly verifier                 | One per tenant per verify run. severity flips to `sec` on divergence |
 | `asr.audio_uploaded`              | info     | asr-service POST /asr/jobs       | Audio file enveloped + persisted; row inserted in `audio_files`    |
-| `asr.audio_deleted`               | sec      | *(sprint 11)*                    | Right-to-erasure delete of an audio object                         |
+| `asr.audio_deleted`               | sec      | core-service erasure engine (S11 step 07) | Right-to-erasure crypto-shred of a recording: MinIO object + metadata row (its wrapped DEK) destroyed. Payload: request_id, detail |
 | `asr.job_queued`                  | info     | asr-service POST /asr/jobs       | Job durably recorded + enqueued on Redis Streams                   |
 | `asr.transcription_started`       | info     | asr-worker processor             | Worker picked the job up; row moved to `running`                   |
 | `asr.transcription_complete`      | info     | asr-worker processor             | Inference + encrypted transcript stored; row moved to `complete`   |
@@ -76,9 +76,21 @@ typos at import.
 | `note.signed`                     | info     | core-service POST /notes/{id}/sign | Sprint 11 — note signed (becomes immutable). |
 | `consent.granted`                 | info     | core-service POST /patients/{id}/consents | Sprint 11 — consent recorded. Payload: consent_id, type |
 | `consent.withdrawn`               | info     | core-service POST /patients/{id}/consents/{cid}/withdraw | Sprint 11 — consent withdrawn. Payload: consent_id |
+| `consent.signed`                  | info     | core-service POST /patients/{id}/consents/{cid}/sign | S11 step 03 — КЕП envelope linked to a digital consent (inline tiers; the envelope itself is audited by signing-service's `signing.envelope.persisted`). Payload: consent_id, envelope_id, signature_level, is_qualified |
 | `anamnesis.updated`               | info     | core-service PUT /patients/{id}/anamnesis | Sprint 11 — structured history saved. |
 | `privacy.dsar_requested`          | sec      | core-service POST /patients/{id}/dsar | Sprint 11 — data-subject access request logged. Payload: request_id, kind |
-| `privacy.erasure_scheduled`       | sec      | core-service POST /patients/{id}/erasure | Sprint 11 — patient erasure scheduled (grace period). Payload: request_id, kind |
+| `privacy.erasure_scheduled`       | sec      | *(superseded S11 step 04)* | Historical (S11-M2): emitted when erasure requests auto-scheduled at creation. Replaced by `privacy.erasure_requested` + `privacy.erasure_approved`; existing chain rows remain valid. |
+| `privacy.erasure_requested`       | sec      | core-service POST /patients/{id}/erasure | S11 step 04 — erasure requested; awaits second-person approval. Payload: request_id, kind |
+| `privacy.erasure_reviewed`        | info     | core-service POST /privacy-requests/{id}/review | S11 step 04 — request marked under review. Payload: request_id |
+| `privacy.erasure_approved`        | sec      | core-service POST /privacy-requests/{id}/approve | S11 step 04 — second-person approval; grace period starts. Payload: request_id, scheduled_for, grace_days |
+| `privacy.erasure_rejected`        | sec      | core-service POST /privacy-requests/{id}/reject | S11 step 04 — rejected/cancelled with written reason (incl. during grace). Payload: request_id, rejection_reason |
+| `dsar.export.completed`           | sec      | core-service DSAR engine (background task) | S11 step 06 — package assembled + stored. Payload: request_id, item_count, package_sha256. (`privacy.dsar_requested` covers the request — one canonical set.) |
+| `dsar.export.failed`              | sec      | core-service DSAR engine | S11 step 06 — export failed; row → 'failed'. Payload: request_id, error_class |
+| `dsar.download.link_issued`       | sec      | core-service GET /privacy-requests/{id} | S11 step 06 — a download pointer was minted (per status call). Payload: request_id |
+| `dsar.package.downloaded`         | sec      | core-service GET /privacy-requests/{id}/download | S11 step 06 — the package was actually served (decrypt-and-stream). Payload: request_id, bytes |
+| `erasure.executing`               | sec      | core-service erasure engine | S11 step 07 — execution started (or resumed after a crash). Payload: request_id, operator, inventory_counts |
+| `erasure.artifact_destroyed`      | sec      | core-service erasure engine | S11 step 07 — one artifact destroyed (kind+id in target; ids only, never identity strings). Payload: request_id, detail |
+| `erasure.executed`                | sec      | core-service erasure engine | S11 step 07 — request completed; report_of_execution written. Emitted exactly once per completion. Payload: request_id, destroyed, retained, engine_version |
 | `demo.rate_limit_hit`             | warn     | `libs/demo` rate limiter         | Sprint 07 — a demo request was rejected by the three-axis limiter (per-IP / per-user / per-session). |
 | `demo.session_capped`            | warn     | `libs/demo` rate limiter         | Sprint 07 — demo session duration exceeded the per-session cap. |
 | `demo.daily_minutes_capped`      | warn     | `libs/demo` rate limiter         | Sprint 07 — per-user daily wall-clock minute budget exhausted. |

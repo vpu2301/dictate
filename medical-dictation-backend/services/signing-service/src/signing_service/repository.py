@@ -21,6 +21,21 @@ from medical_kep import ProviderName
 logger = logging.getLogger(__name__)
 
 
+class ResourceLinkError(RuntimeError):
+    """The signed resource row refused the envelope link.
+
+    Raised only for resource types with STRICT linking (``consent``,
+    S11 step 03). Aborts the persist transaction, so the envelope is
+    rolled back together with the failed link. ``code`` is one of
+    ``consent_not_found`` / ``consent_already_signed`` /
+    ``consent_canonical_changed``.
+    """
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 # ── signing_sessions ────────────────────────────────────────────────
 
 
@@ -282,7 +297,41 @@ async def mark_resource_signed(
     ``signed → amended`` when an amendment version is signed. Returns
     the resulting report status, or None for non-report resources
     (their lifecycle lives in core-service).
+
+    ``consent`` (S11 step 03) is STRICT where reports are lenient: the
+    link UPDATE requires the row to (a) still exist in-tenant, (b) have
+    no envelope yet, and (c) still carry the canonical_hash the envelope
+    was signed over. Any miss raises :class:`ResourceLinkError`, which
+    aborts the surrounding transaction — the envelope is NOT persisted
+    for a consent it cannot bind to. A consent row mutated between
+    capture and signing can therefore never acquire an envelope.
     """
+    if resource_type == "consent":
+        row = await conn.fetchrow(
+            """
+            UPDATE patient_consents
+            SET signed_envelope_id = $2
+            WHERE id = $1
+              AND signed_envelope_id IS NULL
+              AND canonical_hash = $3
+            RETURNING status
+            """,
+            resource_id,
+            envelope_id,
+            canonical_hash,
+        )
+        if row is None:
+            reason = await conn.fetchrow(
+                "SELECT signed_envelope_id, canonical_hash FROM patient_consents WHERE id = $1",
+                resource_id,
+            )
+            if reason is None:
+                raise ResourceLinkError("consent_not_found")
+            if reason["signed_envelope_id"] is not None:
+                raise ResourceLinkError("consent_already_signed")
+            raise ResourceLinkError("consent_canonical_changed")
+        return str(row["status"])
+
     if resource_type not in ("report", "amendment"):
         return None
 

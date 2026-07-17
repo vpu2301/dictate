@@ -1,0 +1,65 @@
+# S11 step 08 — DSAR/erasure alerting.
+#
+# The queue gauges are pushed by the erasure scheduler cron (every 15 min)
+# via OTLP; between runs the series go stale, so every expression uses a
+# max_over_time lookback sized to the cadence (30m ≥ 2 runs).
+groups:
+  - name: sprint-11-privacy
+    rules:
+      - alert: ErasureRequestStuckExecuting
+        expr: max_over_time(mdx_privacy_oldest_executing_age_seconds{kind="erasure"}[30m]) > 3600
+        labels:
+          severity: page
+        annotations:
+          summary: "An erasure request has been executing for over 1 hour"
+          description: >
+            The engine is stuck or crashed mid-run. Check last_error on the
+            request row, then follow docs/runbooks/erasure.md — the recovery
+            is an idempotent re-run.
+
+      - alert: ErasureApprovedOverdue
+        expr: max_over_time(mdx_privacy_overdue_approved_count[30m]) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: "Approved erasure(s) unexecuted 24h past their grace deadline"
+          description: >
+            The scheduler cron is dead or failing. Verify the crontab entry
+            (infra/compose/cron/erasure-scheduler.cron) and the scheduler
+            heartbeat mdx_erasure_scheduler_last_run_unix_ts.
+
+      - alert: DsarExportSlow
+        expr: max_over_time(mdx_privacy_oldest_executing_age_seconds{kind="dsar"}[30m]) > 1800
+        labels:
+          severity: warn
+        annotations:
+          summary: "A DSAR export has been executing for over 30 minutes"
+          description: >
+            Normal exports finish in seconds. A stale one is taken over on
+            the next POST (DSAR_STALE_MINUTES); investigate object-store
+            connectivity if it recurs.
+
+      - alert: DsarExportFailed
+        # 'failed' rows are permanent history; count only failures not yet
+        # superseded by a newer completed export for the same patient.
+        expr: max_over_time(mdx_privacy_dsar_failed_unresolved_count[30m]) > 0
+        labels:
+          severity: warn
+        annotations:
+          summary: "Unresolved failed DSAR export(s)"
+          description: >
+            An export crashed and was marked failed (dsar.export.failed in
+            audit names the error class) and no newer export has completed
+            for that patient. A fresh POST re-triggers the export;
+            investigate recurring failures via the core-service logs.
+
+      - alert: ErasureExecutionError
+        expr: max_over_time(mdx_privacy_requests_with_error_count[30m]) > 0
+        labels:
+          severity: warn
+        annotations:
+          summary: "A privacy request carries last_error"
+          description: >
+            An erasure execution failed and awaits its idempotent re-run
+            (the scheduler retries automatically). If the error persists
+            across runs, read last_error on the row.

@@ -105,8 +105,35 @@ async def submit_job(
             },
         )
 
-    # Rate limit: per-tenant cap on concurrent jobs.
+    # S11 step 02: a named encounter must exist in-tenant (RLS makes a
+    # foreign one look nonexistent) and not be cancelled — rejected before
+    # the ciphertext is even uploaded. Rate limit shares the connection.
     async with tenant_connection(state.app_pool, claims.tid) as conn:
+        if encounter_id is not None:
+            enc_status = await repository.fetch_encounter_status(
+                conn, encounter_id=encounter_id
+            )
+            enc_code = (
+                "encounter_invalid"
+                if enc_status is None
+                else ("encounter_closed" if enc_status == "cancelled" else None)
+            )
+            if enc_code is not None:
+                _validation_rejects_counter.add(1, {"code": enc_code})
+                _uploads_counter.add(1, {"status": "rejected"})
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "type": f"urn:mdx:asr:validation:{enc_code}",
+                        "title": "encounter linkage rejected",
+                        "code": enc_code,
+                        "detail": (
+                            "encounter not found in this tenant"
+                            if enc_code == "encounter_invalid"
+                            else "encounter is cancelled; upload is not allowed"
+                        ),
+                    },
+                )
         active = await repository.count_active_jobs(conn, tenant_id=claims.tid)
         if active >= settings.per_tenant_concurrent_jobs:
             raise HTTPException(
@@ -168,6 +195,7 @@ async def submit_job(
             sha256=facts.sha256,
             envelope_metadata=_header_to_json(header),
             storage_uri=f"minio://{state.audio_store.bucket}/{storage_key}",
+            encounter_id=encounter_id,
         )
         await repository.insert_job_row(
             conn,

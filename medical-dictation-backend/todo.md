@@ -1,5 +1,49 @@
 # Outstanding human / business actions
 
+## Patient identity & privacy (S11)
+
+- [ ] **Raw-ІПН retention decision** — owner: **DPO**. The platform
+      stores the patient ІПН as an HMAC lookup token only;
+      envelope-encrypted raw retention exists behind
+      `PATIENT_IPN_RAW_ENABLED` (default **false**). Flip only with a
+      documented lawful basis (Law 2297-VI data-minimization); the flag
+      flip is the whole change (columns + crypto path already shipped,
+      ADR-0027 decision B).
+- [ ] **ІПН-hmac-at-erasure confirmation** — owner: **DPO**. ADR-0027
+      records that erasure NULLs `ipn_hmac` (total identity
+      destruction; no "previously erased" tombstone match on
+      re-registration). Confirm, or direct the alternative (keep the
+      hmac on the erased row for duplicate warnings — legal under the
+      partial unique index, but retains a derived identifier of an
+      erased person). Step-07 erasure engine consumes this decision.
+
+- [ ] **DSAR subject-accessible audit-kind allowlist** — owner: **DPO**.
+      `DSAR_AUDIT_KINDS` ships with a conservative lifecycle-only default
+      (patient/consent/privacy kinds). Widening what a patient sees of
+      the audit trail is a policy decision — config change only
+      (docs/runbooks/erasure.md).
+- [ ] **Raw audio in DSAR packages** — owner: **DPO**.
+      `DSAR_INCLUDE_RAW_AUDIO=false` ships; the manifest/README say
+      "available on request". Flipping it streams decrypted recordings
+      into the package — config change only.
+- [ ] **Runbook patient-explanation wording (uk) review** — owner:
+      **clinical lead**. The basis→human-text table in
+      docs/runbooks/erasure.md will be read to actual patients; review
+      before pilot use.
+- [ ] **Clinical-record retention period confirmation** — owner:
+      **legal counsel**. The erasure engine retains signed reports for
+      `REPORT_RETENTION_YEARS` (default 25, per the common МОЗ
+      clinical-record retention reading). Confirm the exact period for
+      the pilot clinic's record classes before the first production
+      erasure; the config flip is the whole change
+      (docs/architecture/erasure.md).
+- [ ] **Consent text legal review** — owner: **legal counsel +
+      clinical lead**. `infra/seeds/consents/*.md` (ai_scribe-v1,
+      data_processing-v1) are engineering drafts; the КЕП signature
+      binds their exact bytes (S11 step 03), so wording changes after
+      review must ship as NEW versions (`-v2.md`), never edits. Review
+      required before pilot use of digital consents.
+
 ## Autocomplete (S10 carry-over)
 
 - [ ] **Full clinical corpus authoring (~10k UK / ~3k EN phrases, ~60

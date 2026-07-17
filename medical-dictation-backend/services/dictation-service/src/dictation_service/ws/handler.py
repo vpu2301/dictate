@@ -40,7 +40,7 @@ from ..audio import (
 )
 from ..audio.gap import GapDecision
 from ..config import settings
-from ..domain import repository
+from ..domain import encounters, repository
 from ..inference import StreamingWindower
 from ..protocol import (
     AudioFrame,
@@ -175,9 +175,14 @@ async def _new_session(
         )
         return None
 
-    # Per-tenant active cap.
+    # Per-tenant active cap + encounter linkage (one tenant-scoped trip).
+    encounter_status: str | None = None
     async with tenant_connection(state.app_pool, upgrade.claims.tid) as conn:
         active = await repository.count_active_for_tenant(conn, tenant_id=upgrade.claims.tid)
+        if start.encounter_id is not None:
+            encounter_status = await encounters.fetch_encounter_status(
+                conn, encounter_id=start.encounter_id
+            )
     if active >= settings.per_tenant_max_active_sessions:
         await _send_and_close(
             websocket,
@@ -188,6 +193,26 @@ async def _new_session(
             ),
         )
         return None
+
+    # S11 step 02: a named encounter must exist in-tenant (RLS makes a
+    # foreign encounter look nonexistent) and not be cancelled — rejected
+    # here, before a single audio frame is accepted.
+    if start.encounter_id is not None:
+        gate = encounters.encounter_gate(encounter_status)
+        if gate is not None:
+            await _send_and_close(
+                websocket,
+                Error(
+                    code=gate,
+                    detail=(
+                        "encounter not found in this tenant"
+                        if gate is ErrorCode.ENCOUNTER_INVALID
+                        else "encounter is cancelled; dictation is not allowed"
+                    ),
+                    recoverable=False,
+                ),
+            )
+            return None
 
     # Fetch the requested prompt's text.
     prompt_text = await _fetch_prompt_text(state, upgrade.claims.tid, start.prompt_id)

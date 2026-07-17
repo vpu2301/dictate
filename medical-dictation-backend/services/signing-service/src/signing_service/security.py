@@ -8,6 +8,13 @@ import hmac
 import re
 import secrets
 
+# Shared with core-service (patient identity, S11) — one implementation,
+# independent keys per space (ADR-0027). Re-exported so existing
+# ``from ..security import ipn_hmac`` call sites are unchanged.
+from crypto.ipn import ipn_hmac
+
+__all__ = ["ip_hmac", "ipn_hmac", "is_well_formed_token", "new_verification_token"]
+
 _TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{22}$")
 
 
@@ -20,11 +27,6 @@ def is_well_formed_token(token: str) -> bool:
     """Reject obviously-malformed tokens at the route layer so they
     never touch the DB — defence against path traversal / injection."""
     return bool(_TOKEN_PATTERN.fullmatch(token or ""))
-
-
-def ipn_hmac(ipn: str, key_hex: str) -> bytes:
-    key = bytes.fromhex(key_hex)
-    return hmac.new(key, ipn.encode("utf-8"), hashlib.sha256).digest()
 
 
 def ip_hmac(ip: str, key_hex: str) -> bytes:

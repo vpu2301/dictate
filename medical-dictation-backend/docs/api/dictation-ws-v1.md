@@ -105,6 +105,8 @@ VOIP profile, 20-ms frames. Limits:
 | `retransmit_too_large`| yes         | Range > 1500 frames (30 s)                |
 | `session_not_found`   | no          | Uniform-failure for resume gate failures  |
 | `rate_limited`        | yes         | Per-IP / per-user / per-tenant limit hit  |
+| `encounter_invalid`   | no          | `start_session.encounter_id` names no encounter visible to the tenant (nonexistent and cross-tenant are indistinguishable — no existence oracle). Rejected before any audio is accepted. |
+| `encounter_closed`    | no          | The named encounter is `cancelled`; dictation into it is a workflow error. (`scheduled`/`in_progress`/`completed` are all dictable — encounters default to `completed` and are routinely recorded post-visit.) |
 | `worker_failed`       | no          | Inference worker died                     |
 | `audio_decode_failed` | yes (≤ 5)   | Opus decode error; 5 consecutive → fatal  |
 | `gpu_full`            | yes         | Per-worker session cap reached            |

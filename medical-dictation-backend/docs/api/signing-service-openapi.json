@@ -361,7 +361,7 @@
             "type": "string"
           },
           "resource_type": {
-            "pattern": "^(report|amendment)$",
+            "pattern": "^(report|amendment|consent)$",
             "title": "Resource Type",
             "type": "string"
           },

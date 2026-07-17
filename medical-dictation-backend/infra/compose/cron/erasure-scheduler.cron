@@ -1,0 +1,5 @@
+# Erasure scheduler (S11 step 07) — every 15 minutes. Executes approved
+# erasure requests whose grace period elapsed; re-runs crashed executions
+# (idempotent by design). Install on the ops host crontab (compose stays
+# infra-only per CLAUDE.md).
+*/15 * * * * cd /opt/medical-dictation-backend && /usr/local/bin/uv run --project services/core-service python scripts/jobs/erasure_scheduler.py >> /var/log/mdx/erasure-scheduler.log 2>&1

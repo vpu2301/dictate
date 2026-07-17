@@ -85,6 +85,101 @@
         "title": "ConsentCreate",
         "type": "object"
       },
+      "ConsentCreated": {
+        "additionalProperties": false,
+        "properties": {
+          "encounter_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Id"
+          },
+          "granted_at": {
+            "format": "date-time",
+            "title": "Granted At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "signed_envelope_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed Envelope Id"
+          },
+          "signing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsentSigningHint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "encounter_id",
+          "type",
+          "method",
+          "version",
+          "status",
+          "granted_at",
+          "withdrawn_at"
+        ],
+        "title": "ConsentCreated",
+        "type": "object"
+      },
       "ConsentOut": {
         "additionalProperties": false,
         "properties": {
@@ -118,6 +213,18 @@
             "format": "uuid",
             "title": "Patient Id",
             "type": "string"
+          },
+          "signed_envelope_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed Envelope Id"
           },
           "status": {
             "title": "Status",
@@ -156,6 +263,111 @@
           "withdrawn_at"
         ],
         "title": "ConsentOut",
+        "type": "object"
+      },
+      "ConsentSignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "key_container_b64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Container B64"
+          },
+          "key_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Password"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "provider": {
+            "enum": [
+              "file_key",
+              "dev_password",
+              "diia"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "ConsentSignRequest",
+        "type": "object"
+      },
+      "ConsentSigningHint": {
+        "additionalProperties": false,
+        "description": "What the FE needs to open the standard S09 sign dialog.",
+        "properties": {
+          "canonical_hash_hex": {
+            "title": "Canonical Hash Hex",
+            "type": "string"
+          },
+          "resource_id": {
+            "format": "uuid",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "const": "consent",
+            "default": "consent",
+            "title": "Resource Type",
+            "type": "string"
+          },
+          "resource_version_id": {
+            "format": "uuid",
+            "title": "Resource Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_id",
+          "resource_version_id",
+          "canonical_hash_hex"
+        ],
+        "title": "ConsentSigningHint",
+        "type": "object"
+      },
+      "DownloadInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "title": "DownloadInfo",
         "type": "object"
       },
       "EncounterCreate": {
@@ -542,6 +754,17 @@
             ],
             "title": "Dob"
           },
+          "ipn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ipn"
+          },
           "mrn": {
             "default": "",
             "title": "Mrn",
@@ -632,6 +855,11 @@
             ],
             "title": "Dob"
           },
+          "has_ipn": {
+            "default": false,
+            "title": "Has Ipn",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -710,6 +938,17 @@
             ],
             "title": "Dob"
           },
+          "ipn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ipn"
+          },
           "mrn": {
             "anyOf": [
               {
@@ -753,7 +992,8 @@
                 "enum": [
                   "active",
                   "inactive",
-                  "deceased"
+                  "deceased",
+                  "erased"
                 ],
                 "type": "string"
               },
@@ -806,6 +1046,18 @@
       "PrivacyRequestOut": {
         "additionalProperties": false,
         "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -824,10 +1076,50 @@
             "title": "Reason",
             "type": "string"
           },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
           "requested_at": {
             "format": "date-time",
             "title": "Requested At",
             "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
           },
           "scheduled_for": {
             "anyOf": [
@@ -852,10 +1144,146 @@
           "kind",
           "reason",
           "status",
+          "requested_by",
           "requested_at",
           "scheduled_for"
         ],
         "title": "PrivacyRequestOut",
+        "type": "object"
+      },
+      "PrivacyRequestStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Summary"
+          },
+          "package_expired": {
+            "default": false,
+            "title": "Package Expired",
+            "type": "boolean"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "scheduled_for": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled For"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "kind",
+          "reason",
+          "status",
+          "requested_by",
+          "requested_at",
+          "scheduled_for"
+        ],
+        "title": "PrivacyRequestStatus",
         "type": "object"
       },
       "ReadyResponse": {
@@ -874,6 +1302,20 @@
           "db"
         ],
         "title": "ReadyResponse",
+        "type": "object"
+      },
+      "RejectBody": {
+        "additionalProperties": false,
+        "properties": {
+          "rejection_reason": {
+            "title": "Rejection Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rejection_reason"
+        ],
+        "title": "RejectBody",
         "type": "object"
       },
       "Timeline": {
@@ -911,6 +1353,29 @@
             "format": "date-time",
             "title": "Date",
             "type": "string"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "encounter_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Id"
           },
           "id": {
             "format": "uuid",
@@ -1515,6 +1980,16 @@
             }
           },
           {
+            "in": "query",
+            "name": "include_erased",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Erased",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "header",
             "name": "Authorization",
             "required": false,
@@ -1975,7 +2450,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsentOut"
+                  "$ref": "#/components/schemas/ConsentCreated"
                 }
               }
             },
@@ -1992,7 +2467,84 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Record a consent.",
+        "summary": "Record a consent (digital consents become signable).",
+        "tags": [
+          "consents"
+        ]
+      }
+    },
+    "/patients/{patient_id}/consents/{consent_id}/sign": {
+      "post": {
+        "operationId": "sign_consent_patients__patient_id__consents__consent_id__sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "consent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Consent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentSignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign a digital consent with \u041a\u0415\u041f via the S09 signing stack.",
         "tags": [
           "consents"
         ]
@@ -2000,6 +2552,7 @@
     },
     "/patients/{patient_id}/consents/{consent_id}/withdraw": {
       "post": {
+        "description": "Withdrawal is always allowed, signed or not: a signed-then-withdrawn\nconsent keeps its envelope (the grant is a historical fact) and gains\n``withdrawn_at`` \u2014 the timeline and DSAR must show both facts.",
         "operationId": "withdraw_consent_patients__patient_id__consents__consent_id__withdraw_post",
         "parameters": [
           {
@@ -2069,6 +2622,7 @@
     },
     "/patients/{patient_id}/dsar": {
       "post": {
+        "description": "S11 step 06: no longer a log entry \u2014 kicks off the export engine.\n\nScope tightened from patient.write to the dedicated ``patient.dsar``\n(tenant_admin only): the package is the complete PHI record.",
         "operationId": "request_dsar_patients__patient_id__dsar_post",
         "parameters": [
           {
@@ -2109,7 +2663,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2130,7 +2684,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Log a data-subject access request.",
+        "summary": "Trigger the DSAR export (assembles the full patient package).",
         "tags": [
           "privacy"
         ]
@@ -2268,7 +2822,7 @@
     },
     "/patients/{patient_id}/erasure": {
       "post": {
-        "operationId": "schedule_erasure_patients__patient_id__erasure_post",
+        "operationId": "request_erasure_patients__patient_id__erasure_post",
         "parameters": [
           {
             "in": "path",
@@ -2329,7 +2883,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Schedule erasure of a patient (grace period applies).",
+        "summary": "Request erasure of a patient (two-person approval + grace apply).",
         "tags": [
           "privacy"
         ]
@@ -2337,7 +2891,7 @@
     },
     "/patients/{patient_id}/timeline": {
       "get": {
-        "description": "Reports filed against this patient, newest first.\n\nThe SPA merges this with encounters / notes / consents (each fetched from\nits own endpoint) to build the on-screen feed, and reads ``kind='dictate'``\nrows here to populate the Reports tab \u2014 so this endpoint deliberately\nreturns reports only, not the core-owned records, to avoid double-counting.",
+        "description": "Reports and encounter-linked recordings for this patient, newest first.\n\nThe SPA merges this with encounters / notes / consents (each fetched from\nits own endpoint) to build the on-screen feed, and reads ``kind='dictate'``\nrows here to populate the Reports tab \u2014 so this endpoint deliberately\nskips the core-owned records to avoid double-counting. ``kind='recording'``\nrows (S11 step 02) carry metadata only \u2014 never a media URL; audio access\nstays on the ASR surface with its own authz + audit.",
         "operationId": "patient_timeline_patients__patient_id__timeline_get",
         "parameters": [
           {
@@ -2392,6 +2946,418 @@
         "summary": "Dictated reports (and, later, scribe sessions) for the patient.",
         "tags": [
           "patients"
+        ]
+      }
+    },
+    "/privacy-requests": {
+      "get": {
+        "operationId": "list_privacy_requests_privacy_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "requested",
+                    "review",
+                    "approved",
+                    "executing",
+                    "completed",
+                    "rejected",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "dsar",
+                    "erasure"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PrivacyRequestOut"
+                  },
+                  "title": "Response List Privacy Requests Privacy Requests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin queue: privacy requests across the tenant.",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}": {
+      "get": {
+        "operationId": "get_privacy_request_privacy_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Status of one privacy request (+ DSAR download when ready).",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/approve": {
+      "post": {
+        "operationId": "approve_request_privacy_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve an erasure request (second person; starts the grace period).",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/download": {
+      "get": {
+        "description": "Architecture rule: presigned URLs serve ciphertext \u2014 useless to the\ndata subject \u2014 so the package is decrypted through the envelope path\nand streamed on an AUTHENTICATED endpoint; every download is audited.\nA 15-minute HMAC token (``t``, minted by the status endpoint) bounds\nthe link's life on top of auth (ADR-0028).",
+        "operationId": "download_dsar_package_privacy_requests__request_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "t",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "T",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download the DSAR package (authenticated decrypt-and-stream).",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/reject": {
+      "post": {
+        "operationId": "reject_request_privacy_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject (or cancel during grace) an erasure request, with a reason.",
+        "tags": [
+          "privacy"
+        ]
+      }
+    },
+    "/privacy-requests/{request_id}/review": {
+      "post": {
+        "operationId": "review_request_privacy_requests__request_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark an erasure request as under review.",
+        "tags": [
+          "privacy"
         ]
       }
     },

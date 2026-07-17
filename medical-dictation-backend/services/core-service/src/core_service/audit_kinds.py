@@ -20,10 +20,28 @@ NOTE_SIGNED: Final = "note.signed"
 # ── consents ────────────────────────────────────────────────────────
 CONSENT_GRANTED: Final = "consent.granted"
 CONSENT_WITHDRAWN: Final = "consent.withdrawn"
+CONSENT_SIGNED: Final = "consent.signed"
 
 # ── anamnesis ───────────────────────────────────────────────────────
 ANAMNESIS_UPDATED: Final = "anamnesis.updated"
 
 # ── privacy (DSAR / erasure) ────────────────────────────────────────
 PRIVACY_DSAR_REQUESTED: Final = "privacy.dsar_requested"
-PRIVACY_ERASURE_SCHEDULED: Final = "privacy.erasure_scheduled"
+# S11 step 04 — the two-person workflow. `privacy.erasure_scheduled`
+# (S11-M2) is superseded: requests now start at `requested` and the
+# schedule is set at approval.
+PRIVACY_ERASURE_REQUESTED: Final = "privacy.erasure_requested"
+PRIVACY_ERASURE_REVIEWED: Final = "privacy.erasure_reviewed"
+PRIVACY_ERASURE_APPROVED: Final = "privacy.erasure_approved"
+PRIVACY_ERASURE_REJECTED: Final = "privacy.erasure_rejected"
+# S11 step 06 — DSAR export engine.
+DSAR_EXPORT_COMPLETED: Final = "dsar.export.completed"
+DSAR_EXPORT_FAILED: Final = "dsar.export.failed"
+DSAR_DOWNLOAD_LINK_ISSUED: Final = "dsar.download.link_issued"
+DSAR_PACKAGE_DOWNLOADED: Final = "dsar.package.downloaded"
+# S11 step 07 — the erasure engine.
+ERASURE_EXECUTING: Final = "erasure.executing"
+ERASURE_ARTIFACT_DESTROYED: Final = "erasure.artifact_destroyed"
+ERASURE_EXECUTED: Final = "erasure.executed"
+# Reserved since sprint 03 (0007's DELETE comment); real as of step 07.
+ASR_AUDIO_DELETED: Final = "asr.audio_deleted"

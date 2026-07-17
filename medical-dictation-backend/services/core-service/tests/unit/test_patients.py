@@ -127,7 +127,7 @@ def test_list_paginates_with_cursor(
 ) -> None:
     from core_service.domain import patients_repository
 
-    async def _list(conn, *, query, limit, cursor):  # noqa: ANN001
+    async def _list(conn, *, query, limit, cursor, **kwargs):  # noqa: ANN001, ANN003
         # Repository fetches limit+1 to signal a next page.
         return [
             _patient_row(id=UUID(int=i), last_visit_at=datetime(2026, 6, i + 1, tzinfo=UTC))
@@ -147,7 +147,7 @@ def test_list_no_next_cursor_when_exhausted(
 ) -> None:
     from core_service.domain import patients_repository
 
-    async def _list(conn, *, query, limit, cursor):  # noqa: ANN001
+    async def _list(conn, *, query, limit, cursor, **kwargs):  # noqa: ANN001, ANN003
         return [_patient_row()]
 
     monkeypatch.setattr(patients_repository, "list_patients", _list)
@@ -195,7 +195,11 @@ def test_update_patient(
         seen.update(fields)
         return _patient_row(status="inactive", tags=["htn"])
 
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
     monkeypatch.setattr(patients_repository, "update_patient", _update)
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
     resp = client.put(
         f"/patients/{PATIENT_ID}",
         json={"status": "inactive", "tags": ["htn"]},
@@ -230,8 +234,12 @@ def test_timeline_returns_patient_reports(
             }
         ]
 
+    async def _recordings(conn, *, patient_id, limit=200):  # noqa: ANN001
+        return []
+
     monkeypatch.setattr(patients_repository, "get_patient", _get)
     monkeypatch.setattr(timeline_repository, "list_patient_reports", _reports)
+    monkeypatch.setattr(timeline_repository, "list_patient_recordings", _recordings)
 
     resp = client.get(f"/patients/{PATIENT_ID}/timeline")
     assert resp.status_code == 200
@@ -239,6 +247,56 @@ def test_timeline_returns_patient_reports(
     # The SPA keys reports off kind == "dictate".
     assert items[0]["kind"] == "dictate"
     assert items[0]["title"] == "Chest CT"
+
+
+def test_timeline_includes_recordings_metadata_only(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S11 step 02: encounter-linked recordings appear newest-first with
+    metadata only — never a media URL."""
+    from core_service.domain import patients_repository, timeline_repository
+
+    encounter_id = UUID(int=99)
+
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
+    async def _reports(conn, *, patient_id, limit=200):  # noqa: ANN001
+        return [
+            {
+                "id": UUID(int=7),
+                "title": "Chest CT",
+                "code": "REP-2026-0007",
+                "status": "finalized",
+                "encounter_date": None,
+                "created_at": datetime(2026, 6, 2, tzinfo=UTC),
+                "updated_at": datetime(2026, 6, 2, tzinfo=UTC),
+            }
+        ]
+
+    async def _recordings(conn, *, patient_id, limit=200):  # noqa: ANN001
+        return [
+            {
+                "id": UUID(int=8),
+                "encounter_id": encounter_id,
+                "duration_ms": 12_500,
+                "status": "stored",
+                "created_at": datetime(2026, 6, 3, tzinfo=UTC),
+            }
+        ]
+
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
+    monkeypatch.setattr(timeline_repository, "list_patient_reports", _reports)
+    monkeypatch.setattr(timeline_repository, "list_patient_recordings", _recordings)
+
+    items = client.get(f"/patients/{PATIENT_ID}/timeline").json()["items"]
+    # Newest first: the recording (Jun 3) precedes the report (Jun 2).
+    assert [i["kind"] for i in items] == ["recording", "dictate"]
+    rec = items[0]
+    assert rec["encounter_id"] == str(encounter_id)
+    assert rec["duration_s"] == 12.5
+    # Metadata only — no media/storage reference in the payload.
+    assert not any("uri" in k or "url" in k for k in rec)
 
 
 def test_timeline_404_when_patient_missing(

@@ -29,13 +29,15 @@ async def insert_audio_row(
     sha256: bytes,
     envelope_metadata: dict[str, Any],
     storage_uri: str,
+    encounter_id: UUID | None = None,
 ) -> None:
     await conn.execute(
         """
         INSERT INTO audio_files
             (id, tenant_id, uploader_sub, mime_type, size_bytes,
-             duration_ms, sha256, envelope_metadata, storage_uri, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'stored')
+             duration_ms, sha256, envelope_metadata, storage_uri, status,
+             encounter_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'stored', $10)
         """,
         audio_id,
         tenant_id,
@@ -46,6 +48,18 @@ async def insert_audio_row(
         sha256,
         json.dumps(envelope_metadata),
         storage_uri,
+        encounter_id,
+    )
+
+
+async def fetch_encounter_status(
+    conn: asyncpg.Connection, *, encounter_id: UUID
+) -> str | None:
+    """Status of the encounter, or None when nonexistent / cross-tenant —
+    RLS scopes the query, so a foreign tenant's encounter is invisible
+    (no existence oracle)."""
+    return await conn.fetchval(
+        "SELECT status FROM encounters WHERE id = $1", encounter_id
     )
 
 

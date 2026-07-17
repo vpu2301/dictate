@@ -923,8 +923,10 @@ dependencies = [
     { name = "asyncpg" },
     { name = "audit" },
     { name = "auth" },
+    { name = "crypto" },
     { name = "db" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "observability" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-sdk" },
@@ -932,6 +934,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-json-logger" },
     { name = "secret" },
+    { name = "storage" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -949,8 +952,10 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "audit", editable = "libs/audit" },
     { name = "auth", editable = "libs/auth" },
+    { name = "crypto", editable = "libs/crypto" },
     { name = "db", editable = "libs/db" },
     { name = "fastapi", specifier = ">=0.111.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
     { name = "observability", editable = "libs/observability" },
@@ -963,6 +968,7 @@ requires-dist = [
     { name = "python-json-logger", specifier = ">=2.0.7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "secret", editable = "libs/secret" },
+    { name = "storage", editable = "libs/storage" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29.0" },
 ]
 provides-extras = ["dev"]
@@ -3718,6 +3724,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "audit" },
     { name = "auth" },
+    { name = "crypto" },
     { name = "db" },
     { name = "fastapi" },
     { name = "httpx" },
@@ -3750,6 +3757,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "audit", editable = "libs/audit" },
     { name = "auth", editable = "libs/auth" },
+    { name = "crypto", editable = "libs/crypto" },
     { name = "db", editable = "libs/db" },
     { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.23" },
     { name = "fastapi", specifier = ">=0.111.0" },

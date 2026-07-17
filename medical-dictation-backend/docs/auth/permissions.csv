@@ -134,6 +134,16 @@ auditor,patient.read,patient,false,PHI out of audit role (mirrors report/dictati
 auditor,patient.write,patient,false,read-only role — no clinical writes
 service,patient.read,patient,false,no S2S patient-read surface today
 service,patient.write,patient,false,user-only authoring
+tenant_admin,privacy.approve,patient,true,S11 step 04 — second person of the erasure two-person rule (never own request)
+tenant_admin,patient.dsar,patient,true,S11 step 06 — trigger/download the complete DSAR package (admin-only)
+clinician,patient.dsar,patient,false,DSAR export is admin-only
+nurse,patient.dsar,patient,false,DSAR export is admin-only
+auditor,patient.dsar,patient,false,read-only role
+service,patient.dsar,patient,false,human decision — no S2S DSAR surface
+clinician,privacy.approve,patient,false,erasure approval is admin-only
+nurse,privacy.approve,patient,false,erasure approval is admin-only
+auditor,privacy.approve,patient,false,read-only role
+service,privacy.approve,patient,false,human decision — no S2S approval
 tenant_admin,note.read,note,true,sprint 11 — read clinical notes
 tenant_admin,note.write,note,true,sprint 11 — create/edit/sign clinical notes
 clinician,note.read,note,true,sprint 11 — reads notes

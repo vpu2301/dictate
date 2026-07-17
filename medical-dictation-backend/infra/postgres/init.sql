@@ -56,6 +56,18 @@ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'crypto_writer') THEN
     CREATE ROLE crypto_writer LOGIN PASSWORD 'crypto_writer';
   END IF;
+
+  -- mdx_erasure (S11 step 04): the ONLY identity permitted to destroy
+  -- PHI rows — the DELETE grants reserved since sprint 03 (0007's
+  -- audio_files comment) land on this role in migration 0044, never on
+  -- app_role. A dedicated LOGIN role (not NOLOGIN + SET ROLE from
+  -- app_role: membership would let any compromised app connection
+  -- escalate to DELETE) mirrors the crypto_writer credential-separation
+  -- pattern; only the erasure engine (S11 step 07) holds this DSN, and
+  -- every statement is still RLS-bound via tenant_connection.
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'mdx_erasure') THEN
+    CREATE ROLE mdx_erasure LOGIN PASSWORD 'mdx_erasure';
+  END IF;
 END
 $$;
 

@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config wer-eval check-corpus wer-eval-corpus
+.PHONY: check-erasure-fanout dsar-cleanup dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config wer-eval check-corpus wer-eval-corpus
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -158,6 +158,12 @@ openapi-check: ## CI gate — fail if any committed OpenAPI snapshot drifts
 check-rls: ## CI gate — every user-schema table has RLS+FORCE enabled
 	uv run python scripts/ci/check-rls-policies.py
 
+check-erasure-fanout: ## CI gate — fan-out map covers every patient-linked table (S11)
+	uv run --project services/core-service python scripts/ci/check_erasure_fanout_coverage.py
+
+dsar-cleanup: ## Delete DSAR packages older than DSAR_PACKAGE_TTL_DAYS (cron: infra/compose/cron)
+	uv run python scripts/jobs/dsar_package_cleanup.py
+
 check-audit-insert: ## CI gate — no direct audit.events writes outside libs/audit
 	uv run python scripts/ci/check-no-direct-audit-insert.py
 
@@ -242,7 +248,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 
 ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config validate-templates check-corpus check-autocomplete-corpus ## Mirror CI gates locally
 
-ci-with-db: ci check-rls openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
+ci-with-db: ci check-rls check-erasure-fanout openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 
 pre-commit-install: ## Install the pre-commit hook into git
 	@command -v pre-commit >/dev/null || (echo "Install pre-commit: pip install pre-commit"; exit 1)

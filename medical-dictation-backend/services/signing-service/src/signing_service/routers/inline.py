@@ -63,7 +63,7 @@ _INLINE_PROVIDERS: dict[str, ProviderName] = {
 class InlineSignRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    resource_type: str = Field(pattern=r"^(report|amendment)$")
+    resource_type: str = Field(pattern=r"^(report|amendment|consent)$")
     resource_id: UUID
     resource_version_id: UUID
     provider: Literal["file_key", "dev_password"]
@@ -263,53 +263,64 @@ async def sign_inline(
     ipn = envelope.parsed.signer_ipn
     ipn_hmac_bytes = ipn_hmac(ipn, settings.signer_ipn_hmac_key_hex) if ipn else None
     token = new_verification_token()
-    async with tenant_connection(state.app_pool, claims.tid) as conn, conn.transaction():
-        envelope_id = await repo.insert_envelope(
-            conn,
-            tenant_id=claims.tid,
-            signer_user_id=claims.sub,
-            resource_type=body.resource_type,
-            resource_id=body.resource_id,
-            resource_version_id=body.resource_version_id,
-            provider=provider_name,
-            provider_session_id=f"inline-{session_id}",
-            provider_envelope_id=envelope.provider_envelope_id,
-            canonical_json=body.canonical_json,
-            canonical_json_hash=canonical_hash,
-            signed_at=envelope.parsed.signed_at,
-            signed_data=envelope.signed_bytes,
-            signature_algorithm=envelope.parsed.signature_algorithm,
-            verification_token=token,
-            pdf_storage_uri=None,
-            signer_ipn_hmac=ipn_hmac_bytes,
-            signer_full_name=envelope.parsed.signer_full_name or signer.display_name,
-            certificate_serial=envelope.parsed.signer_cert_serial,
-            certificate_issuer_cn=envelope.parsed.signer_cert_issuer_cn,
-            certificate_chain=envelope.parsed.cert_chain_pem,
-            tsa_response=None,
-            ocsp_responses=[],
-            is_qualified=is_qualified,
-            ltv_enabled=False,
-            signature_level=envelope.signature_level.value,
-        )
-        report_status = await repo.mark_resource_signed(
-            conn,
-            resource_type=body.resource_type,
-            resource_id=body.resource_id,
-            resource_version_id=body.resource_version_id,
-            signed_at=envelope.parsed.signed_at,
-            signer_sub=claims.sub,
-            envelope_id=envelope_id,
-            canonical_bytes=canonical_bytes,
-            canonical_hash=canonical_hash,
-        )
-        await repo.transition_session(
-            conn,
-            session_id=session_id,
-            expected_from="verifying",
-            to="signed",
-            signed_envelope_id=envelope_id,
-        )
+    try:
+        async with tenant_connection(state.app_pool, claims.tid) as conn, conn.transaction():
+            envelope_id = await repo.insert_envelope(
+                conn,
+                tenant_id=claims.tid,
+                signer_user_id=claims.sub,
+                resource_type=body.resource_type,
+                resource_id=body.resource_id,
+                resource_version_id=body.resource_version_id,
+                provider=provider_name,
+                provider_session_id=f"inline-{session_id}",
+                provider_envelope_id=envelope.provider_envelope_id,
+                canonical_json=body.canonical_json,
+                canonical_json_hash=canonical_hash,
+                signed_at=envelope.parsed.signed_at,
+                signed_data=envelope.signed_bytes,
+                signature_algorithm=envelope.parsed.signature_algorithm,
+                verification_token=token,
+                pdf_storage_uri=None,
+                signer_ipn_hmac=ipn_hmac_bytes,
+                signer_full_name=envelope.parsed.signer_full_name or signer.display_name,
+                certificate_serial=envelope.parsed.signer_cert_serial,
+                certificate_issuer_cn=envelope.parsed.signer_cert_issuer_cn,
+                certificate_chain=envelope.parsed.cert_chain_pem,
+                tsa_response=None,
+                ocsp_responses=[],
+                is_qualified=is_qualified,
+                ltv_enabled=False,
+                signature_level=envelope.signature_level.value,
+            )
+            report_status = await repo.mark_resource_signed(
+                conn,
+                resource_type=body.resource_type,
+                resource_id=body.resource_id,
+                resource_version_id=body.resource_version_id,
+                signed_at=envelope.parsed.signed_at,
+                signer_sub=claims.sub,
+                envelope_id=envelope_id,
+                canonical_bytes=canonical_bytes,
+                canonical_hash=canonical_hash,
+            )
+            await repo.transition_session(
+                conn,
+                session_id=session_id,
+                expected_from="verifying",
+                to="signed",
+                signed_envelope_id=envelope_id,
+            )
+    except repo.ResourceLinkError as exc:
+        # Strict-link resources (consent, S11 step 03): the transaction
+        # rolled back — no envelope was persisted. Surface the cause.
+        raise _problem(
+            status.HTTP_404_NOT_FOUND
+            if exc.code == "consent_not_found"
+            else status.HTTP_409_CONFLICT,
+            exc.code,
+            "the resource refused the envelope link; nothing was persisted",
+        ) from exc
 
     await state.audit_writer.write_event(
         tenant_id=claims.tid,

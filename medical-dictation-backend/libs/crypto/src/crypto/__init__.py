@@ -35,6 +35,14 @@ from .exceptions import (
     MasterKeyPermissionError,
     TenantMismatchError,
 )
+from .ipn import (
+    InvalidIpnError,
+    IpnChecksumError,
+    ipn_hmac,
+    normalize_ipn,
+    pack_ipn_envelope,
+    unpack_ipn_envelope,
+)
 from .master import (
     FileMasterKeyProvider,
     KmsMasterKeyProvider,
@@ -52,6 +60,8 @@ __all__ = [
     "EnvelopeBlob",
     "EnvelopeFormatError",
     "FileMasterKeyProvider",
+    "InvalidIpnError",
+    "IpnChecksumError",
     "KmsMasterKeyProvider",
     "MasterKeyError",
     "MasterKeyPermissionError",
@@ -61,4 +71,8 @@ __all__ = [
     "encryptor_at_offset",
     "fresh_stream_key",
     "fresh_stream_nonce",
+    "ipn_hmac",
+    "normalize_ipn",
+    "pack_ipn_envelope",
+    "unpack_ipn_envelope",
 ]

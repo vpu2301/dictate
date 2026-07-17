@@ -26,6 +26,18 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0014  | [Punctuation model selection](0014-punctuation-model-selection.md)               | Accepted |
 | 0015  | [Rule-based number normalization](0015-rule-based-number-normalization.md)       | Accepted |
 | 0016  | [JSONB template schema + cosmetic-vs-structural rule](0016-jsonb-template-schema.md) | Accepted |
+| 0017  | [HF Space embedded demo stack](0017-hf-space-embedded-stack.md)                  | Accepted |
+| 0018  | [Demo privacy contract (tmpfs-only)](0018-demo-privacy-contract.md)              | Accepted |
+| 0019  | [WER standing release gate](0019-wer-standing-release-gate.md)                   | Accepted |
+| 0020  | [Append-only report versioning](0020-append-only-versioning.md)                  | Accepted |
+| 0021  | [Postgres `simple` FTS for reports](0021-postgres-simple-fts.md)                 | Accepted |
+| 0022  | [PAdES-LTV canonical PDF](0022-pades-ltv-canonical-pdf.md)                       | Accepted |
+| 0023  | [Signing provider abstraction](0023-signing-provider-abstraction.md)             | Accepted |
+| 0024  | [Canonical JSON via JCS](0024-canonical-json-via-jcs.md)                         | Accepted |
+| 0025  | [Autocomplete trie + Redis cache](0025-autocomplete-trie-redis.md)               | Accepted |
+| 0026  | [Server-side file-key signing via UAPKI; dev_password scaffold](0026-file-key-uapki-and-dev-password-scaffold.md) | Accepted |
+| 0027  | [Patient identity (ІПН) & crypto-shredding strategy](0027-patient-identity-and-crypto-shredding.md) | Accepted |
+| 0028  | [Privacy-ops deployment: erasure job isolation, backups vs erasure, export lifecycle](0028-privacy-ops-deployment.md) | Accepted |
 
 ## Template
 

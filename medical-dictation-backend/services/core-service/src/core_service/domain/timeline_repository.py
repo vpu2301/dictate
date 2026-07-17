@@ -36,3 +36,30 @@ async def list_patient_reports(
             limit,
         )
     )
+
+
+async def list_patient_recordings(
+    conn: asyncpg.Connection, *, patient_id: UUID, limit: int = 200
+) -> list[asyncpg.Record]:
+    """Encounter-linked recordings for the patient — metadata only.
+
+    S11 step 02: the `audio_files.encounter_id` FK makes
+    recording → encounter → patient a real join, so "every recording of
+    this patient" is this query. Deliberately no storage_uri and no
+    presigned URL — the timeline carries metadata; media access stays on
+    the ASR surface with its own authz + audit."""
+    return list(
+        await conn.fetch(
+            """
+            SELECT a.id, a.encounter_id, a.duration_ms, a.status, a.created_at
+            FROM audio_files a
+            JOIN encounters e ON e.id = a.encounter_id
+            WHERE e.patient_id = $1
+              AND a.status <> 'deleted'
+            ORDER BY a.created_at DESC, a.id DESC
+            LIMIT $2
+            """,
+            patient_id,
+            limit,
+        )
+    )
