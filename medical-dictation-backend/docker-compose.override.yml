@@ -170,6 +170,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT: http://minio:9000
       MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      MD_ASR_NLP_BASE_URL: http://nlp-service:8000
     volumes:
       - ./infra/dev/master.key:/etc/mdx/master.key:ro
     ports:
@@ -190,6 +191,13 @@ services:
         condition: service_completed_successfully
 
   # ── asr-worker — batch Whisper inference (Redis-stream consumer) ──
+  # Runs large-v3 (the production model) on CPU/int8 for real transcript
+  # quality — tiny is unusable for Ukrainian clinical speech. The weights
+  # come from the host's HF cache (same pinned revision as PINS.md, the
+  # model.bin blob name IS the pinned sha256) mounted read-only, so the
+  # baked tiny image stays untouched and nothing downloads at runtime.
+  # CPU large-v3 runs slower than the default 5× realtime inference
+  # budget — the multiplier is raised accordingly (dev only).
   asr-worker:
     build:
       context: .
@@ -198,14 +206,19 @@ services:
     environment:
       <<: [*common-env, *postgres-dsns]
       MD_ASR_DEVICE: cpu
-      MD_ASR_MODEL: /opt/models/whisper-tiny
+      MD_ASR_MODEL: /opt/models/whisper-large-v3/snapshots/edaa852ec7e145841d8ffdb056a99866b5f0a478
       MD_ASR_COMPUTE_TYPE: int8
+      MD_ASR_MODEL_REPO: Systran/faster-whisper-large-v3
+      MD_ASR_MODEL_REVISION: edaa852ec7e145841d8ffdb056a99866b5f0a478
+      MD_ASR_MODEL_SHA256: 69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1
+      MD_ASR_MAX_INFERENCE_SECONDS_MULTIPLIER: "40.0"
       DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT: http://minio:9000
       MDX_MASTER_KEY_PATH: /etc/mdx/master.key
     volumes:
       - ./infra/dev/master.key:/etc/mdx/master.key:ro
+      - ${HOME}/.cache/huggingface/hub/models--Systran--faster-whisper-large-v3:/opt/models/whisper-large-v3:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -268,7 +281,7 @@ services:
     environment:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
       REDIS_URL: redis://redis:6379/0
-      MDX_NLP_PUNCTUATION_DISABLED: "true"  # dev default — skip the heavy model
+      MDX_NLP_PUNCTUATION_DISABLED: "false"  # model is baked; needed for batch-transcript quality
     ports:
       - "8005:8000"
     healthcheck: *svc-healthcheck
@@ -292,6 +305,8 @@ services:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
       # The sign surface (S09-rev) delegates envelope creation here.
       SIGNING_SERVICE_BASE_URL: http://signing-service:8000
+      # "Assign transcription to patient" fetches the transcript here.
+      ASR_SERVICE_BASE_URL: http://asr-service:8000
     ports:
       - "8006:8000"
     healthcheck: *svc-healthcheck

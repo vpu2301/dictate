@@ -25,11 +25,26 @@ groups:
           runbook: "docs/runbooks/autocomplete.md#alert-suggest-latency"
 
       - alert: AutocompleteCacheHitRatioLow
+        # NOTE: no clamp_min — clamping the denominator to 1 turns the ratio
+        # into "absolute hits/sec" below 1 lookup/s and false-fires in quiet
+        # environments (same bug as JwksCacheHitRatioLow). The `or vector(0)`
+        # guards matter too: sum() over a non-existent series is EMPTY, and
+        # empty + vector drops the whole expression, so without them the alert
+        # could never fire while mdx_autocomplete_degraded_total has no series.
+        # Gate on ≥0.1 lookups/s (~90 per 15m window) for a meaningful ratio.
         expr: |
-          sum(rate(mdx_autocomplete_cache_lookups_total{hit="true"}[15m]))
-          / clamp_min(
-              sum(rate(mdx_autocomplete_cache_lookups_total[15m]))
-              + sum(rate(mdx_autocomplete_degraded_total[15m])), 1) < 0.80
+          (
+            (sum(rate(mdx_autocomplete_cache_lookups_total{hit="true"}[15m])) or vector(0))
+            / (
+                (sum(rate(mdx_autocomplete_cache_lookups_total[15m])) or vector(0))
+                + (sum(rate(mdx_autocomplete_degraded_total[15m])) or vector(0))
+              )
+          ) < 0.80
+          and
+          (
+            (sum(rate(mdx_autocomplete_cache_lookups_total[15m])) or vector(0))
+            + (sum(rate(mdx_autocomplete_degraded_total[15m])) or vector(0))
+          ) > 0.1
         for: 15m
         labels:
           severity: warn

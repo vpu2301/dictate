@@ -101,5 +101,14 @@ class Settings(BaseSettings):
     # ── Concurrency limits ──────────────────────────────────────────────
     per_tenant_concurrent_jobs: int = Field(default=10, alias="MD_ASR_PER_TENANT_CONCURRENT_JOBS")
 
+    # ── NLP batch enrichment (sprint 05 pipeline over batch results) ────
+    # GET /asr/jobs/{id}/result runs the raw transcript through
+    # nlp-service (voice commands → punctuation → numbers → …) before
+    # returning it. Degrades gracefully to the raw transcript when the
+    # service is down or the flag is off.
+    nlp_enrich_enabled: bool = Field(default=True, alias="MD_ASR_NLP_ENRICH_ENABLED")
+    nlp_base_url: str = Field(default="http://localhost:8005", alias="MD_ASR_NLP_BASE_URL")
+    nlp_timeout_seconds: float = Field(default=10.0, alias="MD_ASR_NLP_TIMEOUT_SECONDS")
+
 
 settings = Settings()

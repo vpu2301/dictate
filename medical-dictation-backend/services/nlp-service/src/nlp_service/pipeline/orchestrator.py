@@ -179,13 +179,17 @@ def idempotence_key(ctx: ProcessingContext, initial: StageInput) -> str:
     """Stable hash over (input, ctx). Pipeline_version + snapshot
     fingerprint are part of the hash so a bump invalidates the cache."""
     doc: dict[str, Any] = {
-        "v": "nlp-cache-v1",
+        "v": "nlp-cache-v2",  # v2: + apply_operations_inline (batch/stream split)
         "pipeline_version": ctx.pipeline_version,
         "tenant_id": str(ctx.tenant_id),
         "language": ctx.language,
         "specialty": ctx.specialty,
         "reference_date": ctx.reference_date.isoformat(),
         "is_partial": ctx.is_partial,
+        # Same text/words produce DIFFERENT output depending on inline op
+        # application — without this field batch and streaming would share
+        # a cache entry.
+        "apply_operations_inline": ctx.apply_operations_inline,
         "snapshot_fingerprint": ctx.abbreviation_snapshot.fingerprint,
         "decimal_separator": ctx.decimal_separator,
         "bp_separator": ctx.bp_separator,

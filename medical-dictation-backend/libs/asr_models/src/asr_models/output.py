@@ -43,3 +43,51 @@ class TranscriptionOutput(BaseModel):
     segments: list[Segment]
     metadata: TranscriptionMetadata
     schema_version: int = 1
+
+
+# ── Result view (API-facing, sprint-05 NLP enrichment) ──────────────
+
+
+class ConfidenceSpanView(BaseModel):
+    """A character range in an enriched segment's ``text`` flagged by the
+    NLP confidence stage (low word-probability regions, clinically risky
+    numbers, …)."""
+
+    start_char: NonNegativeInt
+    end_char: NonNegativeInt
+    level: str  # "high_concern" | "moderate"
+
+
+class EnrichedSegment(BaseModel):
+    """One segment as served by ``GET /asr/jobs/{id}/result``.
+
+    ``text`` is the NLP post-processed rendering (dictated punctuation
+    applied, numbers/dates normalized) when the view's ``nlp_applied``
+    is true; otherwise it equals ``raw_text``. ``words`` always carry
+    the raw Whisper timings.
+    """
+
+    text: str
+    raw_text: str
+    start_ms: NonNegativeInt
+    end_ms: NonNegativeInt
+    words: list[WordTiming] = Field(default_factory=list)
+    avg_confidence: float = Field(ge=0.0, le=1.0)
+    confidence_spans: list[ConfidenceSpanView] = Field(default_factory=list)
+
+
+class TranscriptResultView(BaseModel):
+    """Plaintext transcript response for a COMPLETE job (proxy-decrypt).
+
+    The stored artifact stays :class:`TranscriptionOutput` (raw ASR);
+    NLP enrichment is applied at read time and degrades gracefully —
+    ``nlp_applied=False`` means the segments are the raw transcript.
+    """
+
+    job_id: UUID
+    language: str = Field(pattern=r"^(uk|en)$")
+    segments: list[EnrichedSegment]
+    metadata: TranscriptionMetadata
+    nlp_applied: bool = False
+    nlp_pipeline_version: str | None = None
+    schema_version: int = 1

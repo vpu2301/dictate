@@ -28,16 +28,20 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     status,
 )
 from opentelemetry import metrics
 
 from asr_models import (
+    ConfidenceSpanView,
+    EnrichedSegment,
     JobEnqueuePayload,
     JobStatus,
     TranscriptionJobView,
     TranscriptionOutput,
+    TranscriptResultView,
 )
 from audit import Severity
 from auth import Claims
@@ -303,17 +307,23 @@ async def get_job(
 
 @router.get(
     "/jobs/{job_id}/result",
-    response_model=TranscriptionOutput,
+    response_model=TranscriptResultView,
     summary="Fetch a completed job's transcript (409 if not ready).",
 )
 async def get_job_result(
     job_id: UUID,
+    request: Request,
     claims: Annotated[Claims, Depends(requires("asr.read", "asr_job"))] = ...,  # type: ignore[assignment]
-) -> TranscriptionOutput:
+) -> TranscriptResultView:
     """Architecture rule: presigned URLs serve ciphertext — useless to a
     browser — so the transcript is decrypted through the envelope path and
     returned on this AUTHENTICATED endpoint (ADR-0011 forbids client-side
-    decrypt). Every plaintext read is audited."""
+    decrypt). Every plaintext read is audited.
+
+    The raw transcript is run through nlp-service's batch pipeline
+    (dictated «крапка»→"." + punctuation/number normalization) with the
+    caller's own bearer forwarded; on any NLP failure the raw transcript
+    is returned with ``nlp_applied=false``."""
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         view = await repository.get_job(conn, job_id=job_id)
@@ -368,7 +378,115 @@ async def get_job_result(
         payload={"audio_id": str(view.audio_id), "bytes": len(raw)},
         severity=Severity.INFO,
     )
-    return output
+    return await _enriched_result_view(
+        state,
+        job_id=job_id,
+        output=output,
+        authorization=request.headers.get("authorization"),
+    )
+
+
+_PUNCT_ONLY = frozenset(".,:;!?…—–-()[]{}«»“”‘’'\"/\\*#№%&@+−=_|")
+
+
+async def _enriched_result_view(
+    state: object,
+    *,
+    job_id: UUID,
+    output: TranscriptionOutput,
+    authorization: str | None,
+) -> TranscriptResultView:
+    """Run the raw transcript through nlp-service; fall back to raw on failure."""
+    raw_segments = [
+        EnrichedSegment(
+            text=s.text,
+            raw_text=s.text,
+            start_ms=s.start_ms,
+            end_ms=s.end_ms,
+            words=s.words,
+            avg_confidence=s.avg_confidence,
+        )
+        for s in output.segments
+    ]
+    view = TranscriptResultView(
+        job_id=job_id,
+        language=output.language,
+        segments=raw_segments,
+        metadata=output.metadata,
+    )
+    if not settings.nlp_enrich_enabled or not output.segments:
+        return view
+
+    payload = [
+        {
+            "text": s.text,
+            "words": [
+                {
+                    "text": w.text,
+                    "start_s": w.start_ms / 1000.0,
+                    "end_s": w.end_ms / 1000.0,
+                    "probability": w.probability,
+                }
+                for w in s.words
+            ],
+        }
+        for s in output.segments
+    ]
+    resp = await state.nlp_client.process_segments(  # type: ignore[attr-defined]
+        tenant_id=UUID(int=0),  # tenant comes from the forwarded bearer
+        segments=payload,
+        language=output.language,
+        authorization=authorization,
+    )
+    if resp is None or len(resp.get("segments", [])) != len(output.segments):
+        return view  # NLP down/mismatched — serve the raw transcript
+
+    enriched: list[EnrichedSegment] = []
+    for raw_seg, nlp_seg in zip(output.segments, resp["segments"], strict=True):
+        text = str(nlp_seg.get("text", "")).strip()
+        spans = [
+            ConfidenceSpanView(
+                start_char=sp["start_char"],
+                end_char=sp["end_char"],
+                level=sp["level"],
+            )
+            for sp in nlp_seg.get("confidence_spans", [])
+        ]
+        # A segment that was PURELY a voice command («новий абзац» alone)
+        # comes back empty — it has no textual rendering; drop it.
+        if not text:
+            continue
+        # A segment that is ONLY punctuation (Whisper split a dictated
+        # «Крапка» into its own segment) merges into the previous one.
+        # No-op when the previous segment already ends with that mark —
+        # the punctuation stage adds trailing periods on its own.
+        if enriched and all(ch in _PUNCT_ONLY for ch in text):
+            prev = enriched[-1]
+            merged = prev.text.rstrip()
+            if not merged.endswith(text):
+                merged += text
+            enriched[-1] = prev.model_copy(
+                update={"text": merged, "end_ms": raw_seg.end_ms}
+            )
+            continue
+        enriched.append(
+            EnrichedSegment(
+                text=text,
+                raw_text=raw_seg.text,
+                start_ms=raw_seg.start_ms,
+                end_ms=raw_seg.end_ms,
+                words=raw_seg.words,
+                avg_confidence=raw_seg.avg_confidence,
+                confidence_spans=spans,
+            )
+        )
+    return view.model_copy(
+        update={
+            "segments": enriched,
+            "nlp_applied": True,
+            "nlp_pipeline_version": resp.get("pipeline_version"),
+        }
+    )
 
 
 @router.get(

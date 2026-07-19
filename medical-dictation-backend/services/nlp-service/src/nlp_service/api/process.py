@@ -263,6 +263,9 @@ async def process_batch(
         decimal_separator=body.decimal_separator or _default_decimal(body.language),
         bp_separator=body.bp_separator or "/",
         date_format=body.date_format or _default_date_format(body.language),
+        # Batch consumers have no editor to run Operations — dictated
+        # punctuation is applied straight into the text.
+        apply_operations_inline=True,
     )
 
     out_segments: list[BatchSegmentOut] = []

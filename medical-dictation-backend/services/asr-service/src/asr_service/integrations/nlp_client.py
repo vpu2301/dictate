@@ -52,7 +52,11 @@ class NlpBatchClient:
         language: str,
         specialty: str | None = None,
         reference_date: date | None = None,
+        authorization: str | None = None,
     ) -> dict[str, Any] | None:
+        # ``authorization``: forward the end-user's bearer so nlp-service
+        # authorizes + tenant-scopes the call itself (no service creds).
+        headers = {"Authorization": authorization} if authorization else None
         try:
             resp = await self._client.post(
                 "/nlp/process/batch",
@@ -62,6 +66,7 @@ class NlpBatchClient:
                     "specialty": specialty,
                     "reference_date": (reference_date.isoformat() if reference_date else None),
                 },
+                headers=headers,
             )
         except httpx.HTTPError as exc:
             logger.warning(

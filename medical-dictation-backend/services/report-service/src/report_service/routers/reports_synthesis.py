@@ -85,6 +85,10 @@ def _request_hash(
 ) -> str:
     """Idempotency key over the request's identity-bearing inputs."""
     key = {
+        # Bump when the synthesizer's output changes for identical input, so
+        # cached jobs from an older engine aren't served. v2: _clean now
+        # re-inserts a space into glued sentences ("базальна.Також").
+        "synth_version": "v2",
         "report_id": str(report_id),
         "version_number": version_number,
         "sections": sorted(sections),

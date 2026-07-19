@@ -15,17 +15,20 @@ clean.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import replace
 
 from ..pipeline.base import (
+    Operation,
     PipelineWarning,
     ProcessingContext,
     StageInput,
     StageOutput,
+    Word,
 )
 from .operations import operations_for
-from .voice_command_matcher import CommandSpec, VoiceCommandMatcher
+from .voice_command_matcher import CommandSpec, MatchResult, VoiceCommandMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -95,13 +98,18 @@ class VoiceCommandStage:
             replace(w, is_voice_command_token=True) if i in consumed else w
             for i, w in enumerate(words)
         )
-        # Rebuild text from non-command words so later stages don't see commands.
-        non_command_text = " ".join(
-            w.text for i, w in enumerate(new_words) if i not in consumed
-        ).strip()
-
         slots = tuple(r.slot for r in results)
         ops = tuple(operations_for(s) for s in slots)
+
+        # Rebuild text from non-command words so later stages don't see commands.
+        # Batch mode additionally applies text-shaped ops in place — a spoken
+        # «крапка» becomes "." attached at the command's position.
+        if ctx.apply_operations_inline:
+            non_command_text = _apply_ops_inline(new_words, results)
+        else:
+            non_command_text = " ".join(
+                w.text for i, w in enumerate(new_words) if i not in consumed
+            ).strip()
 
         # Surface ambiguous matches (a different command intent fit the same
         # span) so the FE/clinician can confirm rather than trust the
@@ -129,6 +137,46 @@ class VoiceCommandStage:
                 self.name + ".latency_ms": (time.monotonic() - t0) * 1000,
             },
         )
+
+
+def _apply_ops_inline(
+    words: tuple[Word, ...], results: list[MatchResult]
+) -> str:
+    """Rebuild segment text with text-shaped operations applied in place.
+
+    Punctuation attaches to the preceding word (no space); a command with
+    nothing before it in the segment renders as the bare mark — the caller
+    (asr-service batch enrichment) merges such leading marks into the
+    previous segment. Editor-only ops (save_draft, navigate_section, …)
+    have no textual form and are dropped from text.
+    """
+    op_at_first_index: dict[int, Operation] = {}
+    consumed: set[int] = set()
+    for r in results:
+        consumed.update(r.consumed_word_indices)
+        op_at_first_index[min(r.consumed_word_indices)] = operations_for(r.slot)
+
+    parts: list[str] = []
+    for i, w in enumerate(words):
+        if i in consumed:
+            op = op_at_first_index.get(i)
+            if op is None:
+                continue
+            if op.op == "insert_punctuation":
+                value = (op.arg or {}).get("value", "")
+                if parts:
+                    parts[-1] += value
+                elif value:
+                    parts.append(value)
+            elif op.op == "insert_line_break" and parts:
+                parts[-1] += "\n"
+            elif op.op == "insert_paragraph_break" and parts:
+                parts[-1] += "\n\n"
+            continue
+        parts.append(w.text)
+    # Join on spaces, then collapse space runs around inserted line breaks.
+    text = " ".join(parts).strip()
+    return re.sub(r"[ \t]*\n[ \t]*", "\n", text)
 
 
 __all__ = ["CommandSpec", "VoiceCommandStage"]

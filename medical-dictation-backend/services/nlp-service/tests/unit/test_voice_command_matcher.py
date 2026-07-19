@@ -196,3 +196,13 @@ def test_longest_match_wins() -> None:
     results = m.detect(words)
     assert len(results) == 1
     assert results[0].slot.intent == "newparagraph"
+
+
+def test_whisper_attached_punctuation_and_case_still_match() -> None:
+    # Whisper large-v3 emits command tokens like «Крапка.» — capitalized,
+    # with the sentence mark attached. Edge normalization must make this
+    # an exact match (no edit-distance budget consumed).
+    m = VoiceCommandMatcher([_period_spec_uk()], language="uk")
+    results = m.detect([_w("Крапка.", 0.0, 0.4, p=0.90)])
+    assert len(results) == 1
+    assert results[0].slot.intent == "period"

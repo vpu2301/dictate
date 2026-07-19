@@ -32,6 +32,15 @@ logger = logging.getLogger(__name__)
 _MAX_SUBSTITUTION_DISTANCE: Final = 2
 _MAX_SUBSTITUTIONS_PER_PHRASE: Final = 1
 
+# Whisper attaches sentence punctuation to word tokens («Крапка.», "period,").
+# Strip token EDGES only before comparing against catalogue phrases, so the
+# attached mark neither consumes the edit-distance budget nor blocks a match.
+_EDGE_PUNCT: Final = ".,!?;:…«»„“”\"'()[]"
+
+
+def _norm_token(text: str) -> str:
+    return text.lower().strip().strip(_EDGE_PUNCT)
+
 
 @dataclass(frozen=True, slots=True)
 class _PhraseSpec:
@@ -193,7 +202,7 @@ class VoiceCommandMatcher:
     ) -> bool:
         substitutions = 0
         for j, target in enumerate(expected):
-            actual = words[i + j].text.lower()
+            actual = _norm_token(words[i + j].text)
             if actual == target:
                 continue
             d = _levenshtein(actual, target)
@@ -227,7 +236,7 @@ class VoiceCommandMatcher:
         for span in (3, 2, 1):
             if start + span > len(words):
                 continue
-            candidate = " ".join(w.text.lower() for w in words[start : start + span])
+            candidate = " ".join(_norm_token(w.text) for w in words[start : start + span])
             for section in self._sections:
                 names = [section.name.lower(), *(a.lower() for a in section.aliases)]
                 if candidate in names:

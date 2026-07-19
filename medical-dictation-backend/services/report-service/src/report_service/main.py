@@ -22,6 +22,7 @@ from .routers import (
     reports_amend,
     reports_diff,
     reports_drafts,
+    reports_from_transcript,
     reports_lifecycle,
     reports_pdf,
     reports_search,
@@ -88,6 +89,9 @@ def create_app() -> FastAPI:
     # routes so ``/v1/reports/search`` matches the search handler rather than
     # ``GET /v1/reports/{report_id}``.
     app.include_router(reports_search.router)
+    # BEFORE reports.router: its literal paths (/from-transcript,
+    # /by-source-job) must win over reports' /{report_id} catch-all.
+    app.include_router(reports_from_transcript.router)
     app.include_router(reports.router)
     app.include_router(reports_drafts.router)
     app.include_router(reports_lifecycle.router)

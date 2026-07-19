@@ -52,14 +52,25 @@ groups:
 
       # ── JWKS cache hit-ratio: caching IS the perf budget ────────────
       - alert: JwksCacheHitRatioLow
+        # NOTE: no clamp_min on the denominator — clamping to 1 turned the
+        # ratio into "absolute hits/sec" whenever traffic < 1 lookup/s, so the
+        # alert fired continuously in quiet environments with a healthy cache.
+        # Instead, gate on a minimum lookup rate (0.2/s ≈ 60 lookups per 5m
+        # window): below that the ratio isn't statistically meaningful and the
+        # expression returns no data, so the alert stays green.
         expr: |
           (
             sum(rate(mdx_jwks_cache_hits_total[5m]))
-            / clamp_min(
+            / (
                 sum(rate(mdx_jwks_cache_hits_total[5m]))
-                + sum(rate(mdx_jwks_cache_misses_total[5m])),
-              1)
+                + sum(rate(mdx_jwks_cache_misses_total[5m]))
+              )
           ) < 0.95
+          and
+          (
+            sum(rate(mdx_jwks_cache_hits_total[5m]))
+            + sum(rate(mdx_jwks_cache_misses_total[5m]))
+          ) > 0.2
         for: 5m
         labels:
           severity: warning

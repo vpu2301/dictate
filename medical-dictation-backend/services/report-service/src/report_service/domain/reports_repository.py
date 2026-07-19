@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -45,6 +45,19 @@ def _icd10_codes_as_strings(content: ReportContent) -> list[str]:
         for c in s.icd10:
             seen[c.code] = None
     return list(seen)
+
+
+def _parse_iso_date(value: str | None) -> date | None:
+    """ReportContent stores encounter_date as an ISO string; asyncpg binds
+    ``$n::date`` params as real dates, so a bare str raises DataError
+    ("'str' object has no attribute 'toordinal'"). Normalize here so every
+    write path is safe. An unparseable value becomes NULL rather than a 500."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 @dataclass(slots=True)
@@ -312,6 +325,7 @@ async def create_report_with_v1(
     template_schema_version: int,
     source_session_id: UUID | None,
     content: ReportContent,
+    source_asr_job_id: UUID | None = None,
 ) -> tuple[UUID, UUID]:
     """Two-step insert (ADR-0020):
 
@@ -326,15 +340,19 @@ async def create_report_with_v1(
     rendered = rendered_text_from_content(content)
     body_hash = body_hash_for(content)
     icd10_codes = _icd10_codes_as_strings(content)
+    # ReportContent.encounter_date is an ISO string; asyncpg binds the
+    # $11::date parameter as a real date, so hand it a date object (a bare
+    # str raises "'str' object has no attribute 'toordinal'").
+    encounter_date = _parse_iso_date(content.encounter_date)
 
     report_id: UUID = await conn.fetchval(
         """
         INSERT INTO reports (
             tenant_id, code, status, primary_author_id, co_author_ids,
             patient_id, patient_name_redacted, template_id, template_schema_version,
-            title, icd10_codes, encounter_date, source_session_id
+            title, icd10_codes, encounter_date, source_session_id, source_asr_job_id
         )
-        VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8, $9, $10, $11::date, $12)
+        VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8, $9, $10, $11::date, $12, $13)
         RETURNING id
         """,
         tenant_id,
@@ -347,8 +365,9 @@ async def create_report_with_v1(
         template_schema_version,
         content.title,
         icd10_codes,
-        content.encounter_date,
+        encounter_date,
         source_session_id,
+        source_asr_job_id,
     )
 
     version_id: UUID = await conn.fetchval(
@@ -373,6 +392,23 @@ async def create_report_with_v1(
         version_id,
     )
     return report_id, version_id
+
+
+async def fetch_reports_by_source_jobs(
+    conn: asyncpg.Connection, *, asr_job_ids: list[UUID]
+) -> list[asyncpg.Record]:
+    """Reports created from the given transcription jobs (RLS-scoped).
+
+    Powers the jobs-list "already assigned" badge — bulk, one round trip.
+    """
+    return await conn.fetch(
+        """
+        SELECT source_asr_job_id, id, code, status, patient_id
+        FROM reports
+        WHERE source_asr_job_id = ANY($1::uuid[])
+        """,
+        asr_job_ids,
+    )
 
 
 # ── Append version (autosave / amendment) ───────────────────────────
@@ -464,7 +500,7 @@ async def append_version(
         new_version_id,
         new_content.title,
         icd10_codes,
-        new_content.encounter_date,
+        _parse_iso_date(new_content.encounter_date),
     )
     return new_version_id, new_version_number
 

@@ -18,6 +18,7 @@ from messaging import RedisStreamsProducer
 from storage import EncryptedObjectStore, S3Client
 
 from .config import settings
+from .integrations.nlp_client import NlpBatchClient, NlpBatchClientConfig
 
 
 @dataclass
@@ -35,6 +36,7 @@ class ServiceState:
     audio_store: EncryptedObjectStore
     transcript_store: EncryptedObjectStore
     envelope: Envelope
+    nlp_client: NlpBatchClient
 
 
 async def build_state() -> ServiceState:
@@ -85,6 +87,13 @@ async def build_state() -> ServiceState:
         s3=s3, bucket=settings.s3_transcripts_bucket, envelope=envelope
     )
 
+    nlp_client = NlpBatchClient(
+        config=NlpBatchClientConfig(
+            base_url=settings.nlp_base_url,
+            timeout_seconds=settings.nlp_timeout_seconds,
+        )
+    )
+
     return ServiceState(
         jwks_cache=jwks_cache,
         app_pool=app_pool,
@@ -97,10 +106,12 @@ async def build_state() -> ServiceState:
         audio_store=audio_store,
         transcript_store=transcript_store,
         envelope=envelope,
+        nlp_client=nlp_client,
     )
 
 
 async def teardown_state(state: ServiceState) -> None:
+    await state.nlp_client.aclose()
     await state.jwks_cache.aclose()
     await state.queue_producer.aclose()
     await state.redis.aclose()
