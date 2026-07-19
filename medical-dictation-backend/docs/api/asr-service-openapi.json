@@ -40,6 +40,84 @@
         "title": "Body_submit_job_asr_jobs_post",
         "type": "object"
       },
+      "ConfidenceSpanView": {
+        "description": "A character range in an enriched segment's ``text`` flagged by the\nNLP confidence stage (low word-probability regions, clinically risky\nnumbers, \u2026).",
+        "properties": {
+          "end_char": {
+            "minimum": 0.0,
+            "title": "End Char",
+            "type": "integer"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "start_char": {
+            "minimum": 0.0,
+            "title": "Start Char",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_char",
+          "end_char",
+          "level"
+        ],
+        "title": "ConfidenceSpanView",
+        "type": "object"
+      },
+      "EnrichedSegment": {
+        "description": "One segment as served by ``GET /asr/jobs/{id}/result``.\n\n``text`` is the NLP post-processed rendering (dictated punctuation\napplied, numbers/dates normalized) when the view's ``nlp_applied``\nis true; otherwise it equals ``raw_text``. ``words`` always carry\nthe raw Whisper timings.",
+        "properties": {
+          "avg_confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Avg Confidence",
+            "type": "number"
+          },
+          "confidence_spans": {
+            "items": {
+              "$ref": "#/components/schemas/ConfidenceSpanView"
+            },
+            "title": "Confidence Spans",
+            "type": "array"
+          },
+          "end_ms": {
+            "minimum": 0.0,
+            "title": "End Ms",
+            "type": "integer"
+          },
+          "raw_text": {
+            "title": "Raw Text",
+            "type": "string"
+          },
+          "start_ms": {
+            "minimum": 0.0,
+            "title": "Start Ms",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "words": {
+            "items": {
+              "$ref": "#/components/schemas/WordTiming"
+            },
+            "title": "Words",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "raw_text",
+          "start_ms",
+          "end_ms",
+          "avg_confidence"
+        ],
+        "title": "EnrichedSegment",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -135,43 +213,58 @@
         "title": "ReadyResponse",
         "type": "object"
       },
-      "Segment": {
+      "TranscriptResultView": {
+        "description": "Plaintext transcript response for a COMPLETE job (proxy-decrypt).\n\nThe stored artifact stays :class:`TranscriptionOutput` (raw ASR);\nNLP enrichment is applied at read time and degrades gracefully \u2014\n``nlp_applied=False`` means the segments are the raw transcript.",
         "properties": {
-          "avg_confidence": {
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Avg Confidence",
-            "type": "number"
-          },
-          "end_ms": {
-            "minimum": 0.0,
-            "title": "End Ms",
-            "type": "integer"
-          },
-          "start_ms": {
-            "minimum": 0.0,
-            "title": "Start Ms",
-            "type": "integer"
-          },
-          "text": {
-            "title": "Text",
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
             "type": "string"
           },
-          "words": {
+          "language": {
+            "pattern": "^(uk|en)$",
+            "title": "Language",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/TranscriptionMetadata"
+          },
+          "nlp_applied": {
+            "default": false,
+            "title": "Nlp Applied",
+            "type": "boolean"
+          },
+          "nlp_pipeline_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nlp Pipeline Version"
+          },
+          "schema_version": {
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "segments": {
             "items": {
-              "$ref": "#/components/schemas/WordTiming"
+              "$ref": "#/components/schemas/EnrichedSegment"
             },
-            "title": "Words",
+            "title": "Segments",
             "type": "array"
           }
         },
         "required": [
-          "text",
-          "start_ms",
-          "end_ms",
-          "avg_confidence"
+          "job_id",
+          "language",
+          "segments",
+          "metadata"
         ],
-        "title": "Segment",
+        "title": "TranscriptResultView",
         "type": "object"
       },
       "TranscriptionJobView": {
@@ -348,37 +441,6 @@
           "beam_size"
         ],
         "title": "TranscriptionMetadata",
-        "type": "object"
-      },
-      "TranscriptionOutput": {
-        "properties": {
-          "language": {
-            "pattern": "^(uk|en)$",
-            "title": "Language",
-            "type": "string"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/TranscriptionMetadata"
-          },
-          "schema_version": {
-            "default": 1,
-            "title": "Schema Version",
-            "type": "integer"
-          },
-          "segments": {
-            "items": {
-              "$ref": "#/components/schemas/Segment"
-            },
-            "title": "Segments",
-            "type": "array"
-          }
-        },
-        "required": [
-          "language",
-          "segments",
-          "metadata"
-        ],
-        "title": "TranscriptionOutput",
         "type": "object"
       },
       "ValidationError": {
@@ -739,7 +801,7 @@
     },
     "/asr/jobs/{job_id}/result": {
       "get": {
-        "description": "Architecture rule: presigned URLs serve ciphertext \u2014 useless to a\nbrowser \u2014 so the transcript is decrypted through the envelope path and\nreturned on this AUTHENTICATED endpoint (ADR-0011 forbids client-side\ndecrypt). Every plaintext read is audited.",
+        "description": "Architecture rule: presigned URLs serve ciphertext \u2014 useless to a\nbrowser \u2014 so the transcript is decrypted through the envelope path and\nreturned on this AUTHENTICATED endpoint (ADR-0011 forbids client-side\ndecrypt). Every plaintext read is audited.\n\nThe raw transcript is run through nlp-service's batch pipeline\n(dictated \u00ab\u043a\u0440\u0430\u043f\u043a\u0430\u00bb\u2192\".\" + punctuation/number normalization) with the\ncaller's own bearer forwarded; on any NLP failure the raw transcript\nis returned with ``nlp_applied=false``.",
         "operationId": "get_job_result_asr_jobs__job_id__result_get",
         "parameters": [
           {
@@ -774,7 +836,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TranscriptionOutput"
+                  "$ref": "#/components/schemas/TranscriptResultView"
                 }
               }
             },

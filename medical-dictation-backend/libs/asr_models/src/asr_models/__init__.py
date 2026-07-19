@@ -7,18 +7,24 @@ a schema bump is a single PR with cross-service review.
 
 from .job import JobEnqueuePayload, JobStatus, TranscriptionJobView
 from .output import (
+    ConfidenceSpanView,
+    EnrichedSegment,
     Segment,
     TranscriptionMetadata,
     TranscriptionOutput,
+    TranscriptResultView,
     WordTiming,
 )
 
 __all__ = [
+    "ConfidenceSpanView",
+    "EnrichedSegment",
     "JobEnqueuePayload",
     "JobStatus",
     "Segment",
     "TranscriptionJobView",
     "TranscriptionMetadata",
     "TranscriptionOutput",
+    "TranscriptResultView",
     "WordTiming",
 ]

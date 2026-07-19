@@ -27,6 +27,11 @@ from typing import Protocol, runtime_checkable
 # don't get merged into one.
 _MARKER_RE = re.compile(r"\[\[.*?\]\]", re.DOTALL)
 _WS_RE = re.compile(r"\s+")
+# Glued sentences ("...базальна.Також") — an editor that drops newlines
+# leaves no whitespace for _WS_RE to normalise. Restore the gap, but only
+# before an UPPERCASE letter (a real sentence start) so decimals ("3.5")
+# and lower-case abbreviations ("т.д.") are untouched.
+_GLUED_SENTENCE_RE = re.compile(r"([.!?])([A-ZА-ЯІЇЄҐ])")
 
 
 @runtime_checkable
@@ -82,8 +87,11 @@ def _clean(text: str) -> str:
     parts.append((False, text[last:]))
 
     # Collapse internal whitespace in plain-text parts; keep markers as-is.
+    # Also re-insert a space into glued sentences so text that lost its
+    # newlines upstream reads correctly after synthesis.
     collapsed = "".join(
-        value if is_marker else _WS_RE.sub(" ", value) for is_marker, value in parts
+        value if is_marker else _GLUED_SENTENCE_RE.sub(r"\1 \2", _WS_RE.sub(" ", value))
+        for is_marker, value in parts
     ).strip()
 
     # Re-split the (now whitespace-normalised) string and capitalise sentence

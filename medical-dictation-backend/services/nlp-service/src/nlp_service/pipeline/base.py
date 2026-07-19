@@ -130,6 +130,11 @@ class ProcessingContext:
     decimal_separator: str = ","
     bp_separator: str = "/"
     date_format: Literal["DD.MM.YYYY", "YYYY-MM-DD", "WORD"] = "DD.MM.YYYY"
+    # Batch path only: there is no editor to consume Operations, so
+    # text-shaped ops (insert_punctuation / line breaks) are applied
+    # into ``text`` at the command's position by Stage 1. Streaming
+    # keeps False — the FE editor owns op application (sprint 04/06).
+    apply_operations_inline: bool = False
 
 
 @dataclass(frozen=True, slots=True)

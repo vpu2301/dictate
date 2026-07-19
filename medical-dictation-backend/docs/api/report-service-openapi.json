@@ -148,6 +148,56 @@
         "title": "CloneResponse",
         "type": "object"
       },
+      "CreateFromTranscriptRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "asr_job_id": {
+            "format": "uuid",
+            "title": "Asr Job Id",
+            "type": "string"
+          },
+          "encounter_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Date"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
+          },
+          "title": {
+            "default": "",
+            "maxLength": 512,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asr_job_id",
+          "patient_id"
+        ],
+        "title": "CreateFromTranscriptRequest",
+        "type": "object"
+      },
       "CreateReportRequest": {
         "additionalProperties": false,
         "properties": {
@@ -384,6 +434,80 @@
           "status"
         ],
         "title": "FinalizeResponse",
+        "type": "object"
+      },
+      "FromTranscriptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "template_id": {
+            "format": "uuid",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "template_name": {
+            "title": "Template Name",
+            "type": "string"
+          },
+          "template_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Score"
+          },
+          "template_selection": {
+            "enum": [
+              "explicit",
+              "auto",
+              "fallback"
+            ],
+            "title": "Template Selection",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version_id",
+          "version_number",
+          "status",
+          "patient_id",
+          "template_id",
+          "template_name",
+          "template_selection"
+        ],
+        "title": "FromTranscriptResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1427,6 +1551,50 @@
           "expires_at"
         ],
         "title": "SignSessionResponse",
+        "type": "object"
+      },
+      "SourceJobLink": {
+        "additionalProperties": false,
+        "properties": {
+          "asr_job_id": {
+            "format": "uuid",
+            "title": "Asr Job Id",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asr_job_id",
+          "report_id",
+          "code",
+          "status",
+          "patient_id"
+        ],
+        "title": "SourceJobLink",
         "type": "object"
       },
       "SynthesisJobResponse": {
@@ -2622,6 +2790,129 @@
           }
         },
         "summary": "Create Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/by-source-job": {
+      "get": {
+        "operationId": "reports_by_source_job_v1_reports_by_source_job_get",
+        "parameters": [
+          {
+            "description": "Comma-separated asr job UUIDs (\u2264200).",
+            "in": "query",
+            "name": "ids",
+            "required": true,
+            "schema": {
+              "description": "Comma-separated asr job UUIDs (\u2264200).",
+              "title": "Ids",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceJobLink"
+                  },
+                  "title": "Response Reports By Source Job V1 Reports By Source Job Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reports By Source Job",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/from-transcript": {
+      "post": {
+        "operationId": "create_report_from_transcript_v1_reports_from_transcript_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFromTranscriptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FromTranscriptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Report From Transcript",
         "tags": [
           "reports"
         ]

@@ -249,6 +249,30 @@ def test_mock_synthesizer_deterministic_and_preserves_markers() -> None:
     assert "[[severe]]" in out1
 
 
+def test_mock_synthesizer_repairs_glued_sentences() -> None:
+    # An upstream editor that drops newlines leaves sentences glued with
+    # no whitespace ("базальна.Також"). Synthesis restores the space —
+    # but must NOT touch decimals or lower-case abbreviations.
+    from report_service.domain.synthesis import MockSynthesizer
+
+    eng = MockSynthesizer()
+
+    def _clean(raw: str) -> str:
+        return eng.synthesize_section(
+            section_key="s", raw_text=raw, synthesis_prompt="", asr_prompt="", language="uk"
+        )
+
+    assert _clean("базальна.Також маємо випід.Серединне середостіння.") == (
+        "Базальна. Також маємо випід. Серединне середостіння."
+    )
+    # No space wrongly inserted inside decimals or lower-case abbreviations
+    # (the terminator-space rule fires only before an UPPERCASE letter).
+    # NB: an unrelated pre-existing quirk uppercases the letter after any
+    # ".", so we assert only that no space was injected, not full text.
+    assert "3. 5" not in _clean("розмір 3.5 см")
+    assert "т. д" not in _clean("тощо т.д. далі")
+
+
 def test_anthropic_synthesizer_is_a_stub() -> None:
     from report_service.domain.synthesis import AnthropicSynthesizer, build_synthesizer
 

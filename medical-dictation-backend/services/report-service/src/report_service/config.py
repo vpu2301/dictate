@@ -75,6 +75,12 @@ class Settings(BaseSettings):
         default="http://localhost:8008", alias="SIGNING_SERVICE_BASE_URL"
     )
 
+    # asr-service base URL — "assign transcription to patient" fetches the
+    # completed job's transcript from there, forwarding the caller's JWT.
+    asr_service_base_url: str = Field(
+        default="http://localhost:8001", alias="ASR_SERVICE_BASE_URL"
+    )
+
     # ── Report synthesis (spec item 1) ──────────────────────────────────
     # "mock" (default) is the deterministic offline engine — no external
     # LLM, no PHI leaving the box. "anthropic" wires the production stub
