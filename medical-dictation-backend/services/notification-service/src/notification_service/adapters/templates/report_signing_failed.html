@@ -1,0 +1,3 @@
+{% extends "_base.html" %}
+{% block heading %}Не вдалося підписати звіт {{ fields.get('report_code', '—') }}{% endblock %}
+{% block body %}Сесію підписання не завершено: {{ fields.get('failure_reason', 'невідома причина') }}. Спробуйте ще раз у системі.{% endblock %}

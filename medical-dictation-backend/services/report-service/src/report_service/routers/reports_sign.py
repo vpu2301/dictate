@@ -37,6 +37,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from audit import Severity
 from auth import Claims
 from db import tenant_connection
+from notification_events import Category
 from report_models import ReportStatus
 
 from .. import audit_kinds
@@ -45,6 +46,7 @@ from ..deps import get_state, requires
 from ..domain import reports_repository as repo
 from ..domain.branding import load_tenant_branding
 from ..domain.reports_repository import ReportRow, VersionRow
+from ..notifications import emit_report_event
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +182,27 @@ async def sign_report(
         "/signing/inline", inline_body, auth_header=auth_header, expected=(200,)
     )
     await _audit_sign_requested(state, claims, report_id, body.provider, resource_type)
+
+    # Sprint-12. An amendment that signs moves the report to `amended`,
+    # so the category follows the resulting status rather than the verb.
+    final_status = result.get("report_status") or (
+        "amended" if resource_type == "amendment" else "signed"
+    )
+    await emit_report_event(
+        state.redis,
+        category=(
+            Category.REPORT_AMENDED
+            if final_status == "amended"
+            else Category.REPORT_SIGNED
+        ),
+        tenant_id=claims.tid,
+        report_id=report_id,
+        report_code=report.code,
+        actor_user_id=claims.sub,
+        primary_author_id=report.primary_author_id,
+        co_author_ids=tuple(report.co_author_ids),
+        extra_payload={"signature_level": str(result.get("signature_level", ""))},
+    )
     return SignInlineResponse(
         envelope_id=result["envelope_id"],
         signature_level=result["signature_level"],

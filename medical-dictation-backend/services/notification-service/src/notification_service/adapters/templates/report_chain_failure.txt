@@ -1,0 +1,3 @@
+{% extends "_base.txt" %}
+{% block heading %}Порушення цілісності журналу{% endblock %}
+{% block body %}Перевірка «{{ fields.get('check_name', 'chain_reconciler') }}» виявила розбіжність у ланцюжку версій звіту {{ fields.get('report_code', '—') }}. Потрібна дія адміністратора.{% endblock %}

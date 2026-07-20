@@ -42,6 +42,7 @@ KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
         "report",
         "patient",
         "note",
+        "notification",
     }
 )
 
@@ -159,6 +160,21 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("clinician", "note.write", "note"): True,
     ("nurse", "note.read", "note"): True,
     ("nurse", "note.write", "note"): True,
+    # ── Sprint 12: notifications ──────────────────────────────────────
+    # Every role that can hold a session gets both, INCLUDING auditor:
+    # these act only on the caller's OWN notification rows (the endpoints
+    # take no user_id and the queries filter on recipient_user_id), so
+    # this grants no visibility into clinical content. Withholding it
+    # would leave an auditor unable to read or dismiss alerts addressed
+    # to them.
+    ("tenant_admin", "notification.read", "notification"): True,
+    ("tenant_admin", "notification.write", "notification"): True,
+    ("clinician", "notification.read", "notification"): True,
+    ("clinician", "notification.write", "notification"): True,
+    ("nurse", "notification.read", "notification"): True,
+    ("nurse", "notification.write", "notification"): True,
+    ("auditor", "notification.read", "notification"): True,
+    ("auditor", "notification.write", "notification"): True,
 }
 
 

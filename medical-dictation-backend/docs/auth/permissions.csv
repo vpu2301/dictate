@@ -164,3 +164,13 @@ clinician,tenant.manage_members,tenant,false,no member-management authority
 nurse,tenant.manage_members,tenant,false,no member-management authority
 auditor,tenant.manage_members,tenant,false,read-only role
 service,tenant.manage_members,tenant,false,S2S has no member-management surface
+tenant_admin,notification.read,notification,true,reads own notification feed and badge
+clinician,notification.read,notification,true,reads own notification feed and badge
+nurse,notification.read,notification,true,reads own notification feed and badge
+auditor,notification.read,notification,true,own feed only; grants no clinical visibility
+service,notification.read,notification,false,S2S publishes events; it has no feed
+tenant_admin,notification.write,notification,true,marks own notifications read; edits own preferences
+clinician,notification.write,notification,true,marks own notifications read; edits own preferences
+nurse,notification.write,notification,true,marks own notifications read; edits own preferences
+auditor,notification.write,notification,true,marks own notifications read; edits own preferences
+service,notification.write,notification,false,S2S publishes events; it has no preferences

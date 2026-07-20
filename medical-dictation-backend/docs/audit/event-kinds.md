@@ -133,6 +133,20 @@ Tenant-scoped, hash-chained. Constants in
 4. If the kind warrants its own dashboard panel or alert rule, add
    them in `infra/grafana/dashboards/` and `infra/prometheus/rules/`.
 
+### Sprint 12 — notifications
+
+| kind                              | severity | emitter                          | meaning                                                            |
+| --------------------------------- | -------- | -------------------------------- | ------------------------------------------------------------------ |
+| `notification.materialized`       | info     | notification-service ingest consumer | One event fanned out to N per-recipient rows. Payload: category, event_id, created/coalesced/duplicates counts. |
+| `notification.coalesced`          | warn     | notification-service materialize | Storm cap tripped; same-category events folded into one row (E1). |
+| `notification.delivered`          | info     | notification-service delivery worker | A channel dispatched successfully. Payload: channel, attempts. |
+| `notification.suppressed`         | info     | notification-service materialize | A channel was deliberately NOT dispatched. Payload carries the reason (preference / quiet_hours / no_email_address / digest_deferred) — the auditable proof for E8. |
+| `notification.delivery_failed`    | warn     | notification-service delivery worker | An attempt failed and will be retried with backoff. |
+| `notification.dead_lettered`      | error    | notification-service delivery worker | Retries exhausted, or a permanently-undeliverable envelope. Someone will never be told something. |
+| `notification.read`               | info     | notification-service feed router | User marked a notification read. |
+| `notification.preferences_updated`| info     | notification-service preferences router | User changed their own notification preferences. |
+| `notification.digest_sent`        | info     | notification-service digest job  | Daily digest email sent. Payload: digest_date, included count. |
+
 ## Payload conventions
 
 The `payload` arg to `write_event` is the caller-supplied dict that lands

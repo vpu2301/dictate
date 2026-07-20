@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import asyncpg
 from opentelemetry import metrics
+from redis.asyncio import Redis
 
 from audit import AuditWriter, Severity
 from auth import JwksCache
@@ -34,6 +35,10 @@ class ServiceState:
     diff_cache: DiffCache
     autosave_rate_limiter: AutosaveRateLimiter
     draft_audit_buffer: DraftAuditBuffer
+    # Sprint-12: the notification event bus. Publishing is fire-and-forget
+    # (libs/notification_events.publish_event never raises), so a Redis
+    # outage degrades notifications without touching report writes.
+    redis: Redis
     # Metric handles (kept on state so routers don't recreate them).
     diff_cache_hit_metric: object
     autosave_conflicts_metric: object
@@ -102,6 +107,7 @@ async def build_state() -> ServiceState:
         diff_cache=diff_cache,
         autosave_rate_limiter=autosave_rl,
         draft_audit_buffer=draft_audit_buffer,
+        redis=Redis.from_url(settings.redis_url, decode_responses=False),
         diff_cache_hit_metric=diff_cache_hit_metric,
         autosave_conflicts_metric=autosave_conflicts_metric,
     )
@@ -109,6 +115,7 @@ async def build_state() -> ServiceState:
 
 async def teardown_state(state: ServiceState) -> None:
     await state.draft_audit_buffer.stop()
+    await state.redis.aclose()
     await state.jwks_cache.aclose()
     await state.app_pool.close()
     await state.audit_writer_pool.close()

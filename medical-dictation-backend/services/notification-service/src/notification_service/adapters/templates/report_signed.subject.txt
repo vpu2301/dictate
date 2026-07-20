@@ -1,0 +1,1 @@
+Звіт {{ fields.get('report_code', '—') }} підписано

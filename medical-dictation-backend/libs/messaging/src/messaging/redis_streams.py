@@ -10,9 +10,16 @@ Consumer-group lifecycle handled here:
 
 1. ``XGROUP CREATE`` on first use (idempotent; tolerates BUSYGROUP).
 2. ``XREADGROUP`` blocks up to 5 s for new messages.
-3. Stuck-consumer recovery via ``XAUTOCLAIM`` every 60 s.
-4. Per-message retry counter in the headers; max 3 retries by default,
-   then the message is XADD'd to a sibling DLQ stream and XACK'd.
+3. Stuck-consumer recovery via ``XAUTOCLAIM`` every 60 s. Claimed
+   entries are re-delivered through the iterator (``XREADGROUP '>'``
+   only returns never-delivered entries, so they cannot come back that
+   way).
+4. Per-message retry counter held in Redis under
+   ``mdx:streams:<stream>:<group>:attempts``; max 3 retries by default,
+   then the message is XADD'd to a sibling DLQ stream and XACK'd. The
+   counter cannot live in the message headers: a failed entry is
+   re-delivered with its original fields, so a header-borne count always
+   reads back as 0 and the DLQ cap is never reached.
 5. Consumer crash: messages remain in the pending-entries list until
    reclaim, then re-delivered to another consumer.
 
@@ -27,9 +34,9 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
@@ -45,6 +52,8 @@ DEFAULT_RECLAIM_IDLE_MS: Final = 60_000
 DEFAULT_RECLAIM_INTERVAL_S: Final = 60.0
 DEFAULT_MAX_RETRIES: Final = 3
 HEADER_ATTEMPTS_KEY: Final = "x-attempts"
+# Lifetime of the per-(stream, group) delivery-attempt counter hash.
+_ATTEMPTS_TTL_S: Final = 7 * 24 * 3600
 
 
 @dataclass(slots=True)
@@ -157,6 +166,17 @@ class RedisStreamsConsumer:
         self._max_retries = max_retries
         self._stop = asyncio.Event()
         self._reclaim_task: asyncio.Task[None] | None = None
+        # Retry counters must outlive the in-memory Message: a failed entry
+        # stays in the PEL and is re-delivered with its ORIGINAL fields, so a
+        # counter carried in the message headers always reads back as 0 and
+        # the DLQ cap is never reached. Keep it in Redis, keyed by stream+
+        # group so a reclaim by a different consumer sees the same count.
+        self._attempts_key = f"mdx:streams:{stream}:{group}:attempts"
+        # Entries reclaimed by XAUTOCLAIM are handed to __aiter__ through this
+        # queue. XREADGROUP with '>' only ever returns never-delivered
+        # entries, so a reclaimed message would otherwise be claimed and then
+        # silently dropped — the crash-recovery path would lose messages.
+        self._reclaimed: asyncio.Queue[Message] = asyncio.Queue()
 
     async def __aenter__(self) -> RedisStreamsConsumer:
         await self._ensure_group()
@@ -194,8 +214,27 @@ class RedisStreamsConsumer:
                 f"subscribe({topics!r}) does not match."
             )
 
+    async def _bump_attempts(self, msg_id: str) -> int:
+        """Increment and return the durable delivery-attempt count."""
+        # redis-py types its hash commands `Awaitable[int] | int` — one
+        # signature shared by the sync and async clients — so --strict
+        # rejects the bare await. The client here is always the async one.
+        attempts = int(
+            await cast("Awaitable[int]", self._client.hincrby(self._attempts_key, msg_id, 1))
+        )
+        # Bound the counter hash: a stream whose consumers all die would
+        # otherwise leak a field per poisoned message forever.
+        await self._client.expire(self._attempts_key, _ATTEMPTS_TTL_S)
+        return attempts
+
     async def __aiter__(self) -> AsyncIterator[Message]:
         while not self._stop.is_set():
+            # Drain reclaimed entries first — they are strictly older than
+            # anything XREADGROUP will hand back.
+            while not self._reclaimed.empty():
+                yield self._reclaimed.get_nowait()
+                if self._stop.is_set():
+                    return
             try:
                 resp = await self._client.xreadgroup(
                     groupname=self._group,
@@ -231,20 +270,23 @@ class RedisStreamsConsumer:
         return None
 
     async def ack(self, message: Message) -> None:
-        if message.offset is None:
-            return
-        # `offset` carries the Redis Streams message id (str) on our impl.
+        # The Redis Streams message id lives in ``headers["_id"]``, NOT in
+        # ``Message.offset``: stream ids are "<ms>-<seq>" strings and
+        # ``offset`` is typed ``int | None``, so it is always None here.
+        # Guarding on ``offset`` would make every ack a no-op.
         msg_id = message.headers.get("_id")
         if msg_id is None:
             return
         await self._client.xack(self._stream, self._group, msg_id)
+        # Drop the retry counter — this id will never be retried again.
+        await cast("Awaitable[int]", self._client.hdel(self._attempts_key, msg_id))
 
     async def fail(self, message: Message, *, error_kind: str) -> None:
         """Increment the retry counter; on max retries push to DLQ + ack."""
         msg_id = message.headers.get("_id")
         if msg_id is None:
             return
-        attempts = int(message.headers.get(HEADER_ATTEMPTS_KEY, "0")) + 1
+        attempts = await self._bump_attempts(msg_id)
         if attempts >= self._max_retries:
             await self._producer.send(
                 topic=self._dlq_stream,
@@ -259,6 +301,7 @@ class RedisStreamsConsumer:
                 },
             )
             await self._client.xack(self._stream, self._group, msg_id)
+            await cast("Awaitable[int]", self._client.hdel(self._attempts_key, msg_id))
             logger.warning(
                 "redis_streams.dlq",
                 extra={
@@ -297,22 +340,7 @@ class RedisStreamsConsumer:
             except TimeoutError:
                 pass
             try:
-                _cursor, claimed, _deleted = await self._client.xautoclaim(
-                    name=self._stream,
-                    groupname=self._group,
-                    consumername=self._consumer,
-                    min_idle_time=self._reclaim_idle_ms,
-                    count=10,
-                )
-                if claimed:
-                    logger.info(
-                        "redis_streams.reclaimed",
-                        extra={
-                            "stream": self._stream,
-                            "count": len(claimed),
-                            "as_consumer": self._consumer,
-                        },
-                    )
+                await self.reclaim_once()
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "redis_streams.autoclaim_error",
@@ -322,6 +350,36 @@ class RedisStreamsConsumer:
                         "stream": self._stream,
                     },
                 )
+
+    async def reclaim_once(self) -> int:
+        """Run one XAUTOCLAIM cycle; queue what it claims. Returns the count.
+
+        Split out from the loop so the reclaim path can be driven
+        deterministically in a test instead of by racing a timer.
+        """
+        _cursor, claimed, _deleted = await self._client.xautoclaim(
+            name=self._stream,
+            groupname=self._group,
+            consumername=self._consumer,
+            min_idle_time=self._reclaim_idle_ms,
+            count=10,
+        )
+        if not claimed:
+            return 0
+        # Hand them to the iterator. XREADGROUP '>' will never return these
+        # (they are already delivered), so dropping them here would strand
+        # every message a crashed consumer was holding.
+        for msg_id_raw, fields in claimed:
+            self._reclaimed.put_nowait(_to_message(self._stream, msg_id_raw, fields))
+        logger.info(
+            "redis_streams.reclaimed",
+            extra={
+                "stream": self._stream,
+                "count": len(claimed),
+                "as_consumer": self._consumer,
+            },
+        )
+        return len(claimed)
 
 
 def _to_message(

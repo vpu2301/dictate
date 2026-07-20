@@ -21,6 +21,21 @@ from audit.canonical import canonicalize
 from auth import Claims
 from report_models import ReportContent, ReportStatus
 
+
+class _FakeRedis:
+    """Records XADDs so a test can assert the sprint-12 event was emitted.
+
+    Mirrors the real ServiceState, which now carries a Redis client for
+    the notification event bus.
+    """
+
+    def __init__(self) -> None:
+        self.xadds: list[tuple[str, dict]] = []
+
+    async def xadd(self, name, fields, **kwargs):  # noqa: ANN001, ANN003
+        self.xadds.append((name, fields))
+        return b"0-1"
+
 REQUESTER_SUB = UUID("11111111-1111-1111-1111-111111111111")
 REPORT_ID = UUID("33333333-3333-3333-3333-333333333333")
 TEMPLATE_ID = UUID("44444444-4444-4444-4444-444444444444")
@@ -104,6 +119,7 @@ def harness(monkeypatch: pytest.MonkeyPatch):
         SimpleNamespace(
             app_pool=object(),
             audit_writer=SimpleNamespace(write_event=_write_event),
+            redis=_FakeRedis(),
         )
     )
 

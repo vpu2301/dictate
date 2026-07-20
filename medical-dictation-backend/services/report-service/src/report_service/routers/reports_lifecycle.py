@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from audit import Severity
 from auth import Claims
 from db import tenant_connection
+from notification_events import Category
 from report_models import ReportStatus
 
 from .. import audit_kinds
@@ -25,6 +26,7 @@ from ..domain.report_lifecycle import (
     ReportStateMachine,
     RevertWindowExceededError,
 )
+from ..notifications import emit_report_event
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +172,20 @@ async def finalize_report(
             "source_session_id": str(source_session_id) if source_session_id else None,
         },
         severity=Severity.INFO,
+    )
+
+    # Sprint-12: tell the co-authors. After the audit writes and outside
+    # the transaction — the report is already finalized, and a stalled
+    # notification bus must not hold the response open (ADR-0029).
+    await emit_report_event(
+        state.redis,
+        category=Category.REPORT_FINALIZED,
+        tenant_id=claims.tid,
+        report_id=report_id,
+        report_code=row.code,
+        actor_user_id=claims.sub,
+        primary_author_id=row.primary_author_id,
+        co_author_ids=tuple(row.co_author_ids),
     )
     return FinalizeResponse(id=report_id, status=ReportStatus.FINALIZED.value)
 

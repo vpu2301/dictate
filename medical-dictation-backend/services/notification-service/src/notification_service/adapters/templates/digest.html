@@ -1,0 +1,9 @@
+{% extends "_base.html" %}
+{% block heading %}Підсумок сповіщень за {{ fields.get('period', 'день') }}{% endblock %}
+{% block body %}Нових сповіщень: {{ fields.get('count', '0') }}.
+<ul style="margin:12px 0;padding-left:20px">
+{% for line in items %}
+  <li style="margin-bottom:4px">{{ line }}</li>
+{% endfor %}
+</ul>
+Відкрийте систему, щоб переглянути деталі.{% endblock %}

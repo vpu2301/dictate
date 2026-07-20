@@ -47,6 +47,11 @@ class FinalizeResult:
     audio_file_id: UUID | None
     truncated: bool
     transcript_segments: int
+    # Stored audio length. Reported to the caller because the ring buffer
+    # it was derived from is closed by the time this returns, so a
+    # caller that wants it (the sprint-12 completion notification) has no
+    # way to recompute it.
+    duration_ms: int
 
 
 async def finalize_session(
@@ -219,6 +224,7 @@ async def finalize_session(
         audio_file_id=audio_file_id,
         truncated=truncated,
         transcript_segments=len(transcript_jsonb),
+        duration_ms=duration_ms,
     )
 
 

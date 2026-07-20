@@ -38,6 +38,9 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0026  | [Server-side file-key signing via UAPKI; dev_password scaffold](0026-file-key-uapki-and-dev-password-scaffold.md) | Accepted |
 | 0027  | [Patient identity (ІПН) & crypto-shredding strategy](0027-patient-identity-and-crypto-shredding.md) | Accepted |
 | 0028  | [Privacy-ops deployment: erasure job isolation, backups vs erasure, export lifecycle](0028-privacy-ops-deployment.md) | Accepted |
+| 0029  | [Redis Streams as the notification event bus](0029-redis-streams-notification-bus.md) | Accepted |
+| 0030  | [Redis pub/sub for cross-worker WebSocket fan-out](0030-redis-pubsub-ws-fanout.md) | Accepted |
+| 0031  | [Notification email carries pointers, never PHI](0031-email-carries-pointers-not-phi.md) | Accepted |
 
 ## Template
 

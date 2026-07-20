@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     )
 
     redis_url: str = Field(default="redis://redis:6379/0", alias="REDIS_URL")
+
+    # Sprint-12 notification event bus (ADR-0029). Same kill switch
+    # report-service and dictation-service carry — publishing is already
+    # fire-and-forget, so this is the source-level cut-off for a storm.
+    notifications_enabled: bool = Field(
+        default=True, alias="MDX_NOTIFICATIONS_ENABLED"
+    )
+
     asr_jobs_stream: str = Field(default="asr:jobs", alias="MD_ASR_JOBS_STREAM")
     asr_jobs_dlq_stream: str = Field(default="asr:jobs:dlq", alias="MD_ASR_JOBS_DLQ_STREAM")
     asr_jobs_group: str = Field(default="asr-workers", alias="MD_ASR_JOBS_GROUP")

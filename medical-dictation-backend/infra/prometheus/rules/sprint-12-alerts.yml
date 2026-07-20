@@ -1,0 +1,110 @@
+groups:
+  - name: sprint-12-notifications
+    interval: 1m
+    rules:
+      # As with sprint-10, no Alertmanager routing exists yet: these fire
+      # in the Prometheus UI only (a deployment-sprint concern).
+      #
+      # Metric names are emitted by notification-service via the OTel
+      # meter `mdx.notification`.
+
+      # ── E10: stream lag hides every other failure ──────────────────
+      # If the consumer stops, nothing else here can fire — no deliveries
+      # are attempted, so the failure-rate and DLQ alerts stay silent
+      # while users receive nothing. This alert is the one that catches
+      # a dead consumer, so it pages.
+      - alert: NotificationStreamLagHigh
+        expr: mdx_notification_stream_pending > 500
+        for: 10m
+        labels:
+          severity: page
+          team: backend
+        annotations:
+          summary: "Notification event stream backlog > 500 for 10m — the consumer is behind or dead"
+          runbook: "docs/runbooks/notifications.md#alert-stream-lag"
+
+      - alert: NotificationConsumerStalled
+        # No successful materialisation in 15 minutes while events are
+        # arriving. Separates "nothing to do" from "cannot do it".
+        expr: |
+          rate(mdx_notification_events_consumed_total[15m]) == 0
+          and mdx_notification_stream_pending > 0
+        for: 15m
+        labels:
+          severity: page
+          team: backend
+        annotations:
+          summary: "Events are pending but none are being consumed — consumer stalled"
+          runbook: "docs/runbooks/notifications.md#alert-consumer-stalled"
+
+      # ── E7: provider outage ────────────────────────────────────────
+      - alert: NotificationDeliveryFailureRateHigh
+        # `or vector(0)` on the denominator, and NO clamp_min: clamping to
+        # 1 turns the ratio into absolute failures/sec in quiet periods
+        # and false-fires overnight (the sprint-10 lesson, same shape).
+        expr: |
+          (
+            sum(rate(mdx_notification_delivery_failures_total[10m]))
+            /
+            (sum(rate(mdx_notification_delivery_attempts_total[10m])) or vector(0))
+          ) > 0.25
+        for: 10m
+        labels:
+          severity: page
+          team: backend
+        annotations:
+          summary: "More than 25% of notification deliveries are failing — check the email provider"
+          runbook: "docs/runbooks/notifications.md#alert-delivery-failures"
+
+      # ── E10: a dead-letter is a notification a user will NEVER get ──
+      # Deliberately `> 0`: unlike a retry, a dead-letter is terminal and
+      # silent. One is worth a look.
+      - alert: NotificationDeadLetterPresent
+        expr: increase(mdx_notification_dead_letters_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: page
+          team: backend
+        annotations:
+          summary: "A notification was dead-lettered — someone did not get told something"
+          runbook: "docs/runbooks/notifications.md#alert-dead-letter"
+
+      # ── E6: a digest that silently stops running ───────────────────
+      # 26h, not 24h, so a run that merely drifts late does not page.
+      - alert: NotificationDigestStale
+        expr: (time() - max(mdx_notification_digest_last_run_unix_ts)) > 26 * 3600
+        for: 30m
+        labels:
+          severity: ticket
+          team: backend
+        annotations:
+          summary: "Daily digest has not completed in over 26h"
+          runbook: "docs/runbooks/notifications.md#alert-digest-stale"
+
+      # ── E1: notification storm / self-DoS ──────────────────────────
+      # Coalescing is working as designed when this fires, but a sustained
+      # storm means a producer is misbehaving and should be investigated
+      # before the cap is the only thing protecting users.
+      - alert: NotificationCoalescingSustained
+        expr: sum(rate(mdx_notification_coalesced_total[15m])) > 1
+        for: 15m
+        labels:
+          severity: ticket
+          team: backend
+        annotations:
+          summary: "Notifications are being coalesced continuously — a producer may be flooding the bus"
+          runbook: "docs/runbooks/notifications.md#alert-storm"
+
+      # ── E5: WebSocket fan-out ──────────────────────────────────────
+      - alert: NotificationFanoutLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(mdx_notification_fanout_latency_ms_bucket[5m])) by (le))
+          > 1000
+        for: 10m
+        labels:
+          severity: ticket
+          team: backend
+        annotations:
+          summary: "WS fan-out p95 > 1s — live badge updates are lagging"
+          runbook: "docs/runbooks/notifications.md#alert-fanout-latency"

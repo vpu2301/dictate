@@ -30,6 +30,7 @@ dependencies = [
     "storage",
     "asr_models",
     "secret",
+    "notification_events",
     # asr-worker is in the same image; we import WhisperEngine directly.
     "asr-worker",
 ]
@@ -44,6 +45,7 @@ crypto = { workspace = true }
 storage = { workspace = true }
 asr_models = { workspace = true }
 secret = { workspace = true }
+notification_events = { workspace = true }
 asr-worker = { workspace = true }
 
 [project.optional-dependencies]
