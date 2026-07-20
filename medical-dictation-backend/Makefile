@@ -53,6 +53,11 @@ run-autocomplete-service: ## Run autocomplete-service on :8007 (needs dev-up + m
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 	uv run --project services/autocomplete-service uvicorn autocomplete_service.main:app --host 0.0.0.0 --port 8007
 
+.PHONY: run-notification-service
+run-notification-service: ## Run notification-service on :8004 (needs dev-up + migrate-up + seed)
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+	uv run --project services/notification-service uvicorn notification_service.main:app --host 0.0.0.0 --port 8004
+
 doctor: ## Diagnose local environment issues
 	@bash scripts/doctor.sh
 
@@ -91,6 +96,8 @@ test: ## Run pytest across services and libs
 	uv run --project services/dictation-service pytest services/dictation-service/tests/unit/ -v
 	uv run --project services/nlp-service pytest services/nlp-service/tests/unit/ -v
 	uv run --project libs/template_models pytest libs/template_models/tests/unit/ -v
+	uv run --project libs/notification_events pytest libs/notification_events/tests/unit/ -v
+	uv run --project services/notification-service pytest services/notification-service/tests/unit/ -v
 
 test-cov: ## Run pytest with coverage report (gate ≥ 80%)
 	uv run pytest services/_template/tests/ \
@@ -176,6 +183,14 @@ check-no-crypto: ## CI gate — no direct cryptography.hazmat outside libs/crypt
 check-no-dev-signing-in-prod-config: ## CI gate — dev_password signing scaffold never enabled in prod configs
 	uv run python scripts/ci/check-no-dev-signing-in-prod-config.py
 
+.PHONY: check-notification-phi-free
+check-notification-phi-free: ## CI gate (BLOCKING) — no email template may render PHI
+	uv run python scripts/ci/check-notification-phi-free.py
+
+.PHONY: run-notification-digest
+run-notification-digest: ## Run the daily notification digest once (cron entrypoint)
+	uv run --project services/notification-service python -m notification_service.jobs.digest
+
 seed-prompts: ## Seed medical_prompts (uk/en × 7 specialties)
 	psql "postgresql://postgres:postgres@localhost:5432/medical_dictation" \
 	    -f infra/postgres/seed/medical_prompts.sql
@@ -246,7 +261,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config validate-templates check-corpus check-autocomplete-corpus ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus ## Mirror CI gates locally
 
 ci-with-db: ci check-rls check-erasure-fanout openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

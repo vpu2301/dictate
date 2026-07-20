@@ -42,6 +42,7 @@ from ..audio.gap import GapDecision
 from ..config import settings
 from ..domain import encounters, repository
 from ..inference import StreamingWindower
+from ..notifications import emit_dictation_completed
 from ..protocol import (
     AudioFrame,
     BadMessageError,
@@ -857,6 +858,19 @@ async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> N
         logger.exception("finalize.failed", exc_info=exc)
         await _on_failed(ctx, state, kind="internal", detail=f"finalize: {exc}")
         return
+
+    # Emitted here rather than inside finalize_session: every reason that
+    # reaches THIS function is a session that completed (normal,
+    # cap_reached, force_finalize). The failure and abandon paths call
+    # the same finalizer and must not produce a completion receipt.
+    await emit_dictation_completed(
+        state.redis,
+        tenant_id=ctx.tenant_id,
+        session_id=ctx.session_id,
+        user_id=ctx.user_id,
+        duration_ms=result.duration_ms,
+        segments=result.transcript_segments,
+    )
 
     if ctx.ws is not None:
         with suppress(Exception):

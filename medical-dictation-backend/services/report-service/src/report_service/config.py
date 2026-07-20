@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     db_pool_min_size: int = Field(default=1, alias="DB_POOL_MIN_SIZE")
     db_pool_max_size: int = Field(default=8, alias="DB_POOL_MAX_SIZE")
 
+    # Sprint-12 notification event bus (ADR-0029).
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    # Set false to stop emitting entirely — the escape hatch if a
+    # notification storm ever needs to be cut off at the source (E1).
+    notifications_enabled: bool = Field(default=True, alias="MDX_NOTIFICATIONS_ENABLED")
+
     # In-process TTLCache for templates
     template_cache_maxsize: int = Field(default=5000, alias="MDX_TEMPLATE_CACHE_MAXSIZE")
     template_cache_ttl_seconds: int = Field(default=60, alias="MDX_TEMPLATE_CACHE_TTL_SECONDS")

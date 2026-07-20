@@ -41,6 +41,7 @@ from . import audit_kinds
 from .audio_io import AudioDecodeError, decode_to_pcm
 from .config import settings
 from .main_deps import WorkerState
+from .notifications import emit_transcription_completed, emit_transcription_failed
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,14 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
                 timeout_seconds=settings.ffmpeg_timeout_seconds,
             )
         except AudioDecodeError as exc:
-            await _mark_failed(state, tenant_id, job_id, kind="corrupt_audio", detail=str(exc))
+            await _mark_failed(
+                state,
+                tenant_id,
+                job_id,
+                kind="corrupt_audio",
+                detail=str(exc),
+                requester_sub=payload.requester_sub,
+            )
             raise _NonRetryableError("corrupt_audio", str(exc)) from exc
 
         audio_seconds = pcm.shape[0] / 16_000.0
@@ -210,11 +218,19 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
                 job_id,
                 kind="timeout",
                 detail=f"inference exceeded {max_infer:.1f}s",
+                requester_sub=payload.requester_sub,
             )
             raise _NonRetryableError("timeout", "inference timeout") from None
         except _CudaOOMError as exc:
             _oom_counter.add(1)
-            await _mark_failed(state, tenant_id, job_id, kind="gpu_oom", detail=str(exc))
+            await _mark_failed(
+                state,
+                tenant_id,
+                job_id,
+                kind="gpu_oom",
+                detail=str(exc),
+                requester_sub=payload.requester_sub,
+            )
             _release_cuda_cache()
             raise _NonRetryableError("gpu_oom", str(exc)) from exc
 
@@ -267,6 +283,21 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
             },
             severity=Severity.INFO,
         )
+
+        # After the status UPDATE and the audit write, outside the
+        # tenant_connection block — the same shape report-service uses.
+        # A job the user submitted and stopped watching is the strongest
+        # case in the system for a notification.
+        await emit_transcription_completed(
+            state.redis,
+            tenant_id=tenant_id,
+            job_id=job_id,
+            requester_sub=payload.requester_sub,
+            duration_ms=int(audio_seconds * 1000),
+            segments=len(output.segments),
+            language=payload.language,
+            model=output.metadata.model,
+        )
     except _NonRetryableError:
         raise
     except Exception as exc:
@@ -274,7 +305,14 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
         # becomes a non-retryable error to avoid hammering the GPU.
         if _looks_like_oom(exc):
             _oom_counter.add(1)
-            await _mark_failed(state, tenant_id, job_id, kind="gpu_oom", detail=str(exc))
+            await _mark_failed(
+                state,
+                tenant_id,
+                job_id,
+                kind="gpu_oom",
+                detail=str(exc),
+                requester_sub=payload.requester_sub,
+            )
             _release_cuda_cache()
             raise _NonRetryableError("gpu_oom", str(exc)) from exc
         raise
@@ -316,7 +354,14 @@ async def _mark_failed(
     *,
     kind: str,
     detail: str,
+    requester_sub: UUID,
 ) -> None:
+    """Terminal-failure path. Every failure funnels through here.
+
+    `requester_sub` is threaded in rather than re-SELECTed: the row is
+    about to be UPDATEd anyway, and a second query for a value the caller
+    already holds in `payload` is a round trip for nothing.
+    """
     async with tenant_connection(state.app_pool, tenant_id) as conn:
         await conn.execute(
             """
@@ -335,6 +380,15 @@ async def _mark_failed(
         target_id=str(job_id),
         payload={"error_kind": kind, "detail": detail[:200]},
         severity=Severity.ERROR,
+    )
+
+    # `kind` only, never `detail` — see emit_transcription_failed.
+    await emit_transcription_failed(
+        state.redis,
+        tenant_id=tenant_id,
+        job_id=job_id,
+        requester_sub=requester_sub,
+        error_kind=kind,
     )
 
 

@@ -1,0 +1,7 @@
+{% extends "_base.txt" %}
+{% block heading %}Підсумок сповіщень за {{ fields.get('period', 'день') }}{% endblock %}
+{% block body %}Нових сповіщень: {{ fields.get('count', '0') }}.
+{% for line in items %}
+- {{ line }}
+{% endfor %}
+Відкрийте систему, щоб переглянути деталі.{% endblock %}

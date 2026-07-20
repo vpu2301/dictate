@@ -1,0 +1,1 @@
+Ваші сповіщення за {{ fields.get('period', 'день') }}: {{ fields.get('count', '0') }}

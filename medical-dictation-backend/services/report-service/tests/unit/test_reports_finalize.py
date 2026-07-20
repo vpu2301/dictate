@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -18,6 +19,21 @@ from fastapi.testclient import TestClient
 
 from auth import Claims
 from report_models import ReportContent, ReportSection
+
+
+class _FakeRedis:
+    """Records XADDs so a test can assert the sprint-12 event was emitted.
+
+    Mirrors the real ServiceState, which now carries a Redis client for
+    the notification event bus.
+    """
+
+    def __init__(self) -> None:
+        self.xadds: list[tuple[str, dict]] = []
+
+    async def xadd(self, name, fields, **kwargs):  # noqa: ANN001, ANN003
+        self.xadds.append((name, fields))
+        return b"0-1"
 
 REQUESTER_SUB = UUID("11111111-1111-1111-1111-111111111111")
 REPORT_ID = UUID("33333333-3333-3333-3333-333333333333")
@@ -120,9 +136,11 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     async def _write_event(**kwargs):  # noqa: ANN003
         audit_calls.append(kwargs)
 
+    fake_redis = _FakeRedis()
     fake_state = SimpleNamespace(
         app_pool=object(),
         audit_writer=SimpleNamespace(write_event=_write_event),
+        redis=fake_redis,
     )
     deps.install_state(fake_state)  # type: ignore[arg-type]
 
@@ -142,6 +160,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app.dependency_overrides[deps.current_user] = _clinician_claims
     c = TestClient(app)
     c.audit_calls = audit_calls  # type: ignore[attr-defined]
+    c.notification_redis = fake_redis  # type: ignore[attr-defined]
     return c
 
 
@@ -257,6 +276,17 @@ def test_finalize_correct_expected_version_succeeds_and_emits_completed(
     assert payload["version_number"] == CURRENT_VERSION_NUMBER
     assert payload["section_count"] == 2
     assert payload["low_confidence_count"] == 1
+
+    # Sprint-12: finalizing publishes exactly one notification event onto
+    # the bus, carrying the report CODE and no title (ADR-0031).
+    xadds = client.notification_redis.xadds  # type: ignore[attr-defined]
+    assert len(xadds) == 1
+    stream, fields = xadds[0]
+    assert stream == "mdx:notifications:events"
+    envelope = json.loads(fields[b"value"].decode())
+    assert envelope["category"] == "report.finalized"
+    assert envelope["payload"] == {"report_code": "R-0001"}
+    assert envelope["resource_id"] == str(REPORT_ID)
     assert payload["source_session_id"] == str(SESSION_ID)
 
 

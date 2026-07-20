@@ -15,6 +15,7 @@
 #   asr-service           :8001
 #   dictation-service     :8002   (WebSocket streaming ASR)
 #   core-service          :8003   (patients & per-patient record)
+#   notification-service  :8004   (feed + WebSocket push + email)
 #   nlp-service           :8005
 #   report-service        :8006
 #   autocomplete-service  :8007
@@ -307,11 +308,18 @@ services:
       SIGNING_SERVICE_BASE_URL: http://signing-service:8000
       # "Assign transcription to patient" fetches the transcript here.
       ASR_SERVICE_BASE_URL: http://asr-service:8000
+      # S12 notification producer — lifecycle transitions publish onto the
+      # Redis Streams bus (ADR-0029). Without this the config default
+      # (redis://localhost:6379/0) resolves to the container itself and
+      # every publish silently no-ops, since publish_event never raises.
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8006:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       keycloak:
         condition: service_healthy
@@ -381,6 +389,58 @@ services:
   # Reverse-proxy allowlist: exactly POST /signing/callbacks/diia and
   # GET /verify/* pass through (TLS + edge rate limit); every other
   # path 404s at the edge. See infra/edge/nginx.conf.template.
+  # ── Mailpit — dev SMTP sink (S12) ─────────────────────────────────
+  # Catches every outbound mail so nothing can escape a dev box, and
+  # exposes an HTTP API the PHI gate asserts against. :8025 is the web
+  # inbox used in the demo; :1025 is the SMTP port the service dials.
+  mailpit:
+    image: axllent/mailpit:v1.20
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "5000"
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ── notification-service — feed, WebSocket push, email (S12) ──────
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
+      REDIS_URL: redis://redis:6379/0
+      MDX_APP_BASE_URL: http://localhost:5173
+      MDX_EMAIL_PROVIDER: smtp
+      MDX_SMTP_HOST: mailpit
+      MDX_SMTP_PORT: "1025"
+      MDX_EMAIL_FROM: noreply@medical-dictation.local
+      # Unique per replica — two replicas sharing a consumer name share
+      # a pending-entries list.
+      MDX_NOTIFICATION_CONSUMER_NAME: notification-1
+    ports:
+      - "8004:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
   public-edge:
     image: nginx:1.27-alpine
     restart: unless-stopped

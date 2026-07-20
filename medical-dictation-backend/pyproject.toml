@@ -46,6 +46,7 @@ known-first-party = [
     "nlp_service",
     "report_service",
     "core_service",
+    "notification_service",
     "observability",
     "auth",
     "db",
@@ -57,6 +58,7 @@ known-first-party = [
     "asr_models",
     "template_models",
     "report_models",
+    "notification_events",
 ]
 
 [tool.mypy]
@@ -92,6 +94,8 @@ root_packages = [
     "asr_models",
     "template_models",
     "report_models",
+    "notification_service",
+    "notification_events",
 ]
 
 [[tool.importlinter.contracts]]
@@ -165,6 +169,36 @@ layers = [
     "core_service.adapters",
 ]
 
+# `ws` sits BELOW the two drivers, not above them. Both the stream
+# consumer (`ingest`) and the outbox worker (`delivery`) publish
+# WebSocket fan-out, so `ws.fanout` is a shared downstream dependency —
+# the first cut of this contract had `ws` on top and import-linter
+# correctly rejected it.
+#
+# `delivery` and `ingest` have no edge between them: dead-lettering,
+# which both need, lives in `domain.dead_letters` rather than in
+# whichever one happened to write it first.
+[[tool.importlinter.contracts]]
+name = "notification-service: routers → delivery → ingest → ws → domain → adapters; reverse forbidden"
+type = "layers"
+layers = [
+    "notification_service.routers",
+    "notification_service.delivery",
+    "notification_service.ingest",
+    "notification_service.ws",
+    "notification_service.domain",
+    "notification_service.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "notification_events is a leaf — pure Pydantic types"
+type = "forbidden"
+source_modules = ["notification_events"]
+forbidden_modules = [
+    "observability", "secret", "auth", "db", "audit", "messaging",
+    "crypto", "storage", "asr_models", "template_models", "report_models",
+]
+
 [[tool.importlinter.contracts]]
 name = "template_models is a leaf — pure Pydantic types"
 type = "forbidden"
@@ -198,6 +232,7 @@ source_modules = [
     "asr_models",
     "template_models",
     "report_models",
+    "notification_events",
 ]
 forbidden_modules = [
     "template_service",
@@ -207,6 +242,7 @@ forbidden_modules = [
     "nlp_service",
     "report_service",
     "core_service",
+    "notification_service",
 ]
 
 # Services are mutually independent: shared concerns live in libs/*, never
@@ -230,6 +266,7 @@ modules = [
     "nlp_service",
     "report_service",
     "core_service",
+    "notification_service",
 ]
 ignore_imports = [
     "dictation_service.main_deps -> asr_worker.inference",

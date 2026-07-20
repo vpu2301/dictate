@@ -53,8 +53,16 @@ class Settings(BaseSettings):
     db_pool_min_size: int = Field(default=1, alias="DB_POOL_MIN_SIZE")
     db_pool_max_size: int = Field(default=8, alias="DB_POOL_MAX_SIZE")
 
-    # ── Redis (rate-limit + worker liveness) ───────────────────────────
+    # ── Redis (rate-limit + worker liveness + notification bus) ────────
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+
+    # ── Sprint-12 notification event bus (ADR-0029) ────────────────────
+    # Same kill switch report-service carries. Publishing is already
+    # fire-and-forget, so this is not about failure handling — it is the
+    # source-level cut-off for a notification storm (E1).
+    notifications_enabled: bool = Field(
+        default=True, alias="MDX_NOTIFICATIONS_ENABLED"
+    )
 
     # ── MinIO / S3 (finalized audio uploads) ───────────────────────────
     s3_endpoint: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT")

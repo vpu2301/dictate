@@ -21,12 +21,15 @@ import json
 import logging
 import sys
 from collections.abc import Iterable
-from uuid import UUID
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 import asyncpg
+from redis.asyncio import Redis
 
 from audit import AuditWriter, Severity
 from db import create_pool, tenant_connection
+from notification_events import Category, build_event, publish_event
 
 from .. import audit_kinds
 from ..config import settings
@@ -41,6 +44,7 @@ async def reconcile_tenant(
     audit_writer: AuditWriter,
     audit_pool: asyncpg.Pool,
     tenant_id: UUID,
+    redis: object | None = None,
 ) -> int:
     """Returns number of anomalies recorded for the tenant."""
     anomalies_total = 0
@@ -88,6 +92,7 @@ async def reconcile_tenant(
                 tenant_id=tenant_id,
                 report_id=rid,
                 anomalies=anomalies,
+                redis=redis,
             )
     return anomalies_total
 
@@ -99,9 +104,13 @@ async def _persist_anomalies(
     tenant_id: UUID,
     report_id: UUID,
     anomalies: Iterable,
+    redis: object | None = None,
 ) -> None:
+    # Materialised: the body walks this three times, and a bare Iterable
+    # (a generator) would be empty on the second pass.
+    anomalies_list = list(anomalies)
     async with audit_pool.acquire() as conn, conn.transaction():
-        for a in anomalies:
+        for a in anomalies_list:
             await conn.execute(
                 """
                     INSERT INTO audit.report_chain_failures
@@ -114,7 +123,7 @@ async def _persist_anomalies(
                 json.dumps(a.detail),
             )
 
-    for a in anomalies:
+    for a in anomalies_list:
         await audit_writer.write_event(
             tenant_id=tenant_id,
             kind=audit_kinds.REPORT_CHAIN_INTEGRITY_FAILURE,
@@ -124,6 +133,30 @@ async def _persist_anomalies(
             target_id=report_id,
             payload={"anomaly_kind": a.kind, **a.detail},
             severity=Severity.SEC,
+        )
+
+    # Sprint-12: page the tenant's admins. ONE event per report, not one
+    # per anomaly — a broken chain typically trips several checks at
+    # once, and a clinician-facing storm is the last thing an integrity
+    # incident needs (E1). No recipient hints: the audience is
+    # role-derived, and notification-service resolves it.
+    if redis is not None and anomalies_list:
+        await publish_event(
+            redis,
+            build_event(
+                event_id=uuid4(),
+                tenant_id=tenant_id,
+                category=Category.REPORT_CHAIN_FAILURE,
+                actor_user_id=None,  # system-raised
+                resource_type="report",
+                resource_id=report_id,
+                occurred_at=datetime.now(UTC),
+                payload={
+                    "report_code": str(report_id),
+                    "check_name": "chain_reconciler",
+                    "anomaly_count": len(anomalies_list),
+                },
+            ),
         )
 
 
@@ -141,10 +174,26 @@ async def reconcile_all() -> int:
         max_size=2,
     )
     audit_writer = AuditWriter(audit_pool)
+    # Sprint-12: admins hear about integrity failures. Its own client —
+    # the reconciler runs as a standalone job with no ServiceState.
+    redis = Redis.from_url(settings.redis_url, decode_responses=False)
     total = 0
     try:
         async with app_pool.acquire() as conn:
-            tenants = await conn.fetch("SELECT id FROM tenants WHERE active = true")
+            # PRE-EXISTING BUG (found running sprint 12 against a live DB):
+            # the column is `is_active`, not `active`, so this raised
+            # UndefinedColumnError and the daily reconciler never ran.
+            tenants = await conn.fetch("SELECT id FROM tenants WHERE is_active = true")
+        if not tenants:
+            # Still latent here: `tenants` is RLS-guarded and this is an
+            # UNSCOPED app_role connection, so the read can legitimately
+            # return zero rows and the job would "succeed" having checked
+            # nothing. Make that visible rather than silent — the real fix
+            # is a SECURITY DEFINER enumerator like migration 0051's.
+            logger.warning(
+                "chain_reconciler.no_tenants_visible",
+                extra={"hint": "RLS may be filtering the tenants read; nothing was checked"},
+            )
         for t in tenants:
             try:
                 total += await reconcile_tenant(
@@ -152,12 +201,14 @@ async def reconcile_all() -> int:
                     audit_writer=audit_writer,
                     audit_pool=audit_pool,
                     tenant_id=t["id"],
+                    redis=redis,
                 )
             except Exception:  # noqa: BLE001
                 logger.exception(
                     "chain_reconciler.tenant_failed", extra={"tenant_id": str(t["id"])}
                 )
     finally:
+        await redis.aclose()
         await app_pool.close()
         await audit_pool.close()
     return total
