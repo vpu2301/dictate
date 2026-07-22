@@ -239,7 +239,7 @@ services:
       dockerfile: services/dictation-service/Dockerfile.cpu
     restart: unless-stopped
     environment:
-      <<: [*common-env, *auth-env, *postgres-dsns]
+      <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
       MD_ASR_DEVICE: cpu
       MD_ASR_MODEL: /opt/models/whisper-tiny
       MD_ASR_COMPUTE_TYPE: int8
@@ -249,7 +249,9 @@ services:
       S3_ENDPOINT: http://minio:9000
       MDX_MASTER_KEY_PATH: /etc/mdx/master.key
       MDX_TMPFS_ROOT: /run/dictation
-      MDX_WS_ALLOWED_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://localhost:4173"]'
+      # Keep in sync with x-cors-env above — the SPA opens the WS from the
+      # same origins it makes HTTP calls from.
+      MDX_WS_ALLOWED_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173","http://localhost:4173","http://127.0.0.1:4173","http://localhost:3000","https://vpu2301.github.io"]'
     volumes:
       - ./infra/dev/master.key:/etc/mdx/master.key:ro
     tmpfs:

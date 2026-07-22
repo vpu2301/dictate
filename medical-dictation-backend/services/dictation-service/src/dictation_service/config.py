@@ -154,5 +154,18 @@ class Settings(BaseSettings):
         alias="MDX_WS_ALLOWED_ORIGINS",
     )
 
+    # ── CORS for the SPA (dev origins) ─────────────────────────────────
+    # The HTTP companion surface (/healthz, /dictate/sessions/...) is called
+    # cross-origin by the SPA, so it needs the same allow-list the other
+    # services use. WS upgrades are gated separately by ws_allowed_origins.
+    cors_allowed_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
+        alias="CORS_ALLOWED_ORIGINS",
+    )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+
 
 settings = Settings()

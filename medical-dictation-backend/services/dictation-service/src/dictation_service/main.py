@@ -14,6 +14,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from observability import bootstrap, register_exception_handlers
@@ -99,6 +100,17 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestIDMiddleware)
     register_exception_handlers(app)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["WWW-Authenticate"],
+        max_age=600,
+    )
+
     app.include_router(health.router)
     app.include_router(sessions.router)
     app.include_router(ws.router)
