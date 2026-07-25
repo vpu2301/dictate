@@ -43,6 +43,8 @@ KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
         "patient",
         "note",
         "notification",
+        "phrase",
+        "phi_access_request",
     }
 )
 
@@ -78,9 +80,8 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("auditor", "audit.verify", "audit"): True,
     # service: machine-to-machine identity (no human-facing perms today)
     # ── Sprint 03: ASR ─────────────────────────────────────────────────
-    ("tenant_admin", "asr.write", "asr_job"): True,
-    ("tenant_admin", "asr.read", "asr_job"): True,
-    ("tenant_admin", "asr.cancel", "asr_job"): True,
+    # tenant_admin is DELIBERATELY absent from asr.* — see the PHI
+    # separation block at the bottom of this matrix.
     ("clinician", "asr.write", "asr_job"): True,
     ("clinician", "asr.read", "asr_job"): True,
     ("clinician", "asr.cancel", "asr_job"): True,
@@ -92,9 +93,7 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("service", "asr.read", "asr_job"): True,
     ("service", "asr.write", "asr_job"): True,
     # ── Sprint 04: streaming dictation ────────────────────────────────
-    ("tenant_admin", "dictation.start", "dictation_session"): True,
-    ("tenant_admin", "dictation.read", "dictation_session"): True,
-    ("tenant_admin", "dictation.finalize", "dictation_session"): True,
+    # tenant_admin is DELIBERATELY absent — see the PHI separation block.
     ("clinician", "dictation.start", "dictation_session"): True,
     ("clinician", "dictation.read", "dictation_session"): True,
     ("clinician", "dictation.finalize", "dictation_session"): True,
@@ -125,11 +124,10 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # Service tokens read templates to load them for dictation/nlp:
     ("service", "template.read", "template"): True,
     # ── Sprint 08: reports (versioning, diff, search) ────────────────
-    # Clinical document — mirrors dictation_session: authors (admin,
-    # clinician, nurse) read+write; auditors denied content; service
-    # tokens read-only (signing-service S2S reads a report to sign it).
-    ("tenant_admin", "report.write", "report"): True,
-    ("tenant_admin", "report.read", "report"): True,
+    # Clinical document — authors (clinician, nurse) read+write; auditors
+    # denied content; service tokens read-only (signing-service S2S reads
+    # a report to sign it). tenant_admin is DELIBERATELY absent — see the
+    # PHI separation block.
     ("clinician", "report.write", "report"): True,
     ("clinician", "report.read", "report"): True,
     ("nurse", "report.write", "report"): True,
@@ -154,8 +152,7 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # admin-only, like erasure approval.
     ("tenant_admin", "patient.dsar", "patient"): True,
     # Clinical notes (SOAP/APSO/DAP/free) bound to a patient.
-    ("tenant_admin", "note.read", "note"): True,
-    ("tenant_admin", "note.write", "note"): True,
+    # tenant_admin is DELIBERATELY absent — see the PHI separation block.
     ("clinician", "note.read", "note"): True,
     ("clinician", "note.write", "note"): True,
     ("nurse", "note.read", "note"): True,
@@ -175,6 +172,52 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("nurse", "notification.write", "notification"): True,
     ("auditor", "notification.read", "notification"): True,
     ("auditor", "notification.write", "notification"): True,
+    # ── Admin ⟂ PHI separation ────────────────────────────────────────
+    # A tenant_admin runs the clinic, not the clinical record. The four
+    # blocks above deliberately drop tenant_admin from `asr.*`,
+    # `dictation.*`, `report.read`/`report.write` and `note.*`: an
+    # administrator has no standing clinical need for a patient's
+    # dictations, notes or reports, and the patient roster (`patient.*`,
+    # still granted) is the surface their job actually requires.
+    #
+    # Note this is a matrix over ROLES, not people: a practising doctor
+    # who also administers the tenant holds BOTH `tenant_admin` and
+    # `clinician`, and `check()` passes on any granting role — so their
+    # clinical access is unchanged. It is the admin-ONLY account that
+    # loses the clinical surfaces.
+    #
+    # Two escape hatches keep that from being a wall instead of a door:
+    #
+    #   stats.read  — PHI-free aggregate reads. Gates the list endpoints
+    #                 the business dashboard aggregates (report search,
+    #                 dictation sessions, ASR jobs) in a stripped mode:
+    #                 no title, no snippet, no patient reference, no
+    #                 transcript, no result URL. Counts and timings only.
+    #   phi_access.* — the break-glass path below.
+    ("tenant_admin", "stats.read", "tenant"): True,
+    # ── Break-glass access to a single report ─────────────────────────
+    # An admin who genuinely needs one report (a complaint, a legal
+    # request, a billing dispute) requests it: a reason from a closed
+    # vocabulary plus a password re-entry mints a time-limited,
+    # single-report grant. Every step is audited at `sec` severity and
+    # the report's authors are notified. `phi_access.read` is the
+    # oversight surface — who broke glass, on what, and why.
+    ("tenant_admin", "phi_access.request", "phi_access_request"): True,
+    ("tenant_admin", "phi_access.read", "phi_access_request"): True,
+    ("auditor", "phi_access.read", "phi_access_request"): True,
+    # ── Autocomplete phrases (decoupled from report.*) ────────────────
+    # Sprint 10 reused `report.read`/`report.write` to gate the phrase
+    # library because no role needed the distinction. Dropping
+    # tenant_admin from `report.*` above makes one: curating the tenant
+    # phrase library is administration, not clinical authorship. These
+    # are that distinction, and autocomplete-service now gates on them.
+    ("tenant_admin", "autocomplete.read", "phrase"): True,
+    ("tenant_admin", "autocomplete.write", "phrase"): True,
+    ("clinician", "autocomplete.read", "phrase"): True,
+    ("clinician", "autocomplete.write", "phrase"): True,
+    ("nurse", "autocomplete.read", "phrase"): True,
+    ("nurse", "autocomplete.write", "phrase"): True,
+    ("service", "autocomplete.read", "phrase"): True,
 }
 
 
@@ -209,6 +252,44 @@ class AuthzDeniedError(Exception):
 def can(role: Role, action: Action, target_kind: TargetKind) -> bool:
     """Return ``True`` iff the matrix has an explicit allow for the tuple."""
     return ALLOW.get((role, action, target_kind), False)
+
+
+def can_claims(claims: Claims, action: Action, target_kind: TargetKind) -> bool:
+    """``True`` iff any of the caller's roles grants the tuple.
+
+    The predicate form of :func:`check` — for handlers that must *branch*
+    on a permission rather than refuse without it (a report search that
+    answers in stripped, PHI-free form when the caller only holds
+    ``stats.read``).
+    """
+    return any(can(role, action, target_kind) for role in claims.roles)
+
+
+def check_any(
+    claims: Claims,
+    *,
+    options: tuple[tuple[Action, TargetKind], ...],
+) -> None:
+    """Pass if ANY of the ``(action, target_kind)`` pairs is granted.
+
+    For endpoints reachable by two different standings — a clinician's
+    full clinical read, or an admin's PHI-free aggregate read. The denial
+    is reported against the FIRST option, which is by convention the
+    primary/most-privileged one, so the audit row and the 403 name the
+    permission the caller was most likely reaching for.
+    """
+    if not options:
+        raise ValueError("check_any requires at least one option")
+    for action, target_kind in options:
+        if can_claims(claims, action, target_kind):
+            return
+    action, target_kind = options[0]
+    raise AuthzDeniedError(
+        action=action,
+        target_kind=target_kind,
+        claims=claims,
+        reason="role_denied",
+    )
 
 
 def check(

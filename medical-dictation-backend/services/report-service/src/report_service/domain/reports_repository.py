@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
@@ -285,9 +286,7 @@ class PatientLabel:
     name_en: str
 
 
-async def fetch_patient_label(
-    conn: asyncpg.Connection, *, patient_id: UUID
-) -> PatientLabel | None:
+async def fetch_patient_label(conn: asyncpg.Connection, *, patient_id: UUID) -> PatientLabel | None:
     """Resolve a patient for report creation under the current RLS scope.
 
     Returns ``None`` for a missing patient, a patient in another tenant
@@ -307,6 +306,36 @@ async def fetch_patient_label(
         name_uk=row["name_uk"],
         name_en=row["name_en"],
     )
+
+
+async def fetch_patient_labels(
+    conn: asyncpg.Connection, *, patient_ids: Sequence[UUID]
+) -> dict[UUID, PatientLabel]:
+    """Batch form of :func:`fetch_patient_label`, for list surfaces.
+
+    S14: nurses and clinicians see the patient's real name in the report
+    list rather than the frozen initials in
+    ``reports.patient_name_redacted``. Resolving live also fixes a
+    long-standing staleness bug — the initials are written once at report
+    creation, so a patient renamed (or erased to ``ERASED``) afterwards
+    kept their old initials on every historical report.
+
+    One query for the whole page, keyed by id. Missing ids simply do not
+    appear in the mapping: RLS hides other tenants' patients, and the
+    caller must render a hit whose patient it cannot resolve.
+    """
+    if not patient_ids:
+        return {}
+    rows = await conn.fetch(
+        "SELECT id, name_uk, name_en FROM patients WHERE id = ANY($1::uuid[])",
+        list(dict.fromkeys(patient_ids)),
+    )
+    return {
+        row["id"]: PatientLabel(
+            id=row["id"], name_uk=row["name_uk"], name_en=row["name_en"]
+        )
+        for row in rows
+    }
 
 
 # ── Create ──────────────────────────────────────────────────────────

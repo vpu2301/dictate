@@ -133,7 +133,7 @@ are always safe.
   RESTRICT. Patient soft-delete only.
 - **Sprint-13 (anamnesis)**:
   `ReportSection.field_specific_metadata` is the typed-slot escape
-  hatch.
+  hatch — realized in sprint 13; the normative key registry is below.
 - **Sprint-14 (conversation)**: dictation sessions create drafts
   via existing POST `/v1/reports`.
 - **Sprint-15 (note review)**: `transcript_segment_ids` already on
@@ -143,3 +143,117 @@ are always safe.
   `docs/eval/sprint-08-loadtest.md`.
 - **Sprint-17 (FHIR)**: `reports.icd10_codes`, `encounter_date`,
   `template.metadata.fhir_template` are the bridges.
+
+## `field_specific_metadata` — the normative key registry (sprint 13)
+
+The dict stays `dict[str, Any]` on `ReportSection` — sprint-09
+signatures commit to canonical bytes, so the storage shape never
+depends on the registry. Discipline is enforced at the **write path**:
+report-service validates every non-empty dict against the section's
+template `field_type` (`report_models.validate_field_metadata`), and
+the nlp extractor constructs metadata via the typed models in
+`report_models.field_metadata` — raw-dict assembly is forbidden.
+
+| `field_type` | allowed keys |
+| --- | --- |
+| `choice` | `{selected: <option value>, confidence?: float 0..1, source: "extracted"\|"manual"}` |
+| `multi_choice` | `{selected: [<option values>, ≥1 unique], confidence?, source}` |
+| `structured_diagnosis` | `{proposals: [{code, display?, confidence}], confidence?, source}` |
+| `numeric_with_unit` | `{value: number, unit: str, confidence?, source}` |
+| `date` / `date_with_note` | `{date: "YYYY-MM-DD" (real calendar date), confidence?, source}` |
+| `free_text` (and any other) | none — an empty dict only |
+
+Common rules (enforced by the typed models):
+
+- **An empty dict is always valid** — every pre-S13 report.
+- **`source` is required** whenever any other key is present.
+  `extracted` = a pipeline proposal (FE renders it as such);
+  `manual` = clinician-confirmed. Nothing ever auto-promotes
+  extracted → manual; promotion is exclusively an explicit user action
+  arriving as a draft PUT.
+- **`confidence` is required for `extracted`** (the extractor always
+  knows it) **and must be omitted for `manual`** — a clinician
+  confirmation is not a probability. Confirming a choice therefore
+  writes `{selected, source: "manual"}`.
+- **Unknown keys are unwritable**: report-service rejects them with
+  `422 field_metadata_invalid` (section-addressed). A `selected` value
+  that is not one of the section's template option `value`s is
+  `422 choice_value_unknown`.
+- Sprint-15 (note review) adds its keys by extending
+  `META_MODEL_BY_FIELD_TYPE` in `report_models.field_metadata` — never
+  by bypassing it.
+
+### `proposals` vs `section.icd10` — single authority for codes
+
+The sprint-13 sprint doc sketched diagnosis metadata as a *mirror* of
+the section's ICD-10 list. Realized refinement: **`section.icd10` is
+the single authority for confirmed codes**; the metadata carries
+`proposals` — the extractor's staging area (code + display +
+confidence, never auto-selected). Confirming a proposal moves its code
+into `section.icd10` and may clear `proposals`; rejecting clears the
+metadata leaving the dictated prose. Mirroring confirmed codes into
+metadata would create a dual-write invariant that *will* drift — a
+wrong auto-mirrored ICD-10 is a clinical and billing error, so the
+design makes it impossible by construction.
+
+
+## Typed finalize completeness (sprint 13)
+
+`min_chars` measures prose, so it says nothing about a `choice`
+section whose answer lives in `field_specific_metadata`. Each typed
+field type gets its own "filled" rule. Free-text sections behave
+exactly as they did in sprint 08 — zero change for existing templates.
+
+| `field_type` | filled when | violation code |
+| --- | --- | --- |
+| `free_text` | `min_chars` (unchanged) | `missing_required_section` / `below_min_chars` |
+| `choice` | metadata `selected` present (any `source`) | `choice_not_selected` |
+| `multi_choice` | `selected` non-empty (any `source`) | `choice_not_selected` |
+| `numeric_with_unit` | metadata `value` **and** `unit` present | `numeric_not_filled` |
+| `date` / `date_with_note` | metadata `date` present; `date_with_note` also applies `min_chars` to the note | `date_not_filled` (+ `below_min_chars`) |
+| `structured_diagnosis` | `section.icd10` non-empty — **confirmed codes only** | `missing_icd10` / `diagnosis_not_confirmed` |
+
+All violations travel in the existing sprint-08 `FinalizeProblem`
+shape at **422** (409 stays reserved for status/version conflicts);
+the new codes are registered in `_REASON_BY_CODE`.
+
+### Why `extracted` counts for most fields but never for diagnoses
+
+An `extracted` choice satisfies "filled": the clinician saw the
+proposal and chose to finalize, which is acceptance. A diagnosis is
+different — it drives billing and downstream clinical decisions, and a
+finalized report is signable. So **`section.icd10` is the only thing
+that counts**; `field_specific_metadata.proposals` never satisfies a
+diagnosis section, under any configuration.
+
+### The `require_confirmed_diagnosis_on_finalize` flag
+
+Default **true**. It governs **messaging, not authority**:
+
+- **true** — proposals present, nothing confirmed ⇒
+  `diagnosis_not_confirmed` ("підтвердіть запропонований діагноз"),
+  and the FE's confirm affordance is one tap away.
+- **false** — the same state reports `missing_icd10` ("вкажіть
+  діагноз").
+
+Turning it off does **not** auto-promote proposals. The sprint-13 doc
+left room for that reading; it was rejected because it directly
+contradicts the never-guess directive — auto-promotion would put a
+machine-chosen ICD-10 into a signed clinical record. Whether a tenant
+may ever opt into auto-promotion is a clinical-policy question
+recorded in `todo.md`, not an engineering default.
+
+Implementation note: the flag is currently **platform-wide service
+config** (`MDX_REQUIRE_CONFIRMED_DIAGNOSIS_ON_FINALIZE`), because the
+repo has no tenant-settings mechanism yet. `validate_finalize` already
+takes it as an argument, so per-tenant resolution is a one-line change
+once that mechanism exists.
+
+### Provenance in signed content
+
+A non-required typed section may carry `source: "extracted"` into a
+finalized and signed report. That is deliberate and honest: the
+signature covers the content including its provenance marker, so a
+reader can always tell which values a machine proposed and the
+clinician left standing, versus which they entered or confirmed
+themselves.

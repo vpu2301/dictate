@@ -29,6 +29,11 @@ class Category(StrEnum):
     DICTATION_COMPLETED = "dictation.completed"
     TRANSCRIPTION_COMPLETED = "transcription.completed"
     TRANSCRIPTION_FAILED = "transcription.failed"
+    # S14 break-glass: an administrator, who holds no standing clinical
+    # read, opened one of your reports. This is the after-the-fact
+    # control that makes an immediate grant safe, so it is the one
+    # category a recipient cannot be left unaware of.
+    PHI_ACCESS_GRANTED = "phi_access.granted"
     SYSTEM_DIGEST = "system.digest"
 
 

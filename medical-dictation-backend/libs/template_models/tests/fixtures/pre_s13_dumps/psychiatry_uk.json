@@ -1,0 +1,74 @@
+{
+  "code": "psychiatry_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "DiagnosticReport/psychiatry-visit",
+    "moh_order_ref": null,
+    "notes": ""
+  },
+  "name": "Психіатричний прийом",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Психіатричний анамнез. Скарги. Початок і динаміка симптомів. Преморбід. Психіатричний анамнез у родині. Соціальний анамнез. Шкідливі звички.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anamnesis",
+      "min_chars": 30,
+      "name": "Анамнез",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "анамнез",
+        "розділ анамнез"
+      ]
+    },
+    {
+      "asr_prompt": "Психічний статус. Зовнішній вигляд. Свідомість, орієнтація. Емоційний фон, афект. Мислення: темп, продуктивність, маячення. Сприйняття: галюцинації. Пам'ять, увага, інтелект. Критика.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "mental_status",
+      "min_chars": 30,
+      "name": "Психічний статус",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "психічний статус",
+        "статус"
+      ]
+    },
+    {
+      "asr_prompt": "Психіатричний діагноз. МКХ-10. Тип епізоду, ступінь тяжкості.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "diagnosis",
+      "min_chars": 10,
+      "name": "Діагноз",
+      "order": 2,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "діагноз"
+      ]
+    },
+    {
+      "asr_prompt": "План лікування. Психофармакотерапія. Дозування, титрування. Психотерапія. Реабілітація. Контроль стану.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "plan",
+      "min_chars": 20,
+      "name": "План",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "план",
+        "рекомендації"
+      ]
+    }
+  ],
+  "specialty": "psychiatry"
+}

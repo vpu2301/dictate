@@ -53,4 +53,15 @@ class TranscriptionJobView(BaseModel):
     finished_at: datetime | None = None
     attempts: int = 0
 
+    # ── S14: whose dictation this is ─────────────────────────────────
+    # Resolved through audio_files.encounter_id → encounters → patients,
+    # the same join the patient timeline uses. Populated for callers with
+    # clinical read (clinician / nurse); left None in the PHI-free
+    # `stats.read` projection, for a job never linked to an encounter,
+    # and for a patient RLS will not show — so a client must always be
+    # able to render a row without them.
+    patient_id: UUID | None = None
+    patient_name_uk: str | None = None
+    patient_name_en: str | None = None
+
 

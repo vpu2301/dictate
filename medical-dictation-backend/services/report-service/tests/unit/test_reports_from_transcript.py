@@ -36,7 +36,9 @@ XRAY_TRANSCRIPT = (
 )
 
 
-def _definition(code: str, name: str, specialty: str, sections: list[tuple[str, str]]) -> TemplateDefinition:
+def _definition(
+    code: str, name: str, specialty: str, sections: list[tuple[str, str]]
+) -> TemplateDefinition:
     return TemplateDefinition.model_validate(
         {
             "code": code,

@@ -271,6 +271,52 @@
         "title": "MemberRoleUpdate",
         "type": "object"
       },
+      "ReauthRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "purpose": {
+            "const": "phi_access_request",
+            "default": "phi_access_request",
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "ReauthRequest",
+        "type": "object"
+      },
+      "ReauthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "reauth_ticket": {
+            "title": "Reauth Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reauth_ticket",
+          "expires_in",
+          "purpose"
+        ],
+        "title": "ReauthResponse",
+        "type": "object"
+      },
       "RolesRequest": {
         "properties": {
           "roles": {
@@ -1844,6 +1890,65 @@
           }
         },
         "summary": "Return verified claims + DB user state",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/reauth": {
+      "post": {
+        "operationId": "reauth_auth_reauth_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Re-enter your password to mint a single-use step-up ticket",
         "tags": [
           "auth"
         ]

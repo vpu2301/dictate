@@ -1,0 +1,89 @@
+{
+  "code": "referral_letter_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "Composition/referral",
+    "moh_order_ref": null,
+    "notes": ""
+  },
+  "name": "Скерування на консультацію",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Спеціальність лікаря-консультанта. Заклад. Контакти за наявності.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "to_specialist",
+      "min_chars": 10,
+      "name": "Скеровується до",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "скеровується",
+        "до спеціаліста"
+      ]
+    },
+    {
+      "asr_prompt": "Причина скерування. Клінічна задача. Очікувана допомога від консультанта.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "reason",
+      "min_chars": 20,
+      "name": "Підстава скерування",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "підстава",
+        "розділ підстава",
+        "причина"
+      ]
+    },
+    {
+      "asr_prompt": "Короткий анамнез. Скарги. Тривалість захворювання. Проведене лікування і його ефективність.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anamnesis",
+      "min_chars": 30,
+      "name": "Короткий анамнез",
+      "order": 2,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "анамнез"
+      ]
+    },
+    {
+      "asr_prompt": "Результати вже виконаних обстежень. ЗАК, ЗАС, біохімія, інструментальні дослідження.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "investigations",
+      "min_chars": 0,
+      "name": "Проведені обстеження",
+      "order": 3,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "обстеження"
+      ]
+    },
+    {
+      "asr_prompt": "Попередній клінічний діагноз. МКХ-10.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "diagnosis",
+      "min_chars": 10,
+      "name": "Попередній діагноз",
+      "order": 4,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "діагноз",
+        "попередній діагноз"
+      ]
+    }
+  ],
+  "specialty": "internal_medicine"
+}

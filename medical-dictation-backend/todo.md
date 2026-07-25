@@ -1,5 +1,61 @@
 # Outstanding human / business actions
 
+## Structured anamnesis (S13)
+
+- [ ] **May a tenant finalize with auto-promoted ICD-10 proposals?** —
+      owner: **clinical lead** (+ DPO for the billing angle). Sprint 13
+      shipped `require_confirmed_diagnosis_on_finalize` (default
+      **true**) governing MESSAGING only: with proposals present and
+      nothing confirmed, finalize is blocked either way
+      (`diagnosis_not_confirmed` when true, `missing_icd10` when
+      false). The sprint doc left room for reading `false` as
+      "auto-promote the proposals at finalize"; that was **rejected**
+      in implementation because it would put a machine-chosen
+      diagnosis into a signed clinical record, contradicting the
+      never-guess directive. If clinical policy decides some tenant
+      may opt into auto-promotion, the change is contained to
+      `finalize_validator._typed_problem` + this flag. Rationale:
+      `docs/architecture/reports.md`.
+- [ ] **Tenant-settings mechanism** — owner: **tech lead**. The repo
+      has no per-tenant settings store (no `settings` JSONB on
+      `tenants`, and the `require_patient_on_finalize` precedent the
+      S13 plan cited does not exist). S13's confirmation flag is
+      therefore platform-wide service config.
+      `validate_finalize(require_confirmed_diagnosis=...)` already
+      takes the value as an argument, so wiring per-tenant resolution
+      is a one-line change once a settings store lands.
+
+- [ ] **Acquire the full МКХ-10-АМ table** — owner: **clinical lead +
+      ops**. Sprint-13 shipped the reference table (migration 0054),
+      the idempotent loader (`scripts/load-icd10.py`), and search, but
+      only a **239-code hand-checked fixture**
+      (`infra/seeds/icd10/fixture.csv`) — not the full ~14 000-code
+      classifier. Ukraine mandates МКХ-10-АМ (НК 025:2021, the
+      Australian modification); a timeboxed search found no official
+      МОЗ/НСЗУ download under clear redistribution terms — it moves
+      through eHealth central-database dictionaries and commercial
+      publications, and the AM base is licensed. Needed: (a) the
+      authoritative file, (b) written confirmation we may load and
+      serve it, (c) a re-check that the loader's `CODE_RE` and
+      migration 0054's CHECK match the real file's dialect. Until
+      then, codes outside the fixture cannot be proposed or picked —
+      clinicians dictate those diagnoses as prose (nothing is
+      mis-coded, only un-coded). Procedure: `docs/runbooks/icd10.md`.
+
+- [ ] **`anamnesis_intake` template wording review** — owner:
+      **clinical content lead** (+ linguist). Sprint-13 shipped the
+      new system template
+      (`infra/seeds/templates/anamnesis_intake.json`) with
+      engineering-authored plausible wording: section names/prompts,
+      the smoking-status option set (never/current/former) and the
+      allergen option set (none_known, penicillin, nsaids,
+      iodine_contrast, local_anesthetics, latex, pollen, food, other),
+      plus uk/en voice aliases for each option. Review labels, the
+      allergen list composition, and alias coverage (gendered verb
+      forms, палити/курити synonyms) before pilot use. Alias edits are
+      cosmetic (no new template row); removing/renaming an option
+      `value` is structural — see ADR-0016 amendment.
+
 ## Patient identity & privacy (S11)
 
 - [ ] **Raw-ІПН retention decision** — owner: **DPO**. The platform

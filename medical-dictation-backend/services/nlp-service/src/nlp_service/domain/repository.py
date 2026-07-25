@@ -36,7 +36,9 @@ async def load_voice_commands(
             rows = await conn.fetch(
                 """
                 SELECT intent, language, phrases, requires_pause_before_ms,
-                       min_avg_probability, is_section_command
+                       min_avg_probability, is_section_command,
+                       COALESCE(is_option_command, FALSE) AS is_option_command,
+                       COALESCE(exact_match_only, FALSE) AS exact_match_only
                 FROM voice_commands
                 WHERE is_active = TRUE
                 """,
@@ -57,6 +59,8 @@ async def load_voice_commands(
             requires_pause_before_ms=int(row["requires_pause_before_ms"]),
             min_avg_probability=float(row["min_avg_probability"]),
             is_section_command=bool(row["is_section_command"]),
+            is_option_command=bool(row["is_option_command"]),
+            exact_match_only=bool(row["exact_match_only"]),
         )
         out.setdefault(spec.language, []).append(spec)
     return out

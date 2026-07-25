@@ -24,6 +24,7 @@ from .. import audit_kinds
 from ..deps import get_state, requires
 from ..domain import reports_repository as repo
 from ..domain.diff_engine import compute_diff, section_diff_summary
+from ._content_guard import ensure_valid_field_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,17 @@ class AmendResponse(BaseModel):
     diff_summary: dict[str, list[str]]
 
 
-@router.post("/{report_id}/amend", response_model=AmendResponse)
+@router.post(
+    "/{report_id}/amend",
+    response_model=AmendResponse,
+    responses={
+        422: {
+            "description": "`amend_requires_signed`, or sprint-13 field-metadata "
+            "validation: `field_metadata_invalid` / `choice_value_unknown` "
+            "(section-addressed problems in `problems[]`)."
+        }
+    },
+)
 async def amend_report(
     report_id: UUID,
     body: AmendRequest,
@@ -72,6 +83,9 @@ async def amend_report(
 
         current = await repo.fetch_version(conn, version_id=row.current_version_id)
         assert current is not None
+
+        # Sprint-13: typed field metadata must be valid at every write.
+        await ensure_valid_field_metadata(conn, content=body.content)
 
         diff = compute_diff(
             report_id=str(report_id),

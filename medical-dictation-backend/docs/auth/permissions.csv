@@ -49,9 +49,9 @@ clinician,user.reactivate,user,false,no admin authority
 nurse,user.reactivate,user,false,no admin authority
 auditor,user.reactivate,user,false,read-only
 service,user.reactivate,user,false,
-tenant_admin,asr.write,asr_job,true,sprint 03 — submit batch ASR jobs
-tenant_admin,asr.read,asr_job,true,sprint 03 — read tenant's jobs
-tenant_admin,asr.cancel,asr_job,true,sprint 03 — cancel running/queued jobs
+tenant_admin,asr.write,asr_job,false,admin ⟂ PHI (S14): ASR is a clinical surface; admins use break-glass instead
+tenant_admin,asr.read,asr_job,false,admin ⟂ PHI (S14): ASR is a clinical surface; admins use break-glass instead
+tenant_admin,asr.cancel,asr_job,false,admin ⟂ PHI (S14): ASR is a clinical surface; admins use break-glass instead
 clinician,asr.write,asr_job,true,sprint 03 — submit own ASR jobs
 clinician,asr.read,asr_job,true,sprint 03 — read own jobs
 clinician,asr.cancel,asr_job,true,sprint 03 — cancel own jobs
@@ -64,9 +64,9 @@ auditor,asr.cancel,asr_job,false,
 service,asr.write,asr_job,true,sprint 03 — asr-worker needs S2S writes (status, retry enqueue)
 service,asr.read,asr_job,true,sprint 03 — asr-worker reads own jobs to process them
 service,asr.cancel,asr_job,false,
-tenant_admin,dictation.start,dictation_session,true,sprint 04 — start streaming session
-tenant_admin,dictation.read,dictation_session,true,sprint 04 — read tenant's sessions
-tenant_admin,dictation.finalize,dictation_session,true,sprint 04 — force-finalize stuck session
+tenant_admin,dictation.start,dictation_session,false,admin ⟂ PHI (S14): dictation is a clinical surface
+tenant_admin,dictation.read,dictation_session,false,admin ⟂ PHI (S14): dictation is a clinical surface
+tenant_admin,dictation.finalize,dictation_session,false,admin ⟂ PHI (S14): dictation is a clinical surface
 clinician,dictation.start,dictation_session,true,sprint 04 — start own session
 clinician,dictation.read,dictation_session,true,sprint 04 — read own session
 clinician,dictation.finalize,dictation_session,true,sprint 04 — finalize own session
@@ -114,8 +114,8 @@ service,template.read,template,true,sprint 06 — dictation-service loads on ses
 service,template.clone,template,false,
 service,template.update,template,false,
 service,template.deprecate,template,false,
-tenant_admin,report.write,report,true,sprint 08 — create/edit/finalize/amend reports; sprint 10 — also gates /autocomplete phrase+snippet writes (scope reuse; RLS enforces per-scope authority)
-tenant_admin,report.read,report,true,sprint 08 — read tenant's reports (incl. diff/search); sprint 10 — also gates /autocomplete/* (suggest/phrases/telemetry): deliberate reuse of report.read; granular autocomplete.* scopes deferred until a role needs the distinction
+tenant_admin,report.write,report,false,admin ⟂ PHI (S14): admins do not author or edit clinical reports
+tenant_admin,report.read,report,false,admin ⟂ PHI (S14): per-report access goes through phi_access.request (break-glass)
 clinician,report.write,report,true,sprint 08 — authors own reports; sprint 10 — also gates /autocomplete phrase+snippet writes (scope reuse; RLS enforces per-scope authority)
 clinician,report.read,report,true,sprint 08 — reads own reports; sprint 10 — also gates /autocomplete/* (suggest/phrases/telemetry): deliberate reuse of report.read; granular autocomplete.* scopes deferred until a role needs the distinction
 nurse,report.write,report,true,sprint 08 — authors reports; sprint 10 — also gates /autocomplete phrase+snippet writes (scope reuse; RLS enforces per-scope authority)
@@ -144,8 +144,8 @@ clinician,privacy.approve,patient,false,erasure approval is admin-only
 nurse,privacy.approve,patient,false,erasure approval is admin-only
 auditor,privacy.approve,patient,false,read-only role
 service,privacy.approve,patient,false,human decision — no S2S approval
-tenant_admin,note.read,note,true,sprint 11 — read clinical notes
-tenant_admin,note.write,note,true,sprint 11 — create/edit/sign clinical notes
+tenant_admin,note.read,note,false,admin ⟂ PHI (S14): clinical notes are out of the admin role
+tenant_admin,note.write,note,false,admin ⟂ PHI (S14): admins do not author clinical notes
 clinician,note.read,note,true,sprint 11 — reads notes
 clinician,note.write,note,true,sprint 11 — authors notes
 nurse,note.read,note,true,sprint 11 — reads notes
@@ -174,3 +174,28 @@ clinician,notification.write,notification,true,marks own notifications read; edi
 nurse,notification.write,notification,true,marks own notifications read; edits own preferences
 auditor,notification.write,notification,true,marks own notifications read; edits own preferences
 service,notification.write,notification,false,S2S publishes events; it has no preferences
+tenant_admin,stats.read,tenant,true,"S14 — PHI-free aggregate reads (counts, timings) so the business dashboard survives the admin PHI split"
+clinician,stats.read,tenant,false,clinicians read the real lists; no stripped mode needed
+nurse,stats.read,tenant,false,nurses read the real lists; no stripped mode needed
+auditor,stats.read,tenant,false,"audit reach is the audit log, not usage aggregates"
+service,stats.read,tenant,false,no S2S dashboard surface
+tenant_admin,phi_access.request,phi_access_request,true,"S14 — break-glass: reason + password re-entry mints a time-limited, single-report grant"
+clinician,phi_access.request,phi_access_request,false,clinicians already hold report.read — nothing to break glass for
+nurse,phi_access.request,phi_access_request,false,nurses already hold report.read — nothing to break glass for
+auditor,phi_access.request,phi_access_request,false,"audit role reads the trail of grants, never the reports themselves"
+service,phi_access.request,phi_access_request,false,break-glass is a human act with a human justification
+tenant_admin,phi_access.read,phi_access_request,true,S14 — oversight of who broke glass on what and why
+clinician,phi_access.read,phi_access_request,false,not an oversight role
+nurse,phi_access.read,phi_access_request,false,not an oversight role
+auditor,phi_access.read,phi_access_request,true,S14 — the grant log is exactly what a compliance review needs
+service,phi_access.read,phi_access_request,false,no S2S surface
+tenant_admin,autocomplete.read,phrase,true,"S14 — split out of report.read; admins curate the tenant phrase library"
+clinician,autocomplete.read,phrase,true,S14 — suggestions while dictating
+nurse,autocomplete.read,phrase,true,S14 — suggestions while dictating
+auditor,autocomplete.read,phrase,false,no dictation surface
+service,autocomplete.read,phrase,true,"S14 — S2S trie warm-up / telemetry roll-up"
+tenant_admin,autocomplete.write,phrase,true,"S14 — split out of report.write; tenant-scope phrase curation is administration"
+clinician,autocomplete.write,phrase,true,S14 — own user-scope phrases
+nurse,autocomplete.write,phrase,true,S14 — own user-scope phrases
+auditor,autocomplete.write,phrase,false,read-only role
+service,autocomplete.write,phrase,false,user-only authoring

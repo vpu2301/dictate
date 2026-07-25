@@ -1,282 +1,643 @@
 [
   {
     "intent": "newparagraph",
-    "phrases": [["new", "paragraph"], ["paragraph", "break"]],
+    "phrases": [
+      [
+        "new",
+        "paragraph"
+      ],
+      [
+        "paragraph",
+        "break"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "newline",
-    "phrases": [["new", "line"], ["line", "break"]],
+    "phrases": [
+      [
+        "new",
+        "line"
+      ],
+      [
+        "line",
+        "break"
+      ]
+    ],
     "requires_pause_before_ms": 200,
     "min_avg_probability": 0.85
   },
   {
     "intent": "period",
-    "phrases": [["period"], ["full", "stop"]],
+    "phrases": [
+      [
+        "period"
+      ],
+      [
+        "full",
+        "stop"
+      ]
+    ],
     "requires_pause_before_ms": 300,
     "min_avg_probability": 0.88
   },
   {
     "intent": "comma",
-    "phrases": [["comma"]],
+    "phrases": [
+      [
+        "comma"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "question_mark",
-    "phrases": [["question", "mark"]],
+    "phrases": [
+      [
+        "question",
+        "mark"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "dash",
-    "phrases": [["dash"], ["em", "dash"]],
+    "phrases": [
+      [
+        "dash"
+      ],
+      [
+        "em",
+        "dash"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "colon",
-    "phrases": [["colon"]],
+    "phrases": [
+      [
+        "colon"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "exclamation_mark",
-    "phrases": [["exclamation", "mark"]],
+    "phrases": [
+      [
+        "exclamation",
+        "mark"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "semicolon",
-    "phrases": [["semicolon"]],
+    "phrases": [
+      [
+        "semicolon"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "ellipsis",
-    "phrases": [["ellipsis"], ["dot", "dot", "dot"]],
+    "phrases": [
+      [
+        "ellipsis"
+      ],
+      [
+        "dot",
+        "dot",
+        "dot"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "hyphen",
-    "phrases": [["hyphen"]],
+    "phrases": [
+      [
+        "hyphen"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "en_dash",
-    "phrases": [["en", "dash"]],
+    "phrases": [
+      [
+        "en",
+        "dash"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "open_double_quote",
-    "phrases": [["open", "double", "quote"]],
+    "phrases": [
+      [
+        "open",
+        "double",
+        "quote"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "close_double_quote",
-    "phrases": [["close", "double", "quote"]],
+    "phrases": [
+      [
+        "close",
+        "double",
+        "quote"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "open_single_quote",
-    "phrases": [["open", "single", "quote"]],
+    "phrases": [
+      [
+        "open",
+        "single",
+        "quote"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "close_single_quote",
-    "phrases": [["close", "single", "quote"]],
+    "phrases": [
+      [
+        "close",
+        "single",
+        "quote"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "open_paren",
-    "phrases": [["open", "paren"], ["open", "parenthesis"]],
+    "phrases": [
+      [
+        "open",
+        "paren"
+      ],
+      [
+        "open",
+        "parenthesis"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "close_paren",
-    "phrases": [["close", "paren"], ["close", "parenthesis"]],
+    "phrases": [
+      [
+        "close",
+        "paren"
+      ],
+      [
+        "close",
+        "parenthesis"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "open_bracket",
-    "phrases": [["open", "bracket"]],
+    "phrases": [
+      [
+        "open",
+        "bracket"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "close_bracket",
-    "phrases": [["close", "bracket"]],
+    "phrases": [
+      [
+        "close",
+        "bracket"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "open_brace",
-    "phrases": [["open", "brace"]],
+    "phrases": [
+      [
+        "open",
+        "brace"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "close_brace",
-    "phrases": [["close", "brace"]],
+    "phrases": [
+      [
+        "close",
+        "brace"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "slash",
-    "phrases": [["slash"], ["forward", "slash"]],
+    "phrases": [
+      [
+        "slash"
+      ],
+      [
+        "forward",
+        "slash"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "backslash",
-    "phrases": [["backslash"]],
+    "phrases": [
+      [
+        "backslash"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "apostrophe",
-    "phrases": [["apostrophe"]],
+    "phrases": [
+      [
+        "apostrophe"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "asterisk",
-    "phrases": [["asterisk"]],
+    "phrases": [
+      [
+        "asterisk"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "hash",
-    "phrases": [["hash"]],
+    "phrases": [
+      [
+        "hash"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "numero_sign",
-    "phrases": [["numero", "sign"]],
+    "phrases": [
+      [
+        "numero",
+        "sign"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "percent_sign",
-    "phrases": [["percent", "sign"]],
+    "phrases": [
+      [
+        "percent",
+        "sign"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "ampersand",
-    "phrases": [["ampersand"]],
+    "phrases": [
+      [
+        "ampersand"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "at_sign",
-    "phrases": [["at", "sign"]],
+    "phrases": [
+      [
+        "at",
+        "sign"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "plus_sign",
-    "phrases": [["plus", "sign"]],
+    "phrases": [
+      [
+        "plus",
+        "sign"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "minus_sign",
-    "phrases": [["minus", "sign"]],
+    "phrases": [
+      [
+        "minus",
+        "sign"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "equals_sign",
-    "phrases": [["equals", "sign"]],
+    "phrases": [
+      [
+        "equals",
+        "sign"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "underscore",
-    "phrases": [["underscore"]],
+    "phrases": [
+      [
+        "underscore"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.88
   },
   {
     "intent": "vertical_bar",
-    "phrases": [["vertical", "bar"]],
+    "phrases": [
+      [
+        "vertical",
+        "bar"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "section.diagnosis",
-    "phrases": [["section", "diagnosis"], ["go", "to", "diagnosis"]],
+    "phrases": [
+      [
+        "section",
+        "diagnosis"
+      ],
+      [
+        "go",
+        "to",
+        "diagnosis"
+      ]
+    ],
     "requires_pause_before_ms": 350,
     "min_avg_probability": 0.85,
     "is_section_command": true
   },
   {
     "intent": "section.history",
-    "phrases": [["section", "history"], ["go", "to", "history"]],
+    "phrases": [
+      [
+        "section",
+        "history"
+      ],
+      [
+        "go",
+        "to",
+        "history"
+      ]
+    ],
     "requires_pause_before_ms": 350,
     "min_avg_probability": 0.85,
     "is_section_command": true
   },
   {
     "intent": "section.exam",
-    "phrases": [["section", "exam"], ["physical", "exam"]],
+    "phrases": [
+      [
+        "section",
+        "exam"
+      ],
+      [
+        "physical",
+        "exam"
+      ]
+    ],
     "requires_pause_before_ms": 350,
     "min_avg_probability": 0.85,
     "is_section_command": true
   },
   {
     "intent": "section.plan",
-    "phrases": [["section", "plan"], ["treatment", "plan"]],
+    "phrases": [
+      [
+        "section",
+        "plan"
+      ],
+      [
+        "treatment",
+        "plan"
+      ]
+    ],
     "requires_pause_before_ms": 350,
     "min_avg_probability": 0.85,
     "is_section_command": true
   },
   {
     "intent": "insert_template",
-    "phrases": [["insert", "template"], ["template"]],
+    "phrases": [
+      [
+        "insert",
+        "template"
+      ],
+      [
+        "template"
+      ]
+    ],
     "requires_pause_before_ms": 300,
     "min_avg_probability": 0.85
   },
   {
     "intent": "save_draft",
-    "phrases": [["save", "draft"], ["save", "as", "draft"], ["save"]],
+    "phrases": [
+      [
+        "save",
+        "draft"
+      ],
+      [
+        "save",
+        "as",
+        "draft"
+      ],
+      [
+        "save"
+      ]
+    ],
     "requires_pause_before_ms": 300,
     "min_avg_probability": 0.85
   },
   {
     "intent": "undo_last",
-    "phrases": [["undo", "last"], ["undo", "that"], ["undo"]],
+    "phrases": [
+      [
+        "undo",
+        "last"
+      ],
+      [
+        "undo",
+        "that"
+      ],
+      [
+        "undo"
+      ]
+    ],
     "requires_pause_before_ms": 300,
     "min_avg_probability": 0.85
   },
   {
     "intent": "stop_dictation",
-    "phrases": [["stop", "dictation"], ["end", "dictation"]],
+    "phrases": [
+      [
+        "stop",
+        "dictation"
+      ],
+      [
+        "end",
+        "dictation"
+      ]
+    ],
     "requires_pause_before_ms": 350,
     "min_avg_probability": 0.85
   },
   {
     "intent": "begin_quote",
-    "phrases": [["open", "quote"], ["quote", "begin"]],
+    "phrases": [
+      [
+        "open",
+        "quote"
+      ],
+      [
+        "quote",
+        "begin"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
   },
   {
     "intent": "end_quote",
-    "phrases": [["close", "quote"], ["quote", "end"]],
+    "phrases": [
+      [
+        "close",
+        "quote"
+      ],
+      [
+        "quote",
+        "end"
+      ]
+    ],
     "requires_pause_before_ms": 250,
     "min_avg_probability": 0.85
+  },
+  {
+    "intent": "choice.set",
+    "phrases": [
+      [
+        "select"
+      ],
+      [
+        "choose"
+      ],
+      [
+        "set"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_option_command": true,
+    "exact_match_only": true
+  },
+  {
+    "intent": "choice.add",
+    "phrases": [
+      [
+        "add"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_option_command": true,
+    "exact_match_only": true
+  },
+  {
+    "intent": "choice.remove",
+    "phrases": [
+      [
+        "remove"
+      ],
+      [
+        "delete"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_option_command": true,
+    "exact_match_only": true
+  },
+  {
+    "intent": "diagnosis.capture",
+    "phrases": [
+      [
+        "diagnosis"
+      ],
+      [
+        "primary",
+        "diagnosis"
+      ]
+    ],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
   }
 ]

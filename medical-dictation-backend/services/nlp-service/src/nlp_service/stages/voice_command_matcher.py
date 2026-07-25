@@ -49,6 +49,8 @@ class _PhraseSpec:
     requires_pause_before_ms: int
     min_avg_probability: float
     is_section_command: bool
+    is_option_command: bool = False
+    exact_match_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +63,14 @@ class CommandSpec:
     requires_pause_before_ms: int = 200
     min_avg_probability: float = 0.85
     is_section_command: bool = False
+    # Sprint 13: the phrase is followed by an OPTION name, resolved
+    # against the template's choice sections (see _resolve_option).
+    is_option_command: bool = False
+    # Sprint 13: disable the 1-substitution edit-distance tolerance for
+    # THIS spec. Required wherever a near-miss would trigger the OPPOSITE
+    # action — "прибрати" (remove) is Levenshtein-2 from "обрати" (set),
+    # so fuzzy heads would let "remove penicillin" select it instead.
+    exact_match_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +118,8 @@ class VoiceCommandMatcher:
                         requires_pause_before_ms=spec.requires_pause_before_ms,
                         min_avg_probability=spec.min_avg_probability,
                         is_section_command=spec.is_section_command,
+                        is_option_command=spec.is_option_command,
+                        exact_match_only=spec.exact_match_only,
                     )
                 )
         # Longest phrases first so "новий абзац" wins over "абзац".
@@ -154,7 +166,18 @@ class VoiceCommandMatcher:
             after = i + n
             arg: dict[str, str] | None = None
 
-            if phrase.is_section_command:
+            if phrase.is_option_command:
+                resolved, option_consumed = self._resolve_option(words, i + n, intent=phrase.intent)
+                if resolved is None:
+                    # The head matched but no option followed at all —
+                    # reject so the words stay content ("обрати" alone is
+                    # ordinary Ukrainian, not a command).
+                    continue
+                arg = dict(resolved)
+                consumed = consumed + tuple(range(i + n, i + n + option_consumed))
+                after = i + n + option_consumed
+                intent_full = phrase.intent
+            elif phrase.is_section_command:
                 section_id, section_consumed = self._resolve_section(words, i + n)
                 if section_id is None:
                     # Section command needs an argument; without one we
@@ -164,6 +187,12 @@ class VoiceCommandMatcher:
                 consumed = consumed + tuple(range(i + n, i + n + section_consumed))
                 after = i + n + section_consumed
                 intent_full = f"section.{section_id}"
+            elif phrase.intent == "diagnosis.capture":
+                # A HINT, not a selection: mark where the dictated
+                # diagnosis text begins so step-05's extractor (and the
+                # FE) know what to read. No ICD-10 is chosen by voice.
+                arg = {"from_word_index": str(after)}
+                intent_full = phrase.intent
             else:
                 intent_full = phrase.intent
 
@@ -189,13 +218,21 @@ class VoiceCommandMatcher:
         n = len(phrase.words)
         if i + n > len(words):
             return False
-        if not self._matches_with_edit_distance(words, i, phrase.words):
+        if phrase.exact_match_only:
+            if not self._matches_exactly(words, i, phrase.words):
+                return False
+        elif not self._matches_with_edit_distance(words, i, phrase.words):
             return False
         if not self._pause_ok(words, i, phrase.requires_pause_before_ms):
             return False
         window = words[i : i + n]
         avg_p = sum(w.probability for w in window) / n if n else 0.0
         return avg_p >= phrase.min_avg_probability
+
+    def _matches_exactly(self, words: list[Word], i: int, expected: tuple[str, ...]) -> bool:
+        """Zero tolerance. Used by specs where a near-miss would fire the
+        wrong — sometimes opposite — action."""
+        return all(_norm_token(words[i + j].text) == target for j, target in enumerate(expected))
 
     def _matches_with_edit_distance(
         self, words: list[Word], i: int, expected: tuple[str, ...]
@@ -241,6 +278,76 @@ class VoiceCommandMatcher:
                 names = [section.name.lower(), *(a.lower() for a in section.aliases)]
                 if candidate in names:
                     return str(section.id), span
+        return None, 0
+
+    # ── Option argument resolution (sprint 13) ─────────────────────
+
+    def _resolve_option(
+        self, words: list[Word], start: int, *, intent: str
+    ) -> tuple[dict[str, str] | None, int]:
+        """Resolve the option name after a choice command.
+
+        Returns ``({section_key, value} | {reason}, words_consumed)``.
+
+        The FSM layer matches EXACTLY (normalized), never fuzzily:
+        fuzziness belongs to the extractor, where a wrong guess only
+        produces a proposal the clinician can reject. A voice command
+        writes directly, so an unresolvable option must become a
+        precise no-op — never a guess.
+
+        As-built note: ``ProcessingContext`` has no "active section"
+        (verified in sprint 13 step 04 — section-aware streaming was
+        never wired). So the option resolves across ALL choice sections
+        in the template snapshot, and an alias claimed by two sections
+        is reported ambiguous rather than arbitrarily assigned.
+        """
+        if start >= len(words) or not self._sections:
+            return None, 0
+
+        choice_sections = [s for s in self._sections if s.field_type in ("choice", "multi_choice")]
+        if not choice_sections:
+            # No typed sections at all — "обрати" here is ordinary
+            # Ukrainian. Reject so the word stays in the note.
+            return None, 0
+
+        for span in (4, 3, 2, 1):
+            if start + span > len(words):
+                continue
+            candidate = " ".join(_norm_token(w.text) for w in words[start : start + span])
+            if not candidate:
+                continue
+            hits: list[tuple[str, str, str]] = []
+            for section in choice_sections:
+                for option in section.options:
+                    names = {option.label.lower(), *option.aliases}
+                    if candidate in names:
+                        key = section.section_key or str(section.id)
+                        hits.append((key, option.value, section.field_type))
+            unique = sorted({(k, v) for k, v, _ in hits})
+            if len(unique) == 1:
+                section_key, value = unique[0]
+                field_type = next(ft for k, v, ft in hits if (k, v) == unique[0])
+                # Commands mirror field semantics STRICTLY — predictability
+                # over cleverness. add/remove are meaningless on a
+                # single-select field, so they no-op with a precise reason
+                # instead of being silently reinterpreted as "set".
+                if intent in ("choice.add", "choice.remove") and field_type == "choice":
+                    return {
+                        "reason": "not_a_multi_choice_section",
+                        "section_key": section_key,
+                    }, span
+                return {"section_key": section_key, "value": value}, span
+            if len(unique) > 1:
+                # The same words name options in two sections — the
+                # clinician must disambiguate; we never pick.
+                return {"reason": "option_ambiguous"}, span
+        # Words followed the head but named no option we know. REJECT
+        # rather than emitting an "option_not_found" no-op: a no-op would
+        # still CONSUME the head, deleting a word from clinical prose
+        # ("встановити діагноз поки неможливо"). A missing toast is
+        # recoverable; a silently eaten clinical word is not. A reason is
+        # only reported when an option name was positively recognised
+        # (ambiguous, or right name / wrong field type).
         return None, 0
 
 

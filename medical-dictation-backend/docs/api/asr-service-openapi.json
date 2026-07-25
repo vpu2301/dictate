@@ -327,6 +327,40 @@
             "title": "Model",
             "type": "string"
           },
+          "patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "patient_name_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Name En"
+          },
+          "patient_name_uk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Name Uk"
+          },
           "prompt_id": {
             "format": "uuid",
             "title": "Prompt Id",
@@ -526,6 +560,7 @@
   "paths": {
     "/asr/jobs": {
       "get": {
+        "description": "S14 \u2014 two standings reach this list.\n\n`asr.read` (clinician / nurse) gets the clinical list, and since S14\neach row names the patient whose recording it is. `stats.read`\n(tenant_admin, who holds no clinical read) gets the same rows with\nevery patient reference and every pointer AT the audio stripped:\nenough to count jobs and chart throughput on the business dashboard,\nnot enough to identify or open anything.",
         "operationId": "list_jobs_asr_jobs_get",
         "parameters": [
           {

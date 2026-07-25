@@ -39,7 +39,7 @@
       "id": "diagnosis",
       "name": "Діагноз",
       "voice_aliases": ["діагноз", "розділ діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Педіатричний діагноз. Основне захворювання, ускладнення, супутні. МКХ-10.",
       "min_chars": 10,

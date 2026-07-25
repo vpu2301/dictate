@@ -49,7 +49,7 @@
       "id": "diagnosis",
       "name": "Попередній діагноз",
       "voice_aliases": ["діагноз", "попередній діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Попередній клінічний діагноз. МКХ-10.",
       "min_chars": 10,

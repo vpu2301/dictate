@@ -5,9 +5,9 @@ The realm defines five roles. The permission matrix lives at
 
 | Role           | Holds                                                   | Cannot                       |
 | -------------- | ------------------------------------------------------- | ---------------------------- |
-| `tenant_admin` | Onboarding, **user read/list, role management, deactivation/reactivation**, MFA reset, audit read/verify, tenant settings | Cross-tenant operations      |
-| `clinician`    | Routine clinical user. Tenant-read. Reports (sprint 4+) | User admin (incl. user read); audit |
-| `nurse`        | Limited clinical user. Same as clinician minus report sign | Most admin; user read     |
+| `tenant_admin` | Onboarding, **user read/list, role management, deactivation/reactivation**, MFA reset, audit read/verify, tenant settings, templates, the patient roster, PHI-free usage stats | Cross-tenant operations; **all clinical content** — notes, dictations, ASR jobs, reports (S14, ADR-0033) |
+| `clinician`    | Routine clinical user. Tenant-read. Notes, dictations, ASR, reports (read/write/sign) | User admin (incl. user read); audit |
+| `nurse`        | Limited clinical user. Same clinical reads/writes as clinician, minus `asr.cancel` | Most admin; user read     |
 | `auditor`      | Read-only audit + tenant context + **read-only user roster (`user.read`)** | Any write                   |
 | `service`      | Machine-to-machine token identity                       | Any user-facing operation today |
 
@@ -19,10 +19,43 @@ drift or any missing (role × action) combination.
 There is **no global / cross-tenant super-admin role**. The DBA superuser
 exists in the database but is never used by service code (ADR-0007).
 
+## Administrators are separated from PHI (S14, ADR-0033)
+
+`tenant_admin` holds **no clinical permission**. `asr.*`, `dictation.*`,
+`report.read`/`report.write` and `note.*` are clinician/nurse only. An
+administrator sees the patient **roster** (the surface their job needs)
+but not any patient's notes, dictations or reports.
+
+This is a matrix over **roles, not people.** A practising doctor who also
+runs the clinic holds *both* `tenant_admin` and `clinician`, and a
+permission check passes on any granting role — their clinical access is
+untouched. It is the admin-ONLY account that is restricted, which is why
+the "clinician who also runs the practice → assign both" guidance below
+matters more than it used to: assigning `tenant_admin` alone to a
+practising doctor now takes their charts away.
+
+Two doors are left open, on purpose:
+
+- **`stats.read`** — PHI-free aggregate reads. Admits an admin to the
+  report-search, ASR-job and dictation-session lists in a stripped
+  projection (no titles, no snippets, no patient references, no
+  transcripts, no result URLs), which is what keeps the business
+  dashboard's counts working.
+- **Break-glass** (`phi_access.request`) — access to **one** report, after
+  a reason from a closed vocabulary and a password re-entry. The grant is
+  time-boxed (60 min default), counted on every use, revocable, audited at
+  `sec` severity, and the report's authors are notified. See ADR-0033 and
+  `docs/runbooks/break-glass.md`.
+
+An `auditor` gets `phi_access.read` — the log of who broke glass and why —
+but never the reports themselves.
+
 ## Picking a role at invite time
 
 - A clinician who also runs the practice → assign **both** `tenant_admin`
-  *and* `clinician`. A user can hold multiple realm roles.
+  *and* `clinician`. A user can hold multiple realm roles. Since S14 this
+  is **required**, not merely tidy: `tenant_admin` alone carries no
+  clinical access, so a doctor given only that role loses their charts.
 - Compliance officer / external auditor → `auditor`. Doesn't need
   `tenant_admin`; the audit endpoints are independently role-gated.
 - Read-only stakeholder who just needs login → `clinician` for now;

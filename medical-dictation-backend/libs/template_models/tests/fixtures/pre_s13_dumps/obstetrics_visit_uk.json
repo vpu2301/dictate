@@ -1,0 +1,88 @@
+{
+  "code": "obstetrics_visit_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "DiagnosticReport/obstetric-visit",
+    "moh_order_ref": null,
+    "notes": ""
+  },
+  "name": "Акушерський прийом",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Акушерський анамнез. Скарги. Перебіг вагітності. Термін гестації. Дата останньої менструації. Очікувана дата пологів. Кількість попередніх вагітностей.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anamnesis",
+      "min_chars": 30,
+      "name": "Анамнез",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "анамнез",
+        "розділ анамнез"
+      ]
+    },
+    {
+      "asr_prompt": "Огляд вагітної. Артеріальний тиск, набряки, вага. Висота стояння дна матки. Окружність живота. Положення плода. Серцебиття плода. Тонус матки.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "examination",
+      "min_chars": 30,
+      "name": "Огляд",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "огляд",
+        "розділ огляд"
+      ]
+    },
+    {
+      "asr_prompt": "Обстеження. УЗД плода: біометрія, серцебиття, кровотік. ЗАК, ЗАС, скринінг. КТГ.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "investigations",
+      "min_chars": 0,
+      "name": "Обстеження",
+      "order": 2,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "обстеження"
+      ]
+    },
+    {
+      "asr_prompt": "Акушерський діагноз. Термін гестації. Стан вагітної і плода. Ускладнення.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "diagnosis",
+      "min_chars": 10,
+      "name": "Діагноз",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "діагноз"
+      ]
+    },
+    {
+      "asr_prompt": "План ведення. Рекомендації. Препарати. Наступний візит. Скерування за показами.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "plan",
+      "min_chars": 20,
+      "name": "План",
+      "order": 4,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "план",
+        "рекомендації"
+      ]
+    }
+  ],
+  "specialty": "obstetrics"
+}

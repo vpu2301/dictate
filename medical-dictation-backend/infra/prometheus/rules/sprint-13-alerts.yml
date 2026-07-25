@@ -1,0 +1,95 @@
+groups:
+  - name: sprint-13-anamnesis-extraction
+    interval: 1m
+    rules:
+      # NOTE: no Alertmanager routing exists yet — these fire in the
+      # Prometheus UI only (a deployment-sprint concern, same as S10/S12).
+      #
+      # The `or vector(0)` guards are load-bearing: sum() over a series
+      # that has never been emitted is EMPTY, and empty + anything drops
+      # the whole expression, so without them an alert can never fire
+      # while its denominator metric has no samples yet. Same bug class
+      # documented in sprint-10-alerts.yml.
+
+      - alert: FieldExtractionOverrideRateHigh
+        # THE quality alert. A high override rate means clinicians are
+        # routinely correcting the extractor — alias coverage or the
+        # confidence threshold needs work. 24 h window because this is a
+        # behavioural trend, not an incident: a handful of overrides in
+        # an afternoon is normal clinical variation.
+        #
+        # Gate on ≥ 5 decisions/day for the field type so a single
+        # override in a quiet pilot week can't read as "100% wrong".
+        expr: |
+          (
+            (
+              (sum by (field_type) (increase(mdx_field_overridden_total[24h])) or vector(0))
+              /
+              (
+                (sum by (field_type) (increase(mdx_field_confirmed_total[24h])) or vector(0))
+                + (sum by (field_type) (increase(mdx_field_overridden_total[24h])) or vector(0))
+              )
+            ) > 0.30
+          )
+          and
+          (
+            (sum by (field_type) (increase(mdx_field_confirmed_total[24h])) or vector(0))
+            + (sum by (field_type) (increase(mdx_field_overridden_total[24h])) or vector(0))
+          ) >= 5
+        for: 30m
+        labels:
+          severity: warn
+          team: backend
+        annotations:
+          summary: "Override rate > 30% for field_type={{ $labels.field_type }} over 24 h — the extractor is being corrected"
+          description: >-
+            Clinicians are replacing more than 30% of this field type's
+            extracted values. Review the template's option voice_aliases
+            first (recall is bounded by alias coverage BY DESIGN), then
+            MDX_NLP_EXTRACTION_CONFIDENCE_THRESHOLD. Do not tune from
+            dev-team self-testing — this metric is only meaningful with
+            real clinician traffic.
+          runbook: "docs/runbooks/anamnesis-extraction.md#alert-override-rate"
+
+      - alert: Icd10SearchLatencyHigh
+        # Step 03 measured p95 ≈ 1.7 ms at full-table scale against a
+        # 50 ms budget, so 100 ms means the DB is unwell, not that the
+        # budget is tight.
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(mdx_icd10_search_seconds_bucket[5m])) by (le)) > 0.1
+        for: 15m
+        labels:
+          severity: warn
+          team: backend
+        annotations:
+          summary: "ICD-10 search p95 > 100 ms — 2× the budget, ~60× the measured baseline"
+          description: >-
+            The diagnosis picker's typing path is degraded. Check
+            icd10_codes index health (idx_icd10_fts, idx_icd10_prefix)
+            and DB load. A pg_trgm index is the first lever if a real
+            full-size table genuinely misses the budget.
+          runbook: "docs/runbooks/icd10.md#verification-after-a-load"
+
+      - alert: FieldExtractionFailuresElevated
+        # The extractor fails EMPTY by design: a lookup timeout or a
+        # stage error costs a proposal silently, with nothing surfaced to
+        # the clinician. This alert is that silence's only visibility.
+        expr: |
+          (
+            (sum(rate(mdx_field_extraction_total{outcome="no_lookup"}[15m])) or vector(0))
+            + (sum(rate(mdx_field_extraction_total{outcome="unsupported"}[15m])) or vector(0))
+          ) > 0.1
+        for: 15m
+        labels:
+          severity: warn
+          team: backend
+        annotations:
+          summary: "Field extraction is failing open (> 0.1/s) — proposals are silently missing"
+          description: >-
+            The stage is returning no_lookup/unsupported outcomes. Most
+            likely the ICD-10 reference table is unreachable or absent
+            (fail-empty by design — clinicians see no error, only missing
+            proposals), or a template carries a field type the stage does
+            not handle.
+          runbook: "docs/runbooks/anamnesis-extraction.md#alert-extraction-failures"

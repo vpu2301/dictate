@@ -1,0 +1,105 @@
+{
+  "code": "surgery_operative_note_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "Composition/operative-note",
+    "moh_order_ref": "MoH-110-surgery",
+    "notes": ""
+  },
+  "name": "Операційний протокол",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Передопераційний діагноз. МКХ-10. Показання до операції.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "preop_diagnosis",
+      "min_chars": 10,
+      "name": "Передопераційний діагноз",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "передопераційний діагноз",
+        "діагноз до операції"
+      ]
+    },
+    {
+      "asr_prompt": "Повна назва оперативного втручання. Доступ. Об'єм втручання.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "operation_name",
+      "min_chars": 10,
+      "name": "Назва операції",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "назва операції",
+        "операція"
+      ]
+    },
+    {
+      "asr_prompt": "Вид анестезії: загальна, спинальна, епідуральна, місцева. Анестезіолог. Препарати.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anesthesia",
+      "min_chars": 10,
+      "name": "Анестезія",
+      "order": 2,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "анестезія",
+        "наркоз"
+      ]
+    },
+    {
+      "asr_prompt": "Хід оперативного втручання. Положення хворого, обробка операційного поля. Розріз, доступ. Інтраопераційні знахідки. Етапи: ревізія, мобілізація, резекція, реконструкція. Гемостаз. Дренаж. Шви.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "procedure",
+      "min_chars": 100,
+      "name": "Хід операції",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "хід операції",
+        "розділ операція"
+      ]
+    },
+    {
+      "asr_prompt": "Післяопераційний діагноз. Уточнення на основі інтраопераційних знахідок. МКХ-10.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "postop_diagnosis",
+      "min_chars": 10,
+      "name": "Післяопераційний діагноз",
+      "order": 4,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "післяопераційний діагноз",
+        "діагноз після операції"
+      ]
+    },
+    {
+      "asr_prompt": "Видалений препарат. Опис, розміри. Направлено на гістологію.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "specimen",
+      "min_chars": 0,
+      "name": "Препарат",
+      "order": 5,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "препарат",
+        "матеріал"
+      ]
+    }
+  ],
+  "specialty": "surgery"
+}

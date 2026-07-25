@@ -39,6 +39,7 @@ from ..config import settings
 from ..deps import get_state, requires
 from ..domain import code_sequence, template_match
 from ..domain import reports_repository as repo
+from ..domain.field_extraction_client import extract_fields
 from ..domain.pii_redactor import name_to_initials
 from ..domain.repository import get_template
 
@@ -131,10 +132,7 @@ def _transcript_text(result: dict[str, Any]) -> str:
     # serialises its content in a way that drops newlines (turning
     # "...тижнів.\nРегіографія..." into glued "...тижнів.Регіографія..."),
     # so a space is the separator that survives a round-trip.
-    parts = [
-        str(seg.get("text", "")).strip()
-        for seg in result.get("segments", [])
-    ]
+    parts = [str(seg.get("text", "")).strip() for seg in result.get("segments", [])]
     return " ".join(p for p in parts if p)
 
 
@@ -146,18 +144,25 @@ def _content_for_template(
     transcript: str,
     title: str,
     encounter_date: str | None,
+    extracted_fields: dict[str, dict[str, Any]] | None = None,
 ) -> ReportContent:
     """All template sections in order; the transcript lands in the first
     free-text section (dictations are linear speech — distributing text
-    across sections is the clinician's edit, not a guess we make)."""
+    across sections is the clinician's edit, not a guess we make).
+
+    Sprint 13: typed sections additionally carry the extractor's
+    PROPOSALS in ``field_specific_metadata`` (``source: "extracted"``).
+    The prose always stays intact in the free-text section — a proposal
+    never consumes or rewrites what was dictated.
+    """
     ordered = sorted(definition.sections, key=lambda s: s.order)
-    target = next(
-        (s for s in ordered if s.field_type == FieldType.FREE_TEXT), ordered[0]
-    )
+    target = next((s for s in ordered if s.field_type == FieldType.FREE_TEXT), ordered[0])
+    proposals = extracted_fields or {}
     sections = [
         ReportSection(
             section_key=s.id,
             text=transcript if s.id == target.id else s.default_content,
+            field_specific_metadata=proposals.get(s.id, {}),
         )
         for s in ordered
     ]
@@ -252,6 +257,15 @@ async def create_report_from_transcript(
         title = body.title.strip() or (
             f"{template_name} — {body.encounter_date or date.today().isoformat()}"
         )
+        # Sprint 13 (ADR-0028): typed-field proposals. Fail-open — an
+        # unreachable nlp-service costs proposals, not the draft.
+        extracted_fields = await extract_fields(
+            definition=definition,
+            text=transcript,
+            language=language,
+            specialty=definition.specialty,
+            authorization=auth_header,
+        )
         content = _content_for_template(
             definition=definition,
             template_id=template_id,
@@ -259,6 +273,7 @@ async def create_report_from_transcript(
             transcript=transcript,
             title=title,
             encounter_date=body.encounter_date,
+            extracted_fields=extracted_fields,
         )
 
         code = await code_sequence.next_code(conn, tenant_id=claims.tid)
@@ -327,9 +342,7 @@ async def reports_by_source_job(
             status.HTTP_422_UNPROCESSABLE_ENTITY, detail="ids must be UUIDs"
         ) from None
     if not job_ids or len(job_ids) > 200:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="between 1 and 200 ids"
-        )
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="between 1 and 200 ids")
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         rows = await repo.fetch_reports_by_source_jobs(conn, asr_job_ids=job_ids)

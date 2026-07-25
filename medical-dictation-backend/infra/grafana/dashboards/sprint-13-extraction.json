@@ -1,0 +1,483 @@
+{
+  "title": "Sprint 13 — Structured Anamnesis & Extraction Quality",
+  "uid": "sprint-13-extraction",
+  "tags": [
+    "sprint-13",
+    "anamnesis",
+    "nlp",
+    "quality"
+  ],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "schemaVersion": 39,
+  "version": 1,
+  "description": "The extractor's quality cannot be known from the test corpus — it is measured by clinicians. Override rate is the headline: how often a human corrects the machine. Review weekly with the clinical lead, next to the S10 acceptance panel.",
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Quality — the extractor's report card (review weekly with the clinical lead)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 101,
+      "type": "timeseries",
+      "title": "Override rate by field_type — THE headline",
+      "description": "overridden / (confirmed + overridden). Rising ⇒ alias coverage or the confidence threshold needs work. Alert warns above 30% over 24 h with ≥5 decisions. Do NOT tune from dev self-testing — only real clinician traffic is meaningful.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(sum by (field_type) (increase(mdx_field_overridden_total[$__range])) or vector(0)) / clamp_min(((sum by (field_type) (increase(mdx_field_confirmed_total[$__range])) or vector(0)) + (sum by (field_type) (increase(mdx_field_overridden_total[$__range])) or vector(0))), 1)",
+          "legendFormat": "{{field_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 102,
+      "type": "timeseries",
+      "title": "Clinician decisions on extracted values",
+      "description": "Confirmations vs overrides. Volume context for the rate panel above.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (field_type) (rate(mdx_field_confirmed_total[5m]))",
+          "legendFormat": "confirmed {{field_type}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (field_type) (rate(mdx_field_overridden_total[5m]))",
+          "legendFormat": "overridden {{field_type}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 103,
+      "type": "stat",
+      "title": "Overall override rate ($__range)",
+      "description": "All field types together.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(mdx_field_overridden_total[$__range])) or vector(0)) / clamp_min((sum(increase(mdx_field_confirmed_total[$__range])) or vector(0)) + (sum(increase(mdx_field_overridden_total[$__range])) or vector(0)), 1)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.2
+              },
+              {
+                "color": "red",
+                "value": 0.3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 104,
+      "type": "stat",
+      "title": "Decisions recorded ($__range)",
+      "description": "Below ~5/day per field type the rate above is noise, not signal.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(mdx_field_confirmed_total[$__range])) or vector(0)) + (sum(increase(mdx_field_overridden_total[$__range])) or vector(0))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 105,
+      "type": "timeseries",
+      "title": "Diagnosis proposals: picked vs authored",
+      "description": "A confirmed diagnosis means a PROPOSED code was accepted; an override means the clinician entered a different code. No ICD-10 is ever auto-selected.",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mdx_field_confirmed_total{field_type=\"structured_diagnosis\"}[30m]))",
+          "legendFormat": "confirmed (proposal picked)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(mdx_field_overridden_total{field_type=\"structured_diagnosis\"}[30m]))",
+          "legendFormat": "overridden (own code)",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 200,
+      "type": "row",
+      "title": "Extraction outcomes — what the stage decided",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "panels": []
+    },
+    {
+      "id": 201,
+      "type": "timeseries",
+      "title": "Outcomes by field_type",
+      "description": "filled = a proposal was emitted. empty = below threshold or nothing said (CORRECT — the prose stands). ambiguous = two options conflicted, so nothing was chosen. A high empty rate with clinicians filling manually ⇒ alias gap.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (field_type, outcome) (rate(mdx_field_extraction_total[5m]))",
+          "legendFormat": "{{field_type}} / {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 202,
+      "type": "timeseries",
+      "title": "field_extraction stage latency p95",
+      "description": "Text-neutral stage; its only I/O is the ICD-10 lookup (50 ms timeout).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mdx_nlp_field_extraction_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 300,
+      "type": "row",
+      "title": "ICD-10 reference — picker responsiveness + vocabulary gaps",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "panels": []
+    },
+    {
+      "id": 301,
+      "type": "timeseries",
+      "title": "Search p95 (budget 50 ms, alert 100 ms)",
+      "description": "Measured 1.7 ms at 12k codes in step 03. The budget line is 50 ms.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mdx_icd10_search_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 302,
+      "type": "timeseries",
+      "title": "Zero-result rate — the vocabulary-gap signal",
+      "description": "Clinicians searching for codes the loaded table does not contain. While only the 239-code fixture is loaded this is EXPECTED to be high — it quantifies the МКХ-10 acquisition carry-over instead of arguing about it.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(mdx_icd10_searches_total{has_results=\"false\"}[15m])) or vector(0)) / clamp_min(sum(rate(mdx_icd10_searches_total[15m])) or vector(0), 0.001)",
+          "legendFormat": "zero-result share",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 400,
+      "type": "row",
+      "title": "Voice commands — authoring gaps as data",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "panels": []
+    },
+    {
+      "id": 401,
+      "type": "timeseries",
+      "title": "Anamnesis command usage",
+      "description": "Hands-free structured input. Zero usage during the pilot is itself a finding (discoverability), not a bug.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (op) (rate(mdx_nlp_operations_total{op=~\"set_choice|add_choice|remove_choice\"}[15m]))",
+          "legendFormat": "{{op}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 402,
+      "type": "timeseries",
+      "title": "Unresolved option commands (no-op rate)",
+      "description": "option_ambiguous / not_a_multi_choice_section. Each occurrence is an authoring task with data attached: the clinician named an option the template could not resolve. NOTE: an unrecognised option name is NOT counted here — it stays prose by design (a no-op would have eaten a clinical word).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(mdx_nlp_operations_total{op=\"unknown_intent\"}[15m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

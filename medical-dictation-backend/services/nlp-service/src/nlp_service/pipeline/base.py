@@ -107,12 +107,38 @@ class AbbreviationSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ChoiceOption:
+    """One selectable option of a choice/multi_choice section (sprint 13).
+
+    Mirrors ``template_models.ChoiceOption`` on the wire. ``aliases``
+    arrive already normalized (NFC, lower-case, stripped) because the
+    template model normalizes them at validation — the extractor never
+    re-normalizes template data.
+    """
+
+    value: str
+    label: str
+    aliases: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class TemplateSection:
-    """One section a `section.<name>` voice command can navigate to."""
+    """One section a `section.<name>` voice command can navigate to.
+
+    Sprint-13 additions (``section_key``/``field_type``/``options``) are
+    optional: a caller that only navigates sections keeps sending
+    id/name/aliases and the field-extraction stage stays inert for it.
+    """
 
     id: UUID
     name: str
     aliases: tuple[str, ...] = ()
+    # Sprint 13 — the template's section slug (``TemplateSection.id`` in
+    # template_models). ``id`` here is the template row UUID, which is
+    # NOT what report content keys sections by.
+    section_key: str = ""
+    field_type: str = "free_text"
+    options: tuple[ChoiceOption, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +164,32 @@ class ProcessingContext:
 
 
 @dataclass(frozen=True, slots=True)
+class NumericArtifact:
+    """One measurement the number normalizer actually produced.
+
+    Sprint 13: the field-extraction binder consumes these instead of
+    re-reading the text. Spoken-numeral logic ("сто сорок" → 140) lives
+    in exactly one place — the normalizer — and a binder that re-derived
+    it would drift the moment the normalizer changed. ``rendered`` is
+    the exact substring written into the text, so a caller can locate
+    it without guessing the per-request separators.
+    """
+
+    value: str  # normalized numeric form, e.g. "140" or "37,2"
+    unit: str  # "" when the utterance carried no unit
+    rendered: str  # exactly what was written into the text
+    token_index: int  # position in the normalizer's output token stream
+
+
+@dataclass(frozen=True, slots=True)
+class DateArtifact:
+    """One ISO date present in the date normalizer's output."""
+
+    iso: str  # YYYY-MM-DD
+    char_index: int  # position in the normalized text
+
+
+@dataclass(frozen=True, slots=True)
 class StageInput:
     """Input to a pipeline stage."""
 
@@ -147,6 +199,11 @@ class StageInput:
     voice_commands: tuple[CommandSlot, ...] = ()
     operations: tuple[Operation, ...] = ()
     warnings: tuple[PipelineWarning, ...] = ()
+    # Sprint 13: structured products of EARLIER stages, threaded by the
+    # orchestrator. Additive and defaulted, so every pre-S13 stage and
+    # test constructing a StageInput is unaffected.
+    numeric_artifacts: tuple[NumericArtifact, ...] = ()
+    date_artifacts: tuple[DateArtifact, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +217,11 @@ class StageOutput:
     operations: tuple[Operation, ...] = ()
     warnings: tuple[PipelineWarning, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Sprint 13: structured products a stage exposes to LATER stages.
+    # Not serialized into the response body — see the orchestrator's
+    # accumulation note.
+    numeric_artifacts: tuple[NumericArtifact, ...] = ()
+    date_artifacts: tuple[DateArtifact, ...] = ()
 
     def as_input(self) -> StageInput:
         return StageInput(
@@ -169,6 +231,8 @@ class StageOutput:
             voice_commands=self.voice_commands,
             operations=self.operations,
             warnings=self.warnings,
+            numeric_artifacts=self.numeric_artifacts,
+            date_artifacts=self.date_artifacts,
         )
 
 

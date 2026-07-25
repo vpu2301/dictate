@@ -72,6 +72,15 @@ class Settings(BaseSettings):
     template_cache_maxsize: int = Field(default=5000, alias="MDX_TEMPLATE_CACHE_MAXSIZE")
     template_cache_ttl_seconds: int = Field(default=60, alias="MDX_TEMPLATE_CACHE_TTL_SECONDS")
 
+    # ── Break-glass PHI access (S14) ───────────────────────────────
+    # How long one break-glass grant stays valid. Long enough to read a
+    # report and export it; short enough that an admin who requested
+    # access last Tuesday cannot still open it today. Re-requesting is
+    # cheap (and leaves a second audit trail), so err short.
+    phi_access_grant_ttl_minutes: int = Field(
+        default=60, alias="MDX_PHI_ACCESS_GRANT_TTL_MINUTES"
+    )
+
     # Issuing organisation printed on the unsigned PDF (M1·A3).
     pdf_issuer_name: str = Field(default="Medical Dictation", alias="MDX_PDF_ISSUER_NAME")
 
@@ -81,11 +90,25 @@ class Settings(BaseSettings):
         default="http://localhost:8008", alias="SIGNING_SERVICE_BASE_URL"
     )
 
+    # Sprint 13: a required structured_diagnosis section carrying only
+    # extractor PROPOSALS blocks finalize until the clinician confirms.
+    # Defaults strict. NOTE: platform-wide, not per-tenant — the repo has
+    # no tenant-settings mechanism yet (see todo.md); when one lands, this
+    # becomes its default and the validator already takes the value as an
+    # argument.
+    require_confirmed_diagnosis_on_finalize: bool = Field(
+        default=True, alias="MDX_REQUIRE_CONFIRMED_DIAGNOSIS_ON_FINALIZE"
+    )
+
+    # Sprint 13: typed-field extraction at draft assembly (ADR-0028).
+    # Fail-open — an unreachable nlp-service costs proposals, not drafts.
+    nlp_service_base_url: str = Field(
+        default="http://localhost:8005", alias="MDX_NLP_SERVICE_BASE_URL"
+    )
+
     # asr-service base URL — "assign transcription to patient" fetches the
     # completed job's transcript from there, forwarding the caller's JWT.
-    asr_service_base_url: str = Field(
-        default="http://localhost:8001", alias="ASR_SERVICE_BASE_URL"
-    )
+    asr_service_base_url: str = Field(default="http://localhost:8001", alias="ASR_SERVICE_BASE_URL")
 
     # ── Report synthesis (spec item 1) ──────────────────────────────────
     # "mock" (default) is the deterministic offline engine — no external

@@ -46,7 +46,7 @@ class TelemetryRequest(BaseModel):
 @router.post("/telemetry", status_code=status.HTTP_204_NO_CONTENT)
 async def receive_telemetry(
     body: TelemetryRequest,
-    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
+    claims: Annotated[Claims, Depends(requires("autocomplete.read", "phrase"))],
 ) -> Response:
     state = get_state()
     # Fire-and-forget doctrine: NOTHING past validation may surface to the

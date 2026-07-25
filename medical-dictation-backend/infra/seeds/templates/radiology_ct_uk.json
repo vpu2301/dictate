@@ -39,7 +39,7 @@
       "id": "impression",
       "name": "Висновок",
       "voice_aliases": ["висновок", "діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Висновок КТ-дослідження. Основна патологія. Рекомендації щодо додаткових обстежень. ICD-10.",
       "min_chars": 10,

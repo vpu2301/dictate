@@ -51,14 +51,17 @@ def redact_snippet(text: str) -> str:
 def is_treatment_team(
     *, viewer_user_id, primary_author_id, co_author_ids, viewer_roles: list[str]
 ) -> bool:
-    """Treatment-team check used to bypass redaction.
+    """Treatment-team check used to bypass snippet redaction.
 
-    `tenant_admin` and `dpo` see unredacted snippets (audit duty).
+    `dpo` keeps the bypass (data-protection duty). `tenant_admin` LOST it
+    in S14: an administrator no longer holds `report.read` at all, so the
+    only way they reach a snippet is under a break-glass grant — and a
+    role-wide redaction bypass would have handed them unredacted names
+    across the whole tenant, which is the exact thing the split exists to
+    prevent.
     """
     if viewer_user_id == primary_author_id:
         return True
     if viewer_user_id in (co_author_ids or []):
-        return True
-    if "tenant_admin" in (viewer_roles or []):
         return True
     return "dpo" in (viewer_roles or [])

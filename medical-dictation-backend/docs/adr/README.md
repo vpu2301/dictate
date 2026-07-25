@@ -41,6 +41,8 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0029  | [Redis Streams as the notification event bus](0029-redis-streams-notification-bus.md) | Accepted |
 | 0030  | [Redis pub/sub for cross-worker WebSocket fan-out](0030-redis-pubsub-ws-fanout.md) | Accepted |
 | 0031  | [Notification email carries pointers, never PHI](0031-email-carries-pointers-not-phi.md) | Accepted |
+| 0032  | [Typed anamnesis field extraction stage](0032-field-extraction-stage.md) | Accepted |
+| 0033  | [Administrators are separated from PHI; break-glass is the door](0033-admin-phi-separation-and-break-glass.md) | Accepted |
 
 ## Template
 

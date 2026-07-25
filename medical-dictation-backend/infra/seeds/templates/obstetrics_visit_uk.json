@@ -39,7 +39,7 @@
       "id": "diagnosis",
       "name": "Діагноз",
       "voice_aliases": ["діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Акушерський діагноз. Термін гестації. Стан вагітної і плода. Ускладнення.",
       "min_chars": 10,

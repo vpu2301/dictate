@@ -29,7 +29,7 @@
       "id": "impression",
       "name": "Висновок",
       "voice_aliases": ["висновок"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "УЗД-висновок. Основна знахідка. Рекомендації.",
       "min_chars": 10,

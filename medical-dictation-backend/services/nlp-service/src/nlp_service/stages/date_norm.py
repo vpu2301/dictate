@@ -31,6 +31,7 @@ from ..pipeline.base import (
     StageInput,
     StageOutput,
 )
+from .artifacts import date_artifacts_from_output
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +204,8 @@ class DateNormStage:
                 self.name + ".latency_ms": (time.monotonic() - t0) * 1000.0,
                 self.name + ".changed": new_text != input.text,
             },
+            numeric_artifacts=input.numeric_artifacts,
+            date_artifacts=date_artifacts_from_output(new_text),
         )
 
 

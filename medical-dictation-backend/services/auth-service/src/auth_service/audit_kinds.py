@@ -16,6 +16,14 @@ AUTH_REFRESH_REPLAY_DETECTED: Final[str] = "auth.refresh_replay_detected"
 AUTH_LOGOUT: Final[str] = "auth.logout"
 AUTH_ACCOUNT_LOCKED: Final[str] = "auth.account_locked"
 
+# ── Step-up re-authentication (S14 break-glass) ───────────────────────
+# A password re-entry by an already-authenticated user, proving presence
+# before a high-risk act. Both outcomes are `sec` severity: the failure
+# is a wrong password typed by someone holding a live session, which is
+# exactly the shape of a hijacked tab.
+AUTH_REAUTH_SUCCEEDED: Final[str] = "auth.reauth_succeeded"
+AUTH_REAUTH_FAILED: Final[str] = "auth.reauth_failed"
+
 # ── User lifecycle ────────────────────────────────────────────────────
 USER_INVITED: Final[str] = "user.invited"
 USER_DEACTIVATED: Final[str] = "user.deactivated"

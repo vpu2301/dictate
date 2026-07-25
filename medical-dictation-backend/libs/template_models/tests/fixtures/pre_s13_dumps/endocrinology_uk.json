@@ -1,0 +1,86 @@
+{
+  "code": "endocrinology_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "DiagnosticReport/endocrinology-visit",
+    "moh_order_ref": null,
+    "notes": ""
+  },
+  "name": "Ендокринологічний прийом",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Ендокринологічний анамнез. Скарги: спрага, поліурія, втрата ваги, набір ваги, втома, серцебиття. Тривалість ЦД. Терапія. Гіпоглікемії. Сімейний анамнез ЦД, патології щитоподібної залози.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anamnesis",
+      "min_chars": 30,
+      "name": "Анамнез",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "анамнез"
+      ]
+    },
+    {
+      "asr_prompt": "Огляд. Зріст, вага, ІМТ. Артеріальний тиск, ЧСС. Шкіра. Щитоподібна залоза: розмір, консистенція, вузли. Ознаки гіпо- чи гіпертиреозу. Стопи: пульсація, чутливість.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "examination",
+      "min_chars": 30,
+      "name": "Огляд",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "огляд"
+      ]
+    },
+    {
+      "asr_prompt": "HbA1c, глюкоза натще, ТТГ, вільний Т4, антитіла до ТПО. Ліпідограма, креатинін, мікроальбумінурія. УЗД щитоподібної залози.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "investigations",
+      "min_chars": 0,
+      "name": "Обстеження",
+      "order": 2,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "обстеження"
+      ]
+    },
+    {
+      "asr_prompt": "Ендокринологічний діагноз. Тип ЦД, ускладнення, компенсація. Стан щитоподібної залози. МКХ-10.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "diagnosis",
+      "min_chars": 10,
+      "name": "Діагноз",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "діагноз"
+      ]
+    },
+    {
+      "asr_prompt": "План. Метформін, інсулін, левотироксин. Корекція дози. Дієта. Самоконтроль глікемії. Скрининг ускладнень.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "plan",
+      "min_chars": 20,
+      "name": "План",
+      "order": 4,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "план",
+        "рекомендації"
+      ]
+    }
+  ],
+  "specialty": "endocrinology"
+}

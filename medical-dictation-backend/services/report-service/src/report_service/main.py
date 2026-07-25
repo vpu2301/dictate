@@ -18,6 +18,8 @@ from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
 from .routers import (
     health,
+    icd10,
+    phi_access,
     reports,
     reports_amend,
     reports_diff,
@@ -85,6 +87,8 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(templates.router)
+    app.include_router(icd10.router)
+    app.include_router(phi_access.router)
     # Search route must be registered BEFORE the parameterised ``{report_id}``
     # routes so ``/v1/reports/search`` matches the search handler rather than
     # ``GET /v1/reports/{report_id}``.

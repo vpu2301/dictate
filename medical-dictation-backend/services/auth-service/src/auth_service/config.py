@@ -90,6 +90,12 @@ class Settings(BaseSettings):
     # default. Cross-SITE prod deployments must set `none` + Secure.
     auth_cookie_samesite: str = Field(default="lax", alias="AUTH_COOKIE_SAMESITE")
 
+    # ── Step-up re-authentication (S14 break-glass) ─────────────────────
+    # How long a minted reauth ticket stays redeemable. Long enough to
+    # finish typing a justification, short enough that a ticket left in a
+    # tab is worthless by the time anyone finds it.
+    reauth_ticket_ttl_seconds: int = Field(default=300, alias="MDX_REAUTH_TICKET_TTL_SECONDS")
+
     # ── CORS (sprint A3 — SPA integration) ──────────────────────────────
     # Comma-separated browser origins allowed to call this service WITH
     # credentials (the HttpOnly refresh cookie). Must be explicit origins —

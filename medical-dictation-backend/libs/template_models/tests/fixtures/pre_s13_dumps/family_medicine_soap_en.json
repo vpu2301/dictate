@@ -1,0 +1,83 @@
+{
+  "code": "family_medicine_soap_en",
+  "language": "en",
+  "metadata": {
+    "billing_code": "FM-SOAP-001",
+    "fhir_template": "Composition/family-medicine-soap",
+    "moh_order_ref": "MoH-110-family-medicine",
+    "notes": ""
+  },
+  "name": "Family Medicine — Outpatient Visit (SOAP)",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Subjective. Chief complaint, onset, duration, course. Associated symptoms: fever, pain, cough, fatigue. Chronic conditions, current medications, allergies. Social history, family history.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "subjective",
+      "min_chars": 20,
+      "name": "Subjective",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "Write the Subjective section in the third person, concise clinical English. Preserve symptom duration, current medications, and allergies. Do not invent facts not in the dictation.",
+      "voice_aliases": [
+        "subjective",
+        "section subjective",
+        "history",
+        "complaints"
+      ]
+    },
+    {
+      "asr_prompt": "Objective. General appearance, mental status. Temperature, heart rate, blood pressure, respiratory rate, oxygen saturation. Skin, mucosa, lymph nodes. Heart and lung auscultation. Abdomen. Edema.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "objective",
+      "min_chars": 20,
+      "name": "Objective",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "Write the Objective section. Lead with vital signs, then findings by organ system. Include only dictated findings.",
+      "voice_aliases": [
+        "objective",
+        "section objective",
+        "exam",
+        "examination"
+      ]
+    },
+    {
+      "asr_prompt": "Assessment. Primary diagnosis, complications, comorbidities. ICD-10 code. Differential diagnosis if relevant.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "assessment",
+      "min_chars": 10,
+      "name": "Assessment",
+      "order": 2,
+      "required": true,
+      "synthesis_prompt": "State the assessment: primary diagnosis, complications, comorbidities. Add the ICD-10 code only if explicitly dictated.",
+      "voice_aliases": [
+        "assessment",
+        "section assessment",
+        "diagnosis",
+        "impression"
+      ]
+    },
+    {
+      "asr_prompt": "Plan. Medications: drug, dose, frequency, duration. Non-pharmacological advice. Referrals and investigations. Follow-up date. Sick note if needed.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "plan",
+      "min_chars": 20,
+      "name": "Plan",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "Write the Plan as a numbered list of orders. For each medication preserve dose, frequency, and duration verbatim. Separate referrals and the follow-up date.",
+      "voice_aliases": [
+        "plan",
+        "section plan",
+        "recommendations",
+        "orders"
+      ]
+    }
+  ],
+  "specialty": "family_medicine"
+}

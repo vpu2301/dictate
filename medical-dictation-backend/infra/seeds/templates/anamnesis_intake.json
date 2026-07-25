@@ -1,0 +1,192 @@
+{
+  "code": "anamnesis_intake",
+  "name": "Анамнез — первинний прийом (Anamnesis intake)",
+  "language": "uk",
+  "specialty": "family_medicine",
+  "schema_version": 1,
+  "sections": [
+    {
+      "id": "complaints",
+      "name": "Скарги",
+      "voice_aliases": [
+        "скарги",
+        "розділ скарги",
+        "complaints"
+      ],
+      "required": true,
+      "field_type": "free_text",
+      "asr_prompt": "Скарги пацієнта. Основна скарга, тривалість, характер, локалізація, іррадіація, фактори що провокують та полегшують. Динаміка симптомів.",
+      "synthesis_prompt": "Сформулюй скарги пацієнта стисло, у третій особі, клінічною мовою.",
+      "min_chars": 20,
+      "order": 0
+    },
+    {
+      "id": "smoking_status",
+      "name": "Статус куріння",
+      "voice_aliases": [
+        "куріння",
+        "статус куріння",
+        "smoking"
+      ],
+      "required": false,
+      "field_type": "choice",
+      "asr_prompt": "Статус куріння: не палить, палить, кинув палити, стаж куріння, пачко-роки.",
+      "min_chars": 0,
+      "order": 1,
+      "options": [
+        {
+          "value": "never",
+          "label": "Не палить",
+          "voice_aliases": [
+            "не палить",
+            "не курить",
+            "ніколи не палив",
+            "ніколи не палила",
+            "ніколи не курив",
+            "ніколи не курила",
+            "заперечує куріння",
+            "never smoked",
+            "non-smoker"
+          ]
+        },
+        {
+          "value": "current",
+          "label": "Палить",
+          "voice_aliases": [
+            "палить",
+            "курить",
+            "активний курець",
+            "продовжує палити",
+            "продовжує курити",
+            "current smoker",
+            "smoker"
+          ]
+        },
+        {
+          "value": "former",
+          "label": "Палив(-ла) у минулому",
+          "voice_aliases": [
+            "кинув палити",
+            "кинула палити",
+            "кинув курити",
+            "кинула курити",
+            "палив у минулому",
+            "курив у минулому",
+            "колишній курець",
+            "раніше палив",
+            "раніше курив",
+            "ex-smoker",
+            "former smoker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "allergies",
+      "name": "Алергоанамнез",
+      "voice_aliases": [
+        "алергії",
+        "алергоанамнез",
+        "allergies"
+      ],
+      "required": false,
+      "field_type": "multi_choice",
+      "asr_prompt": "Алергоанамнез: алергії не відомі, пеніцилін, НПЗП, аспірин, йодовмісний контраст, місцеві анестетики, латекс, пилок, харчова алергія.",
+      "min_chars": 0,
+      "order": 2,
+      "options": [
+        {
+          "value": "none_known",
+          "label": "Алергії не відомі",
+          "voice_aliases": [
+            "алергії не відомі",
+            "без алергій",
+            "алергій немає",
+            "заперечує алергії",
+            "алергоанамнез не обтяжений",
+            "no known allergies"
+          ]
+        },
+        {
+          "value": "penicillin",
+          "label": "Пеніцилін",
+          "voice_aliases": [
+            "пеніцилін",
+            "антибіотики пеніцилінового ряду",
+            "амоксицилін",
+            "penicillin"
+          ]
+        },
+        {
+          "value": "nsaids",
+          "label": "НПЗП",
+          "voice_aliases": [
+            "нпзп",
+            "нестероїдні протизапальні",
+            "аспірин",
+            "ібупрофен",
+            "nsaids"
+          ]
+        },
+        {
+          "value": "iodine_contrast",
+          "label": "Йодовмісний контраст",
+          "voice_aliases": [
+            "йод",
+            "йодовмісний контраст",
+            "контрастна речовина",
+            "iodine contrast"
+          ]
+        },
+        {
+          "value": "local_anesthetics",
+          "label": "Місцеві анестетики",
+          "voice_aliases": [
+            "місцеві анестетики",
+            "лідокаїн",
+            "новокаїн",
+            "local anesthetics"
+          ]
+        },
+        {
+          "value": "latex",
+          "label": "Латекс",
+          "voice_aliases": [
+            "латекс",
+            "latex"
+          ]
+        },
+        {
+          "value": "pollen",
+          "label": "Пилок",
+          "voice_aliases": [
+            "пилок",
+            "поліноз",
+            "сезонна алергія",
+            "pollen"
+          ]
+        },
+        {
+          "value": "food",
+          "label": "Харчова алергія",
+          "voice_aliases": [
+            "харчова алергія",
+            "харчові продукти",
+            "food allergy"
+          ]
+        },
+        {
+          "value": "other",
+          "label": "Інша алергія",
+          "voice_aliases": [
+            "інша алергія",
+            "other allergy"
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "notes": "Sprint-13 typed-fields intake template: smoking_status (choice) + allergies (multi_choice) + free-text complaints. Option wording pending clinical-lead review (see todo.md)."
+  }
+}
