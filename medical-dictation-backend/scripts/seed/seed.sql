@@ -38,10 +38,17 @@ INSERT INTO users (sub, tenant_id, email, display_name, role, status) VALUES
     ('0e000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'auditor@tenant-a.example',   'Dev Auditor A',   'auditor',      'active'),
     ('0c000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 'clinician@tenant-b.example', 'Dev Clinician B', 'clinician',    'active'),
     ('0a000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 'admin@tenant-b.example',     'Dev Admin B',     'tenant_admin', 'active')
-ON CONFLICT (sub) DO UPDATE
-    SET tenant_id    = EXCLUDED.tenant_id,
-        email        = EXCLUDED.email,
-        display_name = EXCLUDED.display_name,
+-- Conflict on (tenant_id, email), NOT on sub. The subs above are only correct
+-- on a stack whose Keycloak was built from realm-export.json: Keycloak honours
+-- a caller-supplied user id during realm import but NOT via its admin REST API,
+-- which silently mints its own (verified on KC 24). So any account created by
+-- hand on a running stack carries a different sub for the same email, and
+-- conflicting on sub made this INSERT try to add a second row for that email —
+-- violating users_tenant_id_email_key and aborting the whole seed. Keying on
+-- the email keeps whichever sub the live Keycloak issued (the authoritative
+-- one, since it is what the token carries) and refreshes the mutable columns.
+ON CONFLICT (tenant_id, email) DO UPDATE
+    SET display_name = EXCLUDED.display_name,
         role         = EXCLUDED.role,
         status       = EXCLUDED.status;
 
@@ -124,6 +131,56 @@ ON CONFLICT (id) DO UPDATE SET
 -- Link the current login account (Dev Admin A) to klinic as owner.
 INSERT INTO tenant_memberships (tenant_id, user_sub, role, status)
 VALUES ('0000c111-0000-0000-0000-000000000001', '0a000000-0000-0000-0000-00000000000a', 'owner', 'active')
+ON CONFLICT (tenant_id, user_sub) DO NOTHING;
+
+-- ── Klarnote's own account — the vendor, not a customer ────────────────────
+-- Backs the platform-owner console at #/company (src/company/ in the SPA),
+-- whose access gate is an email allowlist because there is no platform role in
+-- KNOWN_ROLES yet. In Keycloak it carries tenant_admin + clinician + auditor so
+-- every read the console makes actually resolves: tenant_admin for /admin/users
+-- and /tenants/*, auditor for /audit/*, and clinician because S14 dropped
+-- tenant_admin from reports/sessions/ASR — without it the Usage tab 403s on
+-- every call. Anchored in tenant-a so the token's tid points at the tenant that
+-- has seeded activity.
+--
+-- WHY THIS RECONCILES ON EMAIL, NOT ON A PINNED sub:
+-- Keycloak honours a caller-supplied user id ONLY during realm import. Its
+-- admin REST API silently mints its own (verified on KC 24), so any stack whose
+-- Keycloak was provisioned by hand — i.e. every stack that was already running
+-- when this account was added — carries a different sub for this email. Pinning
+-- one here would then collide with users_tenant_id_email_key UNIQUE
+-- (tenant_id, email) and abort the whole seed transaction. Conflicting on
+-- (tenant_id, email) instead keeps whatever sub the live Keycloak issued —
+-- which is the authoritative one, since it is what the token carries — and just
+-- refreshes the mutable columns.
+INSERT INTO users (sub, tenant_id, email, display_name, role, status)
+VALUES (
+    '0f000000-0000-0000-0000-00000000000f',   -- used only on a fresh realm import
+    '00000000-0000-0000-0000-00000000000a',
+    'vpu2301@gmail.com', 'Klarnote Owner', 'tenant_admin', 'active'
+)
+ON CONFLICT (tenant_id, email) DO UPDATE
+    SET display_name = EXCLUDED.display_name,
+        role         = EXCLUDED.role,
+        status       = EXCLUDED.status;
+
+-- ── Klarnote owner: member of every tenant ─────────────────────────────────
+-- The platform-owner console reads its portfolio from GET /tenants, which
+-- returns exactly the tenants the caller is a MEMBER of — auth-service serves
+-- /tenants, /tenants/{id} and /tenants/{id}/members off its writer pool behind
+-- a membership check, which is what makes them resolve cross-tenant. So the
+-- owner's console is only as wide as its memberships: without these rows the
+-- portfolio shows one tenant, not the estate.
+--
+-- Keyed off the email for the same reason as above — the sub is whatever the
+-- live Keycloak issued. The cross join is deliberate: every tenant seeded here
+-- and any added later gets a membership, so the console never silently misses a
+-- clinic. Idempotent on (tenant_id, user_sub).
+INSERT INTO tenant_memberships (tenant_id, user_sub, role, status)
+SELECT t.id, u.sub, 'owner', 'active'
+FROM tenants t
+CROSS JOIN users u
+WHERE u.email = 'vpu2301@gmail.com'
 ON CONFLICT (tenant_id, user_sub) DO NOTHING;
 
 COMMIT;
