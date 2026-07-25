@@ -2,7 +2,7 @@
   "realm": "medical-dictation",
   "displayName": "Medical Dictation",
   "enabled": true,
-  "sslRequired": "external",
+  "sslRequired": "NONE",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
@@ -551,6 +551,36 @@
       "realmRoles": [
         "tenant_admin",
         "clinician"
+      ]
+    },
+    {
+      "id": "0f000000-0000-0000-0000-00000000000f",
+      "username": "klarnote-owner",
+      "email": "vpu2301@gmail.com",
+      "firstName": "Klarnote",
+      "lastName": "Owner",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000a"
+        ],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": [
+          "0"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "VOVAp1987@",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "tenant_admin",
+        "clinician",
+        "auditor"
       ]
     },
     {
