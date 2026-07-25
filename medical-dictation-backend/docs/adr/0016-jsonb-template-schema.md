@@ -114,3 +114,44 @@ breaking changes; `SwitchSection` is **additive**:
   to use v2-additive fields.
 
 No subprotocol bump. Documented in `docs/api/dictation-ws-v1.md`.
+
+---
+
+## Amendment (2026-07-22, sprint 13) — `choice`/`multi_choice` + the options edit matrix
+
+Sprint 13 extends `FieldType` with `choice` and `multi_choice` and adds
+`TemplateSection.options: tuple[ChoiceOption, ...]`
+(`{value, label, voice_aliases}`; required 2..50 for the choice kinds,
+forbidden otherwise).
+
+**Two ADR-0016 facts, kept distinct:**
+
+1. **Adding enum values is additive to the *model*.** Every pre-S13
+   template validates unchanged and serializes **byte-identically**
+   (`options` is omitted from dumps when empty via a model serializer;
+   the additive proof test in `libs/template_models` compares all 20
+   pre-S13 seed templates against frozen pre-bump dumps).
+2. **Changing an existing section's `field_type` remains STRUCTURAL**,
+   including transitions to/from/between the new types — a new template
+   row, as before.
+
+**Options edit classification** (extends the cosmetic/structural rule):
+
+| Edit | Kind | Why |
+| --- | --- | --- |
+| Add an option | cosmetic | existing reports' stored `value`s stay valid |
+| Add/change an option's `voice_aliases` | cosmetic | extraction fuel only; no stored data references aliases |
+| Change an option's `label` only | cosmetic | `value` is the stored identity; label is presentation |
+| Remove an option `value` | **structural** | reports persisted the `value` in `field_specific_metadata`; it would dangle |
+| Rename an option `value` | **structural** | indistinguishable from remove+add of the stable identity |
+
+`ChoiceOption.value` is therefore the same kind of contract as
+`TemplateSection.id`: a stable identifier that stored report content
+references. The classifier detects removals/renames as
+"option values removed/renamed" reasons.
+
+Option `voice_aliases` are normalized at validation (NFC, lower-case,
+stripped) so the sprint-13 extractor matches against canonical forms
+without re-normalizing template data, and must be unique across a
+section's options — an ambiguous alias would force the extractor to
+guess, which it never does.

@@ -101,6 +101,8 @@ class Orchestrator:
             voice_commands=initial.voice_commands,
             operations=initial.operations,
             warnings=initial.warnings,
+            numeric_artifacts=initial.numeric_artifacts,
+            date_artifacts=initial.date_artifacts,
         )
 
         for stage in self._stages:
@@ -113,6 +115,8 @@ class Orchestrator:
                     operations=current.operations,
                     warnings=current.warnings,
                     metadata={**current.metadata, f"{stage.name}.skipped_partial": True},
+                    numeric_artifacts=current.numeric_artifacts,
+                    date_artifacts=current.date_artifacts,
                 )
                 continue
             t0 = time.monotonic()
@@ -138,6 +142,8 @@ class Orchestrator:
                         ),
                     ),
                     metadata={**current.metadata, f"{stage.name}.error": type(exc).__name__},
+                    numeric_artifacts=current.numeric_artifacts,
+                    date_artifacts=current.date_artifacts,
                 )
             dt_ms = (time.monotonic() - t0) * 1000.0
             _stage_latency_ms.record(dt_ms, {"stage": stage.name, "language": ctx.language})
@@ -149,6 +155,10 @@ class Orchestrator:
                 operations=out.operations,
                 warnings=out.warnings,
                 metadata={**current.metadata, **out.metadata},
+                # Artifacts accumulate: a stage that emits none must not
+                # erase what an earlier stage produced.
+                numeric_artifacts=out.numeric_artifacts or current.numeric_artifacts,
+                date_artifacts=out.date_artifacts or current.date_artifacts,
             )
 
         # Strip wall-clock telemetry before the value becomes part of the
@@ -157,6 +167,9 @@ class Orchestrator:
         # poison the idempotence-violation detector. True per-stage latency is
         # already recorded to the ``mdx_nlp_request_duration_ms`` histogram
         # above; the response body and cache carry only deterministic metadata.
+        # Artifacts are an INTERNAL stage-to-stage channel. They are
+        # deliberately dropped here: they never reach the response body
+        # or the cache, so adding them cannot change replay bytes.
         current = StageOutput(
             text=current.text,
             words=current.words,
@@ -179,7 +192,7 @@ def idempotence_key(ctx: ProcessingContext, initial: StageInput) -> str:
     """Stable hash over (input, ctx). Pipeline_version + snapshot
     fingerprint are part of the hash so a bump invalidates the cache."""
     doc: dict[str, Any] = {
-        "v": "nlp-cache-v2",  # v2: + apply_operations_inline (batch/stream split)
+        "v": "nlp-cache-v3",  # v3: + typed template sections (sprint 13)
         "pipeline_version": ctx.pipeline_version,
         "tenant_id": str(ctx.tenant_id),
         "language": ctx.language,
@@ -194,8 +207,22 @@ def idempotence_key(ctx: ProcessingContext, initial: StageInput) -> str:
         "decimal_separator": ctx.decimal_separator,
         "bp_separator": ctx.bp_separator,
         "date_format": ctx.date_format,
+        # Sprint 13: field_type + options participate in the key — two
+        # requests with identical text but different option sets MUST NOT
+        # share a cache entry, or one section's proposals would be served
+        # for another's.
         "template_sections": [
-            {"id": str(s.id), "name": s.name, "aliases": list(s.aliases)}
+            {
+                "id": str(s.id),
+                "name": s.name,
+                "aliases": list(s.aliases),
+                "section_key": s.section_key,
+                "field_type": s.field_type,
+                "options": [
+                    {"value": o.value, "label": o.label, "aliases": list(o.aliases)}
+                    for o in s.options
+                ],
+            }
             for s in ctx.template_sections
         ],
         "text": initial.text,

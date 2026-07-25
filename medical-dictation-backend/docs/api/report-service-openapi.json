@@ -92,6 +92,37 @@
         "title": "CancelRequest",
         "type": "object"
       },
+      "ChoiceOption": {
+        "additionalProperties": false,
+        "description": "One selectable option of a ``choice``/``multi_choice`` section.\n\n``value`` is the stable identity persisted in report content\n(``field_specific_metadata``); renaming or removing a value is a\nSTRUCTURAL template edit because stored selections would dangle.\n``voice_aliases`` fuel the sprint-13 extractor and are normalized\nhere (NFC, lower-case, stripped) so the extractor never\nre-normalizes template data.",
+        "properties": {
+          "label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          },
+          "voice_aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Voice Aliases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "ChoiceOption",
+        "type": "object"
+      },
       "CloneRequest": {
         "additionalProperties": false,
         "properties": {
@@ -374,13 +405,15 @@
         "type": "object"
       },
       "FieldType": {
-        "description": "Sprint-06 ships these five. Sprint 13 will extend.",
+        "description": "Sprint-06 shipped the first five; sprint-13 adds the two choice\nkinds. Adding enum members is additive to the *model*; changing an\nexisting section's ``field_type`` remains a STRUCTURAL edit\n(ADR-0016).",
         "enum": [
           "free_text",
           "structured_diagnosis",
           "date",
           "date_with_note",
-          "numeric_with_unit"
+          "numeric_with_unit",
+          "choice",
+          "multi_choice"
         ],
         "title": "FieldType",
         "type": "string"
@@ -565,6 +598,67 @@
         "title": "Icd10Code",
         "type": "object"
       },
+      "Icd10SearchHit": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "display": {
+            "title": "Display",
+            "type": "string"
+          },
+          "is_leaf": {
+            "title": "Is Leaf",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "display",
+          "is_leaf"
+        ],
+        "title": "Icd10SearchHit",
+        "type": "object"
+      },
+      "Icd10SearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/Icd10SearchHit"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "Icd10SearchResponse",
+        "type": "object"
+      },
+      "LocalizedName": {
+        "additionalProperties": false,
+        "description": "Bilingual patient name, matching core-service's `PatientOut.name`\nso the SPA can reuse one `displayName(patient, lang)` helper across\nthe roster, the notes feed and the report list.",
+        "properties": {
+          "en": {
+            "title": "En",
+            "type": "string"
+          },
+          "uk": {
+            "title": "Uk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uk",
+          "en"
+        ],
+        "title": "LocalizedName",
+        "type": "object"
+      },
       "LocalizedText": {
         "additionalProperties": false,
         "properties": {
@@ -659,6 +753,183 @@
         "title": "MetadataDiff",
         "type": "object"
       },
+      "PhiAccessCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "patient_complaint",
+              "legal_request",
+              "billing_dispute",
+              "quality_review",
+              "care_continuity",
+              "data_correction",
+              "other"
+            ],
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "reason_note": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Reason Note",
+            "type": "string"
+          },
+          "reauth_ticket": {
+            "description": "Single-use ticket from POST /auth/reauth (auth-service).",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reauth Ticket",
+            "type": "string"
+          },
+          "resource_id": {
+            "description": "The report to open.",
+            "format": "uuid",
+            "title": "Resource Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_id",
+          "reason_code",
+          "reauth_ticket"
+        ],
+        "title": "PhiAccessCreate",
+        "type": "object"
+      },
+      "PhiAccessList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PhiAccessOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PhiAccessList",
+        "type": "object"
+      },
+      "PhiAccessOut": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "granted_at": {
+            "format": "date-time",
+            "title": "Granted At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "reason_note": {
+            "title": "Reason Note",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "resource_id": {
+            "format": "uuid",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "title": "Resource Kind",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "use_count": {
+            "title": "Use Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "requested_by",
+          "resource_kind",
+          "resource_id",
+          "patient_id",
+          "reason_code",
+          "reason_note",
+          "status",
+          "granted_at",
+          "expires_at",
+          "revoked_at",
+          "revoked_by",
+          "use_count",
+          "last_used_at"
+        ],
+        "title": "PhiAccessOut",
+        "type": "object"
+      },
       "ReadPurpose": {
         "enum": [
           "clinical_continuity",
@@ -686,6 +957,62 @@
           "db"
         ],
         "title": "ReadyResponse",
+        "type": "object"
+      },
+      "ReasonCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "grant_ttl_minutes": {
+            "title": "Grant Ttl Minutes",
+            "type": "integer"
+          },
+          "note_min_chars": {
+            "title": "Note Min Chars",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonOption"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reasons",
+          "grant_ttl_minutes",
+          "note_min_chars"
+        ],
+        "title": "ReasonCatalog",
+        "type": "object"
+      },
+      "ReasonOption": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label_en": {
+            "title": "Label En",
+            "type": "string"
+          },
+          "label_uk": {
+            "title": "Label Uk",
+            "type": "string"
+          },
+          "requires_note": {
+            "title": "Requires Note",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "label_uk",
+          "label_en",
+          "requires_note"
+        ],
+        "title": "ReasonOption",
         "type": "object"
       },
       "ReportAmendmentType": {
@@ -1244,6 +1571,16 @@
               }
             ],
             "title": "Patient Id"
+          },
+          "patient_name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocalizedName"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "patient_name_redacted": {
             "anyOf": [
@@ -1941,6 +2278,13 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOption"
+            },
+            "title": "Options",
+            "type": "array"
           },
           "order": {
             "default": 0,
@@ -2736,6 +3080,341 @@
         ]
       }
     },
+    "/v1/icd10/search": {
+      "get": {
+        "operationId": "search_icd10_v1_icd10_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 80,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Icd10SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "`q` outside 1..80 chars, or `limit` outside 1..20."
+          }
+        },
+        "summary": "Search \u041c\u041a\u0425-10 codes \u2014 exact code first, then code prefix, then full text.",
+        "tags": [
+          "icd10"
+        ]
+      }
+    },
+    "/v1/phi-access-requests": {
+      "get": {
+        "operationId": "list_requests_v1_phi_access_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "resource_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "requested_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Requested By"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Active Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhiAccessList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Oversight: who broke glass, on what, why, and how often they used it.",
+        "tags": [
+          "phi-access"
+        ]
+      },
+      "post": {
+        "operationId": "create_request_v1_phi_access_requests_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhiAccessCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhiAccessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Break glass on one report: reason + password re-entry \u2192 a time-limited grant.",
+        "tags": [
+          "phi-access"
+        ]
+      }
+    },
+    "/v1/phi-access-requests/reasons": {
+      "get": {
+        "operationId": "list_reasons_v1_phi_access_requests_reasons_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReasonCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The break-glass reason vocabulary and grant window.",
+        "tags": [
+          "phi-access"
+        ]
+      }
+    },
+    "/v1/phi-access-requests/{grant_id}/revoke": {
+      "post": {
+        "operationId": "revoke_request_v1_phi_access_requests__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhiAccessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close an open grant early.",
+        "tags": [
+          "phi-access"
+        ]
+      }
+    },
     "/v1/reports": {
       "post": {
         "operationId": "create_report_v1_reports_post",
@@ -2779,14 +3458,7 @@
             "description": "Successful Response"
           },
           "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+            "description": "`patient_not_found`, or sprint-13 field-metadata validation: `field_metadata_invalid` / `choice_value_unknown` (section-addressed problems in `problems[]`)."
           }
         },
         "summary": "Create Report",
@@ -3276,14 +3948,7 @@
             "description": "Successful Response"
           },
           "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+            "description": "`amend_requires_signed`, or sprint-13 field-metadata validation: `field_metadata_invalid` / `choice_value_unknown` (section-addressed problems in `problems[]`)."
           }
         },
         "summary": "Amend Report",
@@ -3495,14 +4160,7 @@
             "description": "Successful Response"
           },
           "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+            "description": "Sprint-13 field-metadata validation failed: `field_metadata_invalid` (unknown keys / wrong shape / metadata on a field type that accepts none) or `choice_value_unknown` (a `selected` value not among the section's template options). Section-addressed problems in `problems[]`."
           }
         },
         "summary": "Update Draft",

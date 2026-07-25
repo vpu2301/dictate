@@ -19,6 +19,8 @@ import re
 import time
 from dataclasses import replace
 
+from opentelemetry import metrics
+
 from ..pipeline.base import (
     Operation,
     PipelineWarning,
@@ -31,6 +33,16 @@ from .operations import operations_for
 from .voice_command_matcher import CommandSpec, MatchResult, VoiceCommandMatcher
 
 logger = logging.getLogger(__name__)
+
+# Sprint-13 observability for the anamnesis commands. LABEL DISCIPLINE:
+# ``op`` and ``reason`` are closed enums from operations.py — never an
+# option value, never a section key with free-text provenance.
+_meter = metrics.get_meter("mdx.nlp.commands")
+_operations = _meter.create_counter(
+    "mdx_nlp_operations_total",
+    unit="1",
+    description="Frontend operations emitted from detected voice commands",
+)
 
 
 class VoiceCommandStage:
@@ -100,6 +112,12 @@ class VoiceCommandStage:
         )
         slots = tuple(r.slot for r in results)
         ops = tuple(operations_for(s) for s in slots)
+        for op in ops:
+            attrs = {"op": op.op, "language": ctx.language}
+            reason = (op.arg or {}).get("reason")
+            if reason:
+                attrs["reason"] = reason
+            _operations.add(1, attrs)
 
         # Rebuild text from non-command words so later stages don't see commands.
         # Batch mode additionally applies text-shaped ops in place — a spoken
@@ -139,9 +157,7 @@ class VoiceCommandStage:
         )
 
 
-def _apply_ops_inline(
-    words: tuple[Word, ...], results: list[MatchResult]
-) -> str:
+def _apply_ops_inline(words: tuple[Word, ...], results: list[MatchResult]) -> str:
     """Rebuild segment text with text-shaped operations applied in place.
 
     Punctuation attaches to the preceding word (no space); a command with

@@ -109,5 +109,15 @@ class Settings(BaseSettings):
         default=0.65, alias="MDX_NLP_CONFIDENCE_MODERATE_BELOW"
     )
 
+    # ── Field extraction (sprint 13, ADR-0028) ─────────────────────────
+    # Below this, a typed field stays EMPTY and the prose stands. Raising
+    # it trades recall for safety; lowering it does the reverse and must
+    # be argued against the override-rate dashboard, not intuition.
+    # Pilot-tunable — changing it changes extraction output, so treat a
+    # change like a pipeline change (bump MDX_NLP_PIPELINE_VERSION).
+    extraction_confidence_threshold: float = Field(
+        default=0.8, ge=0.0, le=1.0, alias="MDX_NLP_EXTRACTION_CONFIDENCE_THRESHOLD"
+    )
+
 
 settings = Settings()

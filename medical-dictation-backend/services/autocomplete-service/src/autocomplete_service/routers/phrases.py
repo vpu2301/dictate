@@ -93,7 +93,7 @@ async def _check_rate_limit(state, claims: Claims) -> None:
 @router.post("/phrases", response_model=PhraseDTO, status_code=status.HTTP_201_CREATED)
 async def create_phrase(
     body: CreatePhraseRequest,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    claims: Annotated[Claims, Depends(requires("autocomplete.write", "phrase"))],
 ) -> PhraseDTO:
     state = get_state()
     await _check_rate_limit(state, claims)
@@ -166,7 +166,7 @@ async def create_phrase(
 @router.delete("/phrases/{phrase_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_phrase(
     phrase_id: UUID,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    claims: Annotated[Claims, Depends(requires("autocomplete.write", "phrase"))],
 ) -> None:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -229,7 +229,7 @@ class SnippetDTO(BaseModel):
 @router.post("/snippets", response_model=SnippetDTO, status_code=status.HTTP_201_CREATED)
 async def create_snippet(
     body: CreateSnippetRequest,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    claims: Annotated[Claims, Depends(requires("autocomplete.write", "phrase"))],
 ) -> SnippetDTO:
     state = get_state()
     await _check_rate_limit(state, claims)
@@ -301,7 +301,7 @@ async def create_snippet(
 @router.delete("/snippets/{snippet_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_snippet(
     snippet_id: UUID,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    claims: Annotated[Claims, Depends(requires("autocomplete.write", "phrase"))],
 ) -> None:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:

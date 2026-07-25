@@ -10,7 +10,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from opentelemetry import metrics
 
 from audit import Severity
-from auth import Action, AuthzDeniedError, Claims, TargetKind, check
+from auth import Action, AuthzDeniedError, Claims, TargetKind, check, check_any
 
 from .main_deps import ServiceState
 
@@ -94,6 +94,61 @@ def requires(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(f"deny: roles={list(claims.roles)} cannot {action!r} on {target_kind!r}"),
+            ) from exc
+        return claims
+
+    return dep
+
+
+def requires_any(
+    *options: tuple[Action, TargetKind],
+) -> Callable[..., Awaitable[Claims]]:
+    """Admit a caller holding ANY of the given permissions (S14).
+
+    The session list is reachable by a clinician with `dictation.read`
+    and by a tenant_admin holding only `stats.read`, whose rows are
+    already PHI-free (a session summary carries no patient reference and
+    no transcript). Put the primary permission first — a denial is
+    reported against it.
+    """
+
+    async def dep(claims: Annotated[Claims, Depends(current_user)]) -> Claims:
+        try:
+            check_any(claims, options=options)
+        except AuthzDeniedError as exc:
+            _authz_denied_counter.add(
+                1,
+                {"action": exc.action, "target_kind": exc.target_kind, "reason": exc.reason},
+            )
+            state = _state
+            if state is not None:
+                try:
+                    await state.audit_writer.write_event(
+                        tenant_id=exc.claims.tid,
+                        kind="authz.denied",
+                        actor_sub=exc.claims.sub,
+                        actor_role=(exc.claims.roles[0] if exc.claims.roles else None),
+                        target_kind=exc.target_kind,
+                        target_id=None,
+                        payload={
+                            "action": exc.action,
+                            "reason": exc.reason,
+                            "roles_seen": list(exc.claims.roles),
+                            "any_of": [f"{a}:{t}" for a, t in options],
+                        },
+                        severity=Severity.SEC,
+                    )
+                except Exception as audit_exc:
+                    logger.warning(
+                        "authz_denied.audit_write_failed",
+                        extra={"error": str(audit_exc)},
+                    )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"deny: roles={list(claims.roles)} hold none of "
+                    f"{[f'{a} on {t}' for a, t in options]}"
+                ),
             ) from exc
         return claims
 

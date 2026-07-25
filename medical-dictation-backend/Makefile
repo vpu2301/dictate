@@ -96,6 +96,11 @@ test: ## Run pytest across services and libs
 	uv run --project services/dictation-service pytest services/dictation-service/tests/unit/ -v
 	uv run --project services/nlp-service pytest services/nlp-service/tests/unit/ -v
 	uv run --project libs/template_models pytest libs/template_models/tests/unit/ -v
+	uv run --project libs/report_models pytest libs/report_models/tests/unit/ -v
+	uv run --project services/report-service pytest services/report-service/tests/unit/ -v
+	uv run --project services/signing-service pytest services/signing-service/tests/unit/ -v
+	# kep tests need audit's transitive otel deps — run in the signing-service env.
+	uv run --project services/signing-service pytest libs/kep/tests/unit/ -v
 	uv run --project libs/notification_events pytest libs/notification_events/tests/unit/ -v
 	uv run --project services/notification-service pytest services/notification-service/tests/unit/ -v
 
@@ -215,6 +220,9 @@ check-autocomplete-corpus: ## CI gate — validate the autocomplete seed corpus 
 
 seed-templates: ## Seed 16 system templates via upsert_system_template() (sprint 06)
 	uv run python scripts/seed/seed_templates.py
+
+seed-icd10-fixture: ## Load the committed МКХ-10 fixture (~240 codes) — dev/CI (sprint 13)
+	uv run python scripts/load-icd10.py --file infra/seeds/icd10/fixture.csv
 
 wer-eval-per-section: ## Per-section WER eval — global vs section-specific (sprint 06)
 	uv run python scripts/eval/run_per_section_wer.py \

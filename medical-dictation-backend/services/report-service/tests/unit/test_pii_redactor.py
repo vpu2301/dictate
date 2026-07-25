@@ -46,14 +46,35 @@ def test_treatment_team_co_author():
     )
 
 
-def test_tenant_admin_treated_as_team():
+def test_tenant_admin_is_not_treated_as_team():
+    """S14 reversed the sprint-08 behaviour on purpose.
+
+    A tenant_admin used to bypass snippet redaction tenant-wide on
+    "audit duty" grounds. They no longer hold `report.read` at all, so
+    the only route to a snippet is a break-glass grant on one specific
+    report — and a role-wide bypass would have quietly re-granted, over
+    every report at once, exactly the visibility the split removes.
+    """
+    viewer = uuid4()
+    other = uuid4()
+    assert not is_treatment_team(
+        viewer_user_id=viewer,
+        primary_author_id=other,
+        co_author_ids=[],
+        viewer_roles=["tenant_admin"],
+    )
+
+
+def test_dpo_keeps_the_redaction_bypass():
+    """The data-protection officer's bypass is untouched by S14 — DSAR
+    and erasure work needs to see what is actually in a record."""
     viewer = uuid4()
     other = uuid4()
     assert is_treatment_team(
         viewer_user_id=viewer,
         primary_author_id=other,
         co_author_ids=[],
-        viewer_roles=["tenant_admin"],
+        viewer_roles=["dpo"],
     )
 
 

@@ -182,6 +182,29 @@ _SPECS: Final[tuple[CategorySpec, ...]] = (
         exclude_actor=False,
     ),
     CategorySpec(
+        category=Category.PHI_ACCESS_GRANTED,
+        # The report's author and co-authors. They are the people who can
+        # tell whether the stated reason holds up, and the ones whose
+        # patient it is.
+        recipient_rule=RecipientRule.REPORT_PARTICIPANTS,
+        default_in_app=True,
+        # WARNING, not INFO: an administrator reading a clinical record
+        # is an exception, and the feed should present it as one.
+        severity=Severity.WARNING,
+        # No email, and therefore no template. The in-app row carries the
+        # whole fact (who, which report, which reason), and a mail would
+        # either repeat it or start reaching for detail that belongs in
+        # the oversight view, not an inbox.
+        default_email_mode=EmailMode.OFF,
+        # Break-glass is the definition of a thing you do not batch into
+        # tomorrow morning's summary.
+        digest_eligible=False,
+        # The actor is the ADMIN; the audience is the clinicians. The
+        # default exclusion is exactly right here and left in place, so
+        # an admin who also authors reports is not told about their own
+        # break-glass.
+    ),
+    CategorySpec(
         category=Category.SYSTEM_DIGEST,
         # The digest job addresses one user directly; it never fans out.
         recipient_rule=RecipientRule.EXPLICIT_HINTS,

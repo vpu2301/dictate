@@ -13,7 +13,9 @@ from __future__ import annotations
 
 from .schema import (
     ASR_PROMPT_MAX_TOKENS,
+    CHOICE_FIELD_TYPES,
     FIELD_TYPES,
+    ChoiceOption,
     EditKind,
     FieldType,
     TemplateDefinition,
@@ -24,6 +26,8 @@ from .schema import (
 
 __all__ = [
     "ASR_PROMPT_MAX_TOKENS",
+    "CHOICE_FIELD_TYPES",
+    "ChoiceOption",
     "EditKind",
     "FIELD_TYPES",
     "FieldType",

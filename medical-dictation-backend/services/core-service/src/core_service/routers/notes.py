@@ -17,6 +17,7 @@ from db import tenant_connection
 from .. import audit_helper, audit_kinds
 from ..deps import get_state, requires
 from ..domain import notes_repository, patients_repository
+from .patients import NameI18n
 
 router = APIRouter(tags=["notes"])
 
@@ -80,9 +81,26 @@ class NotePatch(_Strict):
     sections: list[dict[str, Any]] | None = None
 
 
+class NotePatientRef(_Strict):
+    """The patient a note is about, embedded so a list renders without an
+    N+1 fetch per row.
+
+    Name only — no DOB, no MRN, no ІПН flag. A notes feed needs to say
+    WHOSE note this is; everything else about the patient belongs to the
+    patient record, behind its own read.
+    """
+
+    id: UUID
+    name: NameI18n
+
+
 class NoteOut(_Strict):
     id: UUID
     patient_id: UUID
+    # S14 — nurses and clinicians see the patient's full name in the
+    # notes list. `None` only when the patient row is unreadable (erased,
+    # or hidden by RLS), so clients must keep a `patient_id` fallback.
+    patient: NotePatientRef | None = None
     encounter_id: UUID | None
     structure: str
     title: str
@@ -99,6 +117,21 @@ class NoteList(_Strict):
     items: list[NoteOut]
 
 
+def _patient_ref(row: asyncpg.Record) -> NotePatientRef | None:
+    """Build the embed from the LEFT JOIN, or ``None`` when it missed.
+
+    A missing join means the patient row is gone or invisible under RLS.
+    Both are display problems, never reasons to hide the note itself.
+    """
+    name_uk = row.get("patient_name_uk")
+    if name_uk is None and row.get("patient_name_en") is None:
+        return None
+    return NotePatientRef(
+        id=row["patient_id"],
+        name=NameI18n(uk=name_uk or "", en=row.get("patient_name_en") or ""),
+    )
+
+
 def _to_out(row: asyncpg.Record) -> NoteOut:
     sections = row["sections"]
     if isinstance(sections, str):
@@ -108,6 +141,7 @@ def _to_out(row: asyncpg.Record) -> NoteOut:
     return NoteOut(
         id=row["id"],
         patient_id=row["patient_id"],
+        patient=_patient_ref(row),
         encounter_id=row["encounter_id"],
         structure=row["structure"],
         title=row["title"],

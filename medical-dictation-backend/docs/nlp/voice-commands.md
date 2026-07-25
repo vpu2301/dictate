@@ -60,14 +60,71 @@ emits `voice_command.undone` for telemetry.
 1. Edit `infra/postgres/seed/voice_commands_<lang>.json` — add a phrase
    list, pause threshold, confidence threshold, optional
    `is_section_command`.
-2. Run `python scripts/seed/seed_voice_commands.py --dsn <dsn>`.
+2. Run `make seed-voice-commands` (the JSON fixtures are
+   AUTHORITATIVE — the seeder deletes every row for a language before
+   re-inserting, so a migration-only seed would be wiped; migration
+   0055 seeds the same rows idempotently for migration-only
+   environments, and a test pins the two sources together).
 3. Add a test in `services/nlp-service/tests/unit/test_voice_command_matcher.py`
    covering the canonical phrase + at least one negative case.
 4. Add a row to this catalogue.
 5. If the command has a frontend operation, register it in
    `services/nlp-service/src/nlp_service/stages/operations.py`.
 
+## Anamnesis commands (sprint 13)
+
+Hands-free structured input: one utterance, zero taps. The option name
+resolves against the **template's** `choice`/`multi_choice` sections,
+and the operation carries the option **slug** — never the spoken words.
+
+| Intent | uk | en | Operation | arg |
+| --- | --- | --- | --- | --- |
+| `choice.set` | обрати / вибрати / встановити `<опція>` | select / choose / set `<option>` | `set_choice` | `{section_key, value}` |
+| `choice.add` | додати `<опція>` | add `<option>` | `add_choice` | `{section_key, value}` |
+| `choice.remove` | прибрати / видалити `<опція>` | remove / delete `<option>` | `remove_choice` | `{section_key, value}` |
+| `diagnosis.capture` | діагноз / основний діагноз | diagnosis / primary diagnosis | `mark_diagnosis_text` | `{from_word_index}` |
+
+### Rules that make this safe
+
+- **Exact option matching only.** The FSM never fuzzy-matches an option
+  name. Fuzziness belongs in the extractor, where a wrong guess is a
+  proposal the clinician can reject; a voice command **writes**, so a
+  near-miss must never become a selection.
+- **Exact heads for these specs** (`exact_match_only`). "прибрати"
+  (remove) is Levenshtein-2 from "обрати" (set) — with the FSM's normal
+  1-substitution tolerance, "remove penicillin" would have selected it
+  instead. Opposite clinical statements must not be one typo apart.
+- **A voice selection is `manual`, not `extracted`.** The clinician said
+  it explicitly; nothing was inferred. The FE writes
+  `field_specific_metadata.source = "manual"` (and therefore omits
+  `confidence` — see the metadata contract).
+- **Strict field semantics.** `add`/`remove` on a single-select section
+  no-op with `reason: "not_a_multi_choice_section"` rather than being
+  reinterpreted as `set`. `set` on a multi-select **replaces the whole
+  selection** — a judgment call for predictability, cheap to revisit
+  with pilot feedback.
+- **An unrecognised option name is prose, not a no-op.** A no-op would
+  still consume the command head, deleting a word from the note —
+  "встановити діагноз поки неможливо" must stay untouched. A `reason`
+  no-op is emitted only when an option was positively recognised
+  (`option_ambiguous`, `not_a_multi_choice_section`), so the FE can
+  toast precisely.
+- **No ICD-10 by voice.** `diagnosis.capture` only marks where dictated
+  diagnosis text begins; code selection stays a confirm action
+  (sprint-13 scope).
+
+Commands are stripped from the text by stage 1, so the sprint-13
+extractor never sees a command phrase — one utterance cannot both
+select via voice and extract from the same words (test-enforced).
+
 ## Known false-positive sources (pilot week)
+
+- **"слід" → `slash`** — FIXED in sprint 13. "слід" is Levenshtein-2
+  from "слеш", and "слід призначити…" / "слід виключити…" are extremely
+  common in Ukrainian clinical prose, so the fuzzy match was inserting a
+  stray "/" into notes. The `slash` spec is now `exact_match_only`.
+  Found by the sprint-13 TP/FP corpus
+  (`tests/fixtures/command_corpus_uk.py`).
 
 - **"крапка над і"** — Ukrainian idiom; the pause-before gate (300 ms)
   catches the mid-phrase case. Verified day-9.

@@ -39,7 +39,7 @@
       "id": "diagnosis",
       "name": "Діагноз",
       "voice_aliases": ["діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Ендокринологічний діагноз. Тип ЦД, ускладнення, компенсація. Стан щитоподібної залози. МКХ-10.",
       "min_chars": 10,

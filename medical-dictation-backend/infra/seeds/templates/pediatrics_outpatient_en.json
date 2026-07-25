@@ -39,7 +39,7 @@
       "id": "diagnosis",
       "name": "Diagnosis",
       "voice_aliases": ["diagnosis"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Pediatric diagnosis. Primary, complications, comorbidities. ICD-10.",
       "min_chars": 10,

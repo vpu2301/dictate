@@ -19,6 +19,8 @@ from ..deps import get_state, requires
 from ..domain import code_sequence
 from ..domain import reports_repository as repo
 from ..domain.pii_redactor import name_to_initials
+from ._content_guard import ensure_valid_field_metadata
+from ._phi_access_guard import ReportReadAccess, report_read_access
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +182,13 @@ async def _resolve_section_labels(
     "",
     status_code=status.HTTP_201_CREATED,
     response_model=ReportCreatedResponse,
+    responses={
+        422: {
+            "description": "`patient_not_found`, or sprint-13 field-metadata "
+            "validation: `field_metadata_invalid` / `choice_value_unknown` "
+            "(section-addressed problems in `problems[]`)."
+        }
+    },
 )
 async def create_report(
     body: CreateReportRequest,
@@ -204,6 +213,9 @@ async def create_report(
             )
         # Prefer the Ukrainian name; fall back to English. Store initials only.
         patient_name_redacted = name_to_initials(patient.name_uk or patient.name_en)
+
+        # Sprint-13: typed field metadata must be valid at every write.
+        await ensure_valid_field_metadata(conn, content=body.content)
 
         code = await code_sequence.next_code(conn, tenant_id=claims.tid)
         report_id, version_id = await repo.create_report_with_v1(
@@ -243,13 +255,18 @@ async def create_report(
 @router.get("/{report_id}", response_model=ReportEnvelope)
 async def get_report(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
+    access: Annotated[ReportReadAccess, Depends(report_read_access)],
     purpose: Annotated[
         ReadPurpose | None,
         Query(description="Required for non-author reads."),
     ] = None,
     include_content: bool = Query(default=True),
 ) -> ReportEnvelope:
+    # Two standings reach this handler (S14): ordinary `report.read`, or a
+    # live break-glass grant on THIS report. The guard has already
+    # resolved which and counted the use; from here the only difference
+    # is what the audit trail says.
+    claims = access.claims
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         row = await repo.fetch_report(conn, report_id=report_id)
@@ -287,8 +304,27 @@ async def get_report(
         payload={
             "purpose": purpose.value if purpose else "author",
             "is_author": is_author,
+            "break_glass": access.is_break_glass,
         },
-        severity=Severity.INFO,
+        severity=Severity.SEC if access.is_break_glass else Severity.INFO,
     )
+    if access.is_break_glass:
+        # A second, distinctly-kinded event so "every break-glass read"
+        # is one query over the chain rather than a filter over every
+        # report view ever recorded.
+        await state.audit_writer.write_event(
+            tenant_id=claims.tid,
+            kind=audit_kinds.PHI_ACCESS_USED,
+            actor_sub=claims.sub,
+            actor_role=(claims.roles[0] if claims.roles else None),
+            target_kind="report",
+            target_id=report_id,
+            payload={
+                "grant_id": str(access.grant_id),
+                "reason_code": access.reason_code,
+                "surface": "report_envelope",
+            },
+            severity=Severity.SEC,
+        )
 
     return _envelope(row, content=content_obj, section_labels=section_labels)

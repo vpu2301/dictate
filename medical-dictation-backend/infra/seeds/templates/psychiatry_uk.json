@@ -29,7 +29,7 @@
       "id": "diagnosis",
       "name": "Діагноз",
       "voice_aliases": ["діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Психіатричний діагноз. МКХ-10. Тип епізоду, ступінь тяжкості.",
       "min_chars": 10,

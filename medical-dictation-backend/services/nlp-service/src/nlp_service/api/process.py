@@ -21,6 +21,7 @@ from .. import PIPELINE_VERSION
 from ..deps import assert_size, get_state, rate_limited, requires
 from ..domain.repository import fetch_abbreviation_snapshot
 from ..pipeline.base import (
+    ChoiceOption,
     ProcessingContext,
     StageInput,
     TemplateSection,
@@ -47,10 +48,24 @@ class WordIn(_StrictModel):
     is_voice_command_token: bool = False
 
 
+class ChoiceOptionIn(_StrictModel):
+    """Sprint 13 — mirrors ``template_models.ChoiceOption``."""
+
+    value: str = Field(max_length=64)
+    label: str = Field(max_length=128)
+    aliases: list[str] = Field(default_factory=list)
+
+
 class TemplateSectionIn(_StrictModel):
     id: UUID
     name: str
     aliases: list[str] = Field(default_factory=list)
+    # Sprint-13 additions — optional, so pre-S13 callers are unaffected.
+    # ``section_key`` is the template's section slug and becomes the key
+    # of the extracted-metadata map (report content keys sections by it).
+    section_key: str = Field(default="", max_length=64)
+    field_type: str = Field(default="free_text", max_length=32)
+    options: list[ChoiceOptionIn] = Field(default_factory=list)
 
 
 class ProcessRequest(_StrictModel):
@@ -117,7 +132,7 @@ class ProcessResponse(_StrictModel):
 @router.post(
     "/process",
     response_model=ProcessResponse,
-    summary="Run the 6-stage NLP pipeline on a single segment.",
+    summary="Run the 7-stage NLP pipeline on a single segment.",
 )
 async def process(
     body: ProcessRequest,
@@ -141,10 +156,7 @@ async def process(
         is_partial=body.is_partial,
         abbreviation_snapshot=snapshot,
         pipeline_version=PIPELINE_VERSION,
-        template_sections=tuple(
-            TemplateSection(id=s.id, name=s.name, aliases=tuple(s.aliases or ()))
-            for s in body.template_sections
-        ),
+        template_sections=tuple(_section(s) for s in body.template_sections),
         decimal_separator=body.decimal_separator or _default_decimal(body.language),
         bp_separator=body.bp_separator or "/",
         date_format=body.date_format or _default_date_format(body.language),
@@ -256,10 +268,7 @@ async def process_batch(
         is_partial=False,
         abbreviation_snapshot=snapshot,
         pipeline_version=PIPELINE_VERSION,
-        template_sections=tuple(
-            TemplateSection(id=s.id, name=s.name, aliases=tuple(s.aliases or ()))
-            for s in body.template_sections
-        ),
+        template_sections=tuple(_section(s) for s in body.template_sections),
         decimal_separator=body.decimal_separator or _default_decimal(body.language),
         bp_separator=body.bp_separator or "/",
         date_format=body.date_format or _default_date_format(body.language),
@@ -323,6 +332,21 @@ async def process_batch(
 
 
 # ── Defaults ────────────────────────────────────────────────────────
+
+
+def _section(s: TemplateSectionIn) -> TemplateSection:
+    """Wire → pipeline section, carrying the sprint-13 typed fields."""
+    return TemplateSection(
+        id=s.id,
+        name=s.name,
+        aliases=tuple(s.aliases or ()),
+        section_key=s.section_key,
+        field_type=s.field_type,
+        options=tuple(
+            ChoiceOption(value=o.value, label=o.label, aliases=tuple(o.aliases or ()))
+            for o in s.options
+        ),
+    )
 
 
 def _default_decimal(language: str) -> str:

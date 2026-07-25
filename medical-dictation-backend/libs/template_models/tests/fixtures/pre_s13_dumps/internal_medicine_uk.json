@@ -1,0 +1,90 @@
+{
+  "code": "internal_medicine_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "DiagnosticReport/internal-medicine",
+    "moh_order_ref": "MoH-110-internal",
+    "notes": ""
+  },
+  "name": "Терапевтичний прийом",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Терапевтичний анамнез. Скарги, тривалість, динаміка. Анамнез життя: хронічні захворювання, операції, алергії. Соціальний анамнез. Сімейний анамнез.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anamnesis",
+      "min_chars": 30,
+      "name": "Анамнез",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "анамнез",
+        "розділ анамнез"
+      ]
+    },
+    {
+      "asr_prompt": "Об'єктивний огляд. Загальний стан, температура, пульс, артеріальний тиск, ЧД, SpO2. Шкіра, лімфовузли. Серцево-судинна, дихальна, травна, сечовидільна системи. Нервова система.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "examination",
+      "min_chars": 30,
+      "name": "Об'єктивний огляд",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "огляд",
+        "розділ огляд"
+      ]
+    },
+    {
+      "asr_prompt": "Призначені обстеження: ЗАК, ЗАС, біохімія крові, ЕКГ, рентген, УЗД за показами. Консультації спеціалістів.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "investigations",
+      "min_chars": 0,
+      "name": "Обстеження",
+      "order": 2,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "обстеження"
+      ]
+    },
+    {
+      "asr_prompt": "Клінічний діагноз. Основне захворювання, ускладнення, супутні. МКХ-10.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "diagnosis",
+      "min_chars": 10,
+      "name": "Діагноз",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "діагноз",
+        "розділ діагноз"
+      ]
+    },
+    {
+      "asr_prompt": "План лікування. Медикаментозна терапія, дозування, тривалість. Дієта, режим. Повторний візит.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "plan",
+      "min_chars": 20,
+      "name": "План",
+      "order": 4,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "план",
+        "розділ план",
+        "рекомендації"
+      ]
+    }
+  ],
+  "specialty": "internal_medicine"
+}

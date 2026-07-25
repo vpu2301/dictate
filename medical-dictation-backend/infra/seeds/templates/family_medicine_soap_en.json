@@ -31,7 +31,7 @@
       "id": "assessment",
       "name": "Assessment",
       "voice_aliases": ["assessment", "section assessment", "diagnosis", "impression"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Assessment. Primary diagnosis, complications, comorbidities. ICD-10 code. Differential diagnosis if relevant.",
       "synthesis_prompt": "State the assessment: primary diagnosis, complications, comorbidities. Add the ICD-10 code only if explicitly dictated.",

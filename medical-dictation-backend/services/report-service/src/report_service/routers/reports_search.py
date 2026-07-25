@@ -1,4 +1,18 @@
-"""GET /reports/search — day-6."""
+"""GET /reports/search — the report list surface.
+
+Two standings reach it (S14):
+
+  `report.read`  — clinician / nurse. The clinical list, and since S14 it
+                   carries the patient's REAL name, resolved live from
+                   `patients`, not the initials frozen into
+                   `reports.patient_name_redacted` at creation time.
+  `stats.read`   — tenant_admin, who holds no clinical read. Same rows,
+                   stripped to counts and timings: no title, no snippet,
+                   no patient reference of any kind. This is what keeps
+                   the business dashboard's KPIs working after the admin
+                   was separated from PHI, without giving back a
+                   browsable list of patients' reports.
+"""
 
 from __future__ import annotations
 
@@ -11,17 +25,29 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 
 from audit import Severity
-from auth import Claims
+from auth import Claims, can_claims
 from db import tenant_connection
 
 from .. import audit_kinds
-from ..deps import get_state, requires
+from ..deps import get_state, requires_any
+from ..domain import reports_repository as repo
 from ..domain import search as searchmod
 from ..domain.pii_redactor import is_treatment_team, redact_snippet
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/reports", tags=["reports"])
+
+
+class LocalizedName(BaseModel):
+    """Bilingual patient name, matching core-service's `PatientOut.name`
+    so the SPA can reuse one `displayName(patient, lang)` helper across
+    the roster, the notes feed and the report list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    uk: str
+    en: str
 
 
 class SearchHitDTO(BaseModel):
@@ -37,6 +63,12 @@ class SearchHitDTO(BaseModel):
     co_author_ids: list[UUID]
     patient_id: UUID | None
     patient_name_redacted: str | None
+    # S14: the patient's real name, resolved live from `patients` for
+    # callers holding clinical read (clinician / nurse). `None` for a
+    # stats-mode caller, for a report with no patient, and for a patient
+    # RLS will not show — so a client must always fall back to the
+    # initials rather than assume this is populated.
+    patient_name: LocalizedName | None = None
     icd10_codes: list[str]
     snippet: str
     updated_at: str
@@ -53,7 +85,10 @@ class SearchResponse(BaseModel):
 
 @router.get("/search", response_model=SearchResponse)
 async def search_reports(
-    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
+    claims: Annotated[
+        Claims,
+        Depends(requires_any(("report.read", "report"), ("stats.read", "tenant"))),
+    ],
     q: str | None = Query(default=None, max_length=200),
     patient_id: UUID | None = None,
     author_id: UUID | None = None,
@@ -97,8 +132,47 @@ async def search_reports(
         if total == "exact":
             total_exact = await searchmod.exact_total(conn, filters)
 
+        # S14 — which of the two standings admitted this caller decides
+        # what the rows may contain. `stats.read` alone (a tenant_admin)
+        # gets counts and timings; `report.read` gets the clinical list.
+        clinical = can_claims(claims, "report.read", "report")
+
+        # Real names for the clinical list, resolved live rather than read
+        # from the frozen `patient_name_redacted` initials. One query for
+        # the page, inside the same RLS-scoped connection.
+        patient_labels: dict[UUID, object] = {}
+        if clinical:
+            patient_labels = await repo.fetch_patient_labels(
+                conn, patient_ids=[h.patient_id for h in hits if h.patient_id]
+            )
+
     out: list[SearchHitDTO] = []
     for h in hits:
+        if not clinical:
+            # Stats mode. Every PHI-bearing field is dropped at
+            # construction rather than blanked afterwards, so a field
+            # added to SearchHitDTO later cannot leak by being forgotten
+            # here — it simply takes its model default.
+            out.append(
+                SearchHitDTO(
+                    report_id=h.report_id,
+                    code=h.code,
+                    title="",
+                    status=h.status,
+                    template_id=h.template_id,
+                    encounter_date=h.encounter_date.isoformat() if h.encounter_date else None,
+                    primary_author_id=h.primary_author_id,
+                    co_author_ids=h.co_author_ids,
+                    patient_id=None,
+                    patient_name_redacted=None,
+                    patient_name=None,
+                    icd10_codes=[],
+                    snippet="",
+                    updated_at=h.updated_at.isoformat(),
+                )
+            )
+            continue
+
         on_team = is_treatment_team(
             viewer_user_id=claims.sub,
             primary_author_id=h.primary_author_id,
@@ -106,6 +180,7 @@ async def search_reports(
             viewer_roles=list(claims.roles),
         )
         snippet = h.snippet if on_team else redact_snippet(h.snippet)
+        label = patient_labels.get(h.patient_id) if h.patient_id else None
         out.append(
             SearchHitDTO(
                 report_id=h.report_id,
@@ -118,6 +193,11 @@ async def search_reports(
                 co_author_ids=h.co_author_ids,
                 patient_id=h.patient_id,
                 patient_name_redacted=h.patient_name_redacted,
+                patient_name=(
+                    LocalizedName(uk=label.name_uk, en=label.name_en)  # type: ignore[attr-defined]
+                    if label is not None
+                    else None
+                ),
                 icd10_codes=h.icd10_codes,
                 snippet=snippet,
                 updated_at=h.updated_at.isoformat(),

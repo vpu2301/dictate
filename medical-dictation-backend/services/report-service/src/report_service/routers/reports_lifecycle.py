@@ -16,6 +16,7 @@ from notification_events import Category
 from report_models import ReportStatus
 
 from .. import audit_kinds
+from ..config import settings
 from ..deps import get_state, requires
 from ..domain import reports_repository as repo
 from ..domain.finalize_validator import validate_finalize
@@ -101,7 +102,10 @@ async def finalize_report(
         # Load template to run finalize validation.
         template = await _fetch_template_definition(conn, template_id=current.content.template_id)
         problems = validate_finalize(
-            content=current.content, template=template, patient_id=row.patient_id
+            content=current.content,
+            template=template,
+            patient_id=row.patient_id,
+            require_confirmed_diagnosis=settings.require_confirmed_diagnosis_on_finalize,
         )
         if problems:
             # Surface the per-section problems as first-class RFC-9457 extension
@@ -147,6 +151,38 @@ async def finalize_report(
 
     sections = current.content.sections
     low_confidence_count = sum(1 for s in sections if "[[" in (s.text or ""))
+    field_types = {s.id: s.field_type.value for s in template.sections}
+
+    # Sprint-13: ONE aggregated row per finalized report recording how many
+    # typed fields still carried machine-extracted values when the clinician
+    # finalized. A row per utterance would pollute the hash chain; this
+    # answers "how much of this record did the machine propose" in one place.
+    # Payload is counts + field types only — no values, no prose.
+    extracted = sorted(
+        {
+            str(field_types.get(s.section_key, "unknown"))
+            for s in sections
+            if (s.field_specific_metadata or {}).get("source") == "extracted"
+        }
+    )
+    if extracted:
+        await state.audit_writer.write_event(
+            tenant_id=claims.tid,
+            kind=audit_kinds.ANAMNESIS_FIELD_EXTRACTED,
+            actor_sub=claims.sub,
+            actor_role=(claims.roles[0] if claims.roles else None),
+            target_kind="report",
+            target_id=report_id,
+            payload={
+                "field_types": extracted,
+                "section_count": sum(
+                    1
+                    for s in sections
+                    if (s.field_specific_metadata or {}).get("source") == "extracted"
+                ),
+            },
+            severity=Severity.INFO,
+        )
 
     await state.audit_writer.write_event(
         tenant_id=claims.tid,

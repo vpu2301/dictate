@@ -1,0 +1,58 @@
+{
+  "code": "radiology_ultrasound_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "DiagnosticReport/radiology-ultrasound",
+    "moh_order_ref": null,
+    "notes": ""
+  },
+  "name": "Ультразвукове дослідження",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Показання до УЗД. Скарги, попередній діагноз. Зона дослідження.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "indication",
+      "min_chars": 10,
+      "name": "Показання",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "показання"
+      ]
+    },
+    {
+      "asr_prompt": "Опис УЗД. Розміри органів, ехоструктура, контури. Патологічні утворення: розміри, ехогенність. Доплерографія за показами. Вільна рідина.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "findings",
+      "min_chars": 30,
+      "name": "Опис",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "опис",
+        "розділ опис"
+      ]
+    },
+    {
+      "asr_prompt": "УЗД-висновок. Основна знахідка. Рекомендації.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "impression",
+      "min_chars": 10,
+      "name": "Висновок",
+      "order": 2,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "висновок"
+      ]
+    }
+  ],
+  "specialty": "radiology"
+}

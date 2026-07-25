@@ -175,7 +175,10 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
     ports:
-      - "3000:3000"
+      # Host 3001, not 3000: port 3000 is the most-contended dev-server
+      # default (Vite/Next/CRA all grab it), and a clash there aborts the
+      # WHOLE compose bring-up. Grafana in-container still listens on 3000.
+      - "3001:3000"
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro

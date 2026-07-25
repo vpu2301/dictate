@@ -7,9 +7,10 @@ Public contract:
 - ``ASR_PROMPT_MAX_TOKENS = 224`` matches Whisper's ``initial_prompt``
   context window. Authoring guidance lives in
   ``docs/clinical-content/template-authoring.md``.
-- The five ``FieldType`` values cover the sprint-06 surface. Sprint 13
-  (anamnesis) adds typed fields like ``CHOICE`` and ``MULTI_CHOICE``;
-  those go through an additive model bump.
+- Sprint-06 shipped five ``FieldType`` values; sprint 13 (anamnesis)
+  added ``CHOICE`` and ``MULTI_CHOICE`` as an additive model bump:
+  old templates validate and serialize byte-identically (``options``
+  is omitted from dumps when empty — see ``TemplateSection``).
 
 ``classify_edit`` is the cosmetic-vs-structural decision rule from
 ADR-0016. Cosmetic edits UPDATE in place + bump ``schema_version``;
@@ -20,11 +21,20 @@ structural edits INSERT a new row with ``parent_template_id`` set
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
+from typing import Any, Final
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 # Whisper's ``initial_prompt`` accepts up to 224 BPE tokens. We accept a
 # slightly conservative limit because token counting is per-tokenizer
@@ -39,13 +49,21 @@ _ASR_PROMPT_MAX_CHARS_APPROX: Final = ASR_PROMPT_MAX_TOKENS * _APPROX_CHARS_PER_
 
 
 class FieldType(StrEnum):
-    """Sprint-06 ships these five. Sprint 13 will extend."""
+    """Sprint-06 shipped the first five; sprint-13 adds the two choice
+    kinds. Adding enum members is additive to the *model*; changing an
+    existing section's ``field_type`` remains a STRUCTURAL edit
+    (ADR-0016)."""
 
     FREE_TEXT = "free_text"
     STRUCTURED_DIAGNOSIS = "structured_diagnosis"
     DATE = "date"
     DATE_WITH_NOTE = "date_with_note"
     NUMERIC_WITH_UNIT = "numeric_with_unit"
+    CHOICE = "choice"  # sprint-13
+    MULTI_CHOICE = "multi_choice"  # sprint-13
+
+
+CHOICE_FIELD_TYPES: Final = frozenset({FieldType.CHOICE, FieldType.MULTI_CHOICE})
 
 
 FIELD_TYPES: Final = frozenset(ft.value for ft in FieldType)
@@ -57,6 +75,51 @@ class _Strict(BaseModel):
     """Base for every template-domain model. Strict by design."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+
+class ChoiceOption(_Strict):
+    """One selectable option of a ``choice``/``multi_choice`` section.
+
+    ``value`` is the stable identity persisted in report content
+    (``field_specific_metadata``); renaming or removing a value is a
+    STRUCTURAL template edit because stored selections would dangle.
+    ``voice_aliases`` fuel the sprint-13 extractor and are normalized
+    here (NFC, lower-case, stripped) so the extractor never
+    re-normalizes template data.
+    """
+
+    value: str = Field(min_length=1, max_length=64)
+    label: str = Field(min_length=1, max_length=128)
+    voice_aliases: tuple[str, ...] = Field(default_factory=tuple)
+
+    @field_validator("value")
+    @classmethod
+    def _validate_value_slug(cls, v: str) -> str:
+        if not _SLUG_RE.match(v):
+            raise ValueError(
+                f"option.value {v!r} must be a URL-safe slug "
+                "(lower-case, digits, underscores; starts with letter)"
+            )
+        return v
+
+    @field_validator("voice_aliases")
+    @classmethod
+    def _normalize_option_aliases(cls, v: tuple[str, ...]) -> tuple[str, ...]:
+        out: list[str] = []
+        for alias in v:
+            cleaned = unicodedata.normalize("NFC", alias).strip().lower()
+            if not cleaned:
+                raise ValueError("option voice_aliases must not contain empty strings")
+            if len(cleaned) > 64:
+                raise ValueError(f"option voice_alias {cleaned!r} exceeds 64 characters")
+            out.append(cleaned)
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for alias in out:
+            if alias not in seen:
+                seen.add(alias)
+                deduped.append(alias)
+        return tuple(deduped)
 
 
 class TemplateSection(_Strict):
@@ -77,6 +140,9 @@ class TemplateSection(_Strict):
     # value means "no section-specific synthesis guidance". Editing it is a
     # cosmetic change (see ``classify_edit``).
     synthesis_prompt: str = Field(default="", max_length=2_000)
+    # Sprint-13: required non-empty (2..50) for choice/multi_choice
+    # sections, must be empty for every other field_type.
+    options: tuple[ChoiceOption, ...] = Field(default_factory=tuple)
 
     @field_validator("id")
     @classmethod
@@ -106,6 +172,58 @@ class TemplateSection(_Strict):
                 seen.add(alias)
                 deduped.append(alias)
         return tuple(deduped)
+
+    @model_validator(mode="after")
+    def _validate_options(self) -> TemplateSection:
+        if self.field_type in CHOICE_FIELD_TYPES:
+            if not 2 <= len(self.options) <= 50:
+                raise ValueError(
+                    f"section {self.id!r}: field_type={self.field_type} requires "
+                    f"2..50 options, got {len(self.options)}"
+                )
+        elif self.options:
+            raise ValueError(
+                f"section {self.id!r}: field_type={self.field_type} must not "
+                f"define options (got {len(self.options)})"
+            )
+
+        values: set[str] = set()
+        labels_ci: set[str] = set()
+        aliases: set[str] = set()
+        for opt in self.options:
+            if opt.value in values:
+                raise ValueError(f"section {self.id!r}: option value {opt.value!r} duplicated")
+            values.add(opt.value)
+            label_key = opt.label.casefold()
+            if label_key in labels_ci:
+                raise ValueError(
+                    f"section {self.id!r}: option label {opt.label!r} duplicated (case-insensitive)"
+                )
+            labels_ci.add(label_key)
+            # An alias claimed by two options of the same section would
+            # make extraction ambiguous — the extractor must never guess.
+            for alias in opt.voice_aliases:
+                if alias in aliases:
+                    raise ValueError(
+                        f"section {self.id!r}: option voice_alias {alias!r} "
+                        "duplicated across options"
+                    )
+                aliases.add(alias)
+        return self
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_options(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Drop ``options`` from dumps when empty.
+
+        The sprint-13 additive proof: pre-S13 templates must serialize
+        byte-identically to their pre-bump dumps (template dumps flow
+        into JSONB rows and the sprint-06 snapshot path). Emitting
+        ``"options": []`` for every old template would violate that.
+        """
+        data: dict[str, Any] = handler(self)
+        if isinstance(data, dict) and not data.get("options"):
+            data.pop("options", None)
+        return data
 
 
 class TemplateMetadata(_Strict):
@@ -194,10 +312,15 @@ def classify_edit(old: TemplateDefinition, new: TemplateDefinition) -> EditClass
     - a section's ``id`` changed,
     - a section's ``field_type`` changed,
     - a section's ``required`` flag flipped,
-    - a section's ``min_chars`` increased (loosening is cosmetic).
+    - a section's ``min_chars`` increased (loosening is cosmetic),
+    - a choice section's option ``value`` removed (a rename is
+      remove+add of the stable identity — stored selections in report
+      ``field_specific_metadata`` would dangle).
 
     Everything else is cosmetic
-    (name/aliases/asr_prompt/order/default_content/synthesis_prompt/metadata).
+    (name/aliases/asr_prompt/order/default_content/synthesis_prompt/metadata;
+    for options: adding an option, adding/changing voice aliases, and
+    label-only changes — existing reports' selected values stay valid).
     A no-change edit is classified as :class:`EditKind.NO_CHANGE` so the
     caller can short-circuit.
     """
@@ -229,6 +352,11 @@ def classify_edit(old: TemplateDefinition, new: TemplateDefinition) -> EditClass
             reasons.append(f"section {sid!r}: required flipped {a.required} → {b.required}")
         if b.min_chars > a.min_chars:
             reasons.append(f"section {sid!r}: min_chars increased {a.min_chars} → {b.min_chars}")
+        removed_values = {o.value for o in a.options} - {o.value for o in b.options}
+        if removed_values:
+            reasons.append(
+                f"section {sid!r}: option values removed/renamed: {sorted(removed_values)}"
+            )
 
     if reasons:
         return EditClassification(kind=EditKind.STRUCTURAL, reasons=tuple(reasons))

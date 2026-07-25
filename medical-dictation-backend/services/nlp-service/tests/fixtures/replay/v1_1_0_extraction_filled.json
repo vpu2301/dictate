@@ -1,0 +1,55 @@
+{
+  "context": {
+    "fingerprint": "replay-fixture-fp",
+    "is_partial": false,
+    "language": "uk",
+    "reference_date": "2026-07-22",
+    "specialty": null,
+    "template_sections": [
+      {
+        "aliases": [
+          "куріння"
+        ],
+        "field_type": "choice",
+        "id": "11111111-2222-3333-4444-555555555555",
+        "name": "Статус куріння",
+        "options": [
+          {
+            "aliases": [
+              "не палить",
+              "не курить",
+              "заперечує куріння"
+            ],
+            "label": "не палить",
+            "value": "never"
+          },
+          {
+            "aliases": [
+              "палить",
+              "курить",
+              "активний курець"
+            ],
+            "label": "палить",
+            "value": "current"
+          },
+          {
+            "aliases": [
+              "кинув палити",
+              "кинула палити",
+              "колишній курець"
+            ],
+            "label": "палив у минулому",
+            "value": "former"
+          }
+        ],
+        "section_key": "smoking_status"
+      }
+    ],
+    "tenant_id": "00000000-0000-0000-0000-00000000000a"
+  },
+  "expected_encoded": "{\"confidence_spans\":[],\"metadata\":{\"abbreviation.applied\":0,\"abbreviation.snapshot_fingerprint\":\"replay-fixture-fp\",\"confidence.spans\":0,\"date_norm.changed\":false,\"field_extraction.fields\":{\"smoking_status\":{\"confidence\":1.0,\"selected\":\"current\",\"source\":\"extracted\"}},\"number_norm.changed\":false},\"operations\":[],\"text\":\"пацієнт курить, стаж двадцять років\",\"voice_commands\":[],\"warnings\":[],\"words\":[]}",
+  "input": {
+    "text": "пацієнт курить, стаж двадцять років"
+  },
+  "pipeline_version": "nlp-v1.1.0"
+}

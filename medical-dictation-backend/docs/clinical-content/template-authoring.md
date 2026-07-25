@@ -71,9 +71,65 @@ For the clinical content lead + linguist consultant.
 | `date`                   | calendar-date input            |
 | `date_with_note`         | date + short free-text         |
 | `numeric_with_unit`      | BP, HR, lab values             |
+| `choice` (sprint-13)     | single-select — smoking status, pregnancy status |
+| `multi_choice` (sprint-13) | multi-select — allergies, risk factors |
 
-Sprint-13 adds `choice`, `multi_choice`. New field types require
-a Pydantic model bump and a corresponding frontend renderer.
+New field types require a Pydantic model bump and a corresponding
+frontend renderer.
+
+### `options` (sprint-13 — `choice` / `multi_choice` only)
+
+A `choice`/`multi_choice` section MUST carry 2–50 `options`; every
+other field type must carry none (the validator rejects both
+violations). Each option:
+
+```json
+{
+  "value": "never",
+  "label": "Не палить",
+  "voice_aliases": ["не палить", "не курить", "ніколи не палив"]
+}
+```
+
+- **`value`** — lower-case slug, ≤ 64 chars, the *stable identity*
+  persisted in report content. Renaming or removing a `value` is a
+  **structural** edit (stored selections would dangle). Pick it once,
+  pick it well.
+- **`label`** — what the frontend renders (1–128 chars). Labels must
+  be unique per section case-insensitively. Label-only changes are
+  cosmetic.
+- **`voice_aliases`** — the sprint-13 extractor's fuel: the phrases a
+  clinician actually *says*. Normalized at validation (NFC, lower,
+  stripped, ≤ 64 chars each); must be unique across the section's
+  options (an ambiguous alias would force the extractor to guess —
+  it never does). Be generous: include gendered verb forms
+  ("кинув/кинула палити"), synonyms (палити/курити), and clinical
+  shorthand. Adding an alias is cosmetic.
+- **No PII, ever.** Options are shared clinical vocabulary; the
+  validator sweeps labels and aliases with the same PII patterns as
+  the autocomplete corpus (phone, ІПН, email, passport, DOB-like,
+  med-ID) and fails the CI gate on a hit.
+
+The extractor only proposes an option when a normalized alias/label
+matches above threshold; otherwise the field stays empty and the
+dictated prose is preserved. Alias quality directly drives extraction
+recall — review aliases whenever the pilot shows misses.
+
+### Compound measurements (`numeric_with_unit` limitation, sprint 13)
+
+A `numeric_with_unit` section holds **one** value and **one** unit.
+Blood pressure is dictated as a pair and normalizes to `140/90`, which
+is not a single value — so a BP section extracts **nothing** and the
+clinician fills it manually.
+
+This is deliberate. Special-casing "/" to invent a single number would
+be a clinical error dressed as a convenience. If a template needs BP as
+typed data today, model it as **two** numeric sections (systolic and
+diastolic); a proper compound field type is future work. The dictated
+prose is always preserved either way.
+
+The same applies to any paired measurement (e.g. visual acuity
+"0,8 / 0,9").
 
 ### `synthesis_prompt` (optional)
 
@@ -111,6 +167,8 @@ deterministic; the PUT response carries the `kind`.
 - Change a section's `asr_prompt` to fix a typo: ✓ cosmetic.
 - Rename a section: ✓ cosmetic.
 - Add a voice alias: ✓ cosmetic.
+- Add an option to a choice section: ✓ cosmetic (sprint-13).
+- Change an option's `label` or add/change its aliases: ✓ cosmetic.
 
 ### Structural edit (new row)
 
@@ -120,6 +178,9 @@ deterministic; the PUT response carries the `kind`.
   orphan-less).
 - Flip `required: false → true`: structural (validation gets
   tighter; existing draft reports may now fail finalize).
+- Remove or rename an option `value` (sprint-13): structural
+  (reports that stored the old value would reference a
+  no-longer-existing option).
 
 ## Pilot week checklist
 

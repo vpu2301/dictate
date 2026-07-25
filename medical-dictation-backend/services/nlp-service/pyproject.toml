@@ -23,6 +23,9 @@ dependencies = [
     "db",
     "asr_models",
     "secret",
+    # Sprint 13: the field_extraction stage emits metadata exclusively
+    # through report_models' typed constructors (no raw dicts).
+    "report_models",
 ]
 
 [tool.uv.sources]
@@ -31,6 +34,7 @@ auth = { workspace = true }
 audit = { workspace = true }
 db = { workspace = true }
 asr_models = { workspace = true }
+report_models = { workspace = true }
 secret = { workspace = true }
 
 [project.optional-dependencies]

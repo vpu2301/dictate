@@ -7,20 +7,44 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from opentelemetry import metrics
 from pydantic import BaseModel, ConfigDict, Field
 
 from auth import Claims
 from db import tenant_connection
 from report_models import ReportContent, ReportStatus
 
+from .. import audit_kinds
 from ..deps import get_state, requires
 from ..domain import reports_repository as repo
 from ..domain.conflicts import OptimisticLockMismatchError
+from ..domain.content_metadata import template_field_types
 from ..domain.diff_engine import compute_diff, section_diff_summary
+from ..domain.field_audit import diff_field_events
+from ._content_guard import ensure_valid_field_metadata
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/reports", tags=["reports"])
+
+# Sprint-13 extraction-quality signal. Grafana reads these directly so the
+# override-rate panel never has to scrape the audit table.
+#
+# LABEL DISCIPLINE: field_type ONLY. Option values are template-authored,
+# so putting them in a label would make cardinality unbounded and put
+# clinical vocabulary into the metrics store. Option-level analysis reads
+# the audit payloads offline.
+_meter = metrics.get_meter("mdx.anamnesis")
+_confirmed = _meter.create_counter(
+    "mdx_field_confirmed_total",
+    unit="1",
+    description="Clinician confirmed an extracted typed-field value",
+)
+_overridden = _meter.create_counter(
+    "mdx_field_overridden_total",
+    unit="1",
+    description="Clinician REPLACED an extracted value — the extractor was wrong",
+)
 
 
 class UpdateDraftRequest(BaseModel):
@@ -44,6 +68,15 @@ class UpdateDraftResponse(BaseModel):
 @router.put(
     "/{report_id}/draft",
     response_model=UpdateDraftResponse,
+    responses={
+        422: {
+            "description": "Sprint-13 field-metadata validation failed: "
+            "`field_metadata_invalid` (unknown keys / wrong shape / metadata on a "
+            "field type that accepts none) or `choice_value_unknown` (a `selected` "
+            "value not among the section's template options). Section-addressed "
+            "problems in `problems[]`."
+        }
+    },
 )
 async def update_draft(
     report_id: UUID,
@@ -74,6 +107,10 @@ async def update_draft(
                     "current_status": row.status.value,
                 },
             )
+
+        # Sprint-13: typed field metadata must be valid at every write.
+        await ensure_valid_field_metadata(conn, content=body.content)
+        field_types = await template_field_types(conn, content=body.content)
 
         # Idempotency: same body_hash as most recent version + expected_version
         # matches current → return prior version, no new row.
@@ -125,6 +162,34 @@ async def update_draft(
                     "expected_version": exc.expected_version,
                 },
             ) from exc
+
+    # Sprint-13: confirm/override signals — the extractor-quality loop.
+    # Emitted per event (they are rare and clinician-initiated), unlike
+    # the aggregated autosave row below. Payloads are slug/code only.
+    for event in diff_field_events(
+        before=current.content if current is not None else None,
+        after=body.content,
+        field_types=field_types,
+    ):
+        counter = _confirmed if event.kind == "confirmed" else _overridden
+        counter.add(1, {"field_type": event.field_type})
+        await state.audit_writer.write_event(
+            tenant_id=claims.tid,
+            kind=(
+                audit_kinds.ANAMNESIS_FIELD_CONFIRMED
+                if event.kind == "confirmed"
+                else audit_kinds.ANAMNESIS_FIELD_OVERRIDDEN
+            ),
+            actor_sub=claims.sub,
+            actor_role=(claims.roles[0] if claims.roles else None),
+            target_kind="report",
+            target_id=report_id,
+            payload={
+                "section_key": event.section_key,
+                "field_type": event.field_type,
+                **event.payload,
+            },
+        )
 
     # Aggregated audit (per dictation session, not per autosave).
     await state.draft_audit_buffer.record(

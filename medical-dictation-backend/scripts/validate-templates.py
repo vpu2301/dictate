@@ -2,10 +2,14 @@
 """CI gate — validate every template JSON file in ``infra/seeds/templates/``.
 
 Each file must:
-- Parse against ``TemplateDefinition`` Pydantic model.
+- Parse against ``TemplateDefinition`` Pydantic model (which enforces
+  the sprint-13 options rules: choice/multi_choice sections carry 2..50
+  options, other field types carry none; values/labels/aliases unique).
 - Have ``asr_prompt`` ≤ 224 tokens per section (tiktoken cl100k_base).
 - Have unique ``voice_aliases`` across sections (the model enforces this).
 - File name must match ``code.json``.
+- Contain no PII in option labels/aliases (sprint-13): template options
+  are shared clinical vocabulary, same rule as the autocomplete corpus.
 
 Run::
 
@@ -15,6 +19,7 @@ Run::
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -34,6 +39,22 @@ except ImportError:
 
 SEED_DIR = Path(__file__).resolve().parents[1] / "infra" / "seeds" / "templates"
 ASR_PROMPT_MAX_TOKENS = 224
+
+# Mirror of autocomplete_service.scrubber._PATTERNS (same set as
+# scripts/validate-autocomplete-corpus.py) — template options must never
+# contain patient data.
+PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("email", re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")),
+    ("ipn", re.compile(r"\b\d{10}\b")),
+    ("med_id", re.compile(r"\b\d{13}\b")),
+    ("passport", re.compile(r"\b[A-Za-zА-ЯЇІЄҐа-яїієґ]{2}\s?\d{6}\b")),
+    ("dob_like", re.compile(r"\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b")),
+    ("phone", re.compile(r"(?<![\d+])\+?\d{7,14}(?!\d)")),
+]
+
+
+def _pii_hits(text: str) -> list[str]:
+    return [name for name, pat in PII_PATTERNS if pat.search(text)]
 
 
 def main() -> int:
@@ -89,7 +110,29 @@ def main() -> int:
                     f"{n} tokens (max {ASR_PROMPT_MAX_TOKENS})"
                 )
 
-        print(f"ok: {path.name} — {tpl.specialty}/{tpl.language} ({len(tpl.sections)} sections)")
+        # Sprint-13: PII sweep over choice options.
+        n_choice = 0
+        for section in tpl.sections:
+            if not section.options:
+                continue
+            n_choice += 1
+            for opt in section.options:
+                for text, where in [
+                    (opt.label, f"option={opt.value} label"),
+                    *((a, f"option={opt.value} alias {a!r}") for a in opt.voice_aliases),
+                ]:
+                    hits = _pii_hits(text)
+                    if hits:
+                        failures.append(
+                            f"{path.name} section={section.id} {where}: "
+                            f"PII pattern(s) matched: {', '.join(hits)}"
+                        )
+
+        suffix = f", {n_choice} choice" if n_choice else ""
+        print(
+            f"ok: {path.name} — {tpl.specialty}/{tpl.language} "
+            f"({len(tpl.sections)} sections{suffix})"
+        )
 
     if failures:
         print("\n=== FAILURES ===", file=sys.stderr)

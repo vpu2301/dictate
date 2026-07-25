@@ -4,6 +4,11 @@ The frontend (sprint 04 + 06) consumes Operations to mutate editor
 state. This module is the contract between intents (linguistic) and
 operations (UI-side). Adding a new intent without an op is a bug; the
 test suite enforces a 1:1 mapping.
+
+Sprint 13 adds the anamnesis typed-field ops (``set_choice``,
+``add_choice``, ``remove_choice``, ``mark_diagnosis_text``). They are
+additive and FE-stable: a client that ignores them behaves exactly as
+before. Full arg shapes: ``docs/nlp/voice-commands.md``.
 """
 
 from __future__ import annotations
@@ -53,6 +58,18 @@ _TABLE: dict[str, tuple[str, dict[str, str] | None]] = {
     "begin_quote": ("insert_quote_marker", {"value": "open"}),
     "end_quote": ("insert_quote_marker", {"value": "close"}),
     "insert_template": ("insert_template", None),
+    # ── Sprint 13: anamnesis typed-field commands ──────────────────
+    # arg: {section_key, value} — ``value`` is always the option SLUG,
+    # never the spoken words. A voice selection is an explicit clinician
+    # act, so the FE writes it as ``source: "manual"`` metadata (never
+    # "extracted" — nothing was inferred).
+    "choice.set": ("set_choice", None),
+    "choice.add": ("add_choice", None),
+    "choice.remove": ("remove_choice", None),
+    # arg: {from_word_index} — a HINT marking where dictated diagnosis
+    # text begins. Deliberately NOT a code selection: no ICD-10 is ever
+    # chosen by voice (sprint 13 scope).
+    "diagnosis.capture": ("mark_diagnosis_text", None),
 }
 
 
@@ -65,6 +82,12 @@ def operations_for(slot: CommandSlot) -> Operation:
     intent = slot.intent
     if intent.startswith("section."):
         return Operation(op="navigate_section", arg=slot.arg or {})
+    # Sprint 13: a command whose argument could not be resolved carries a
+    # ``reason`` instead of a value. It becomes the same no-op the FE
+    # already knows how to surface, with a precise reason to toast —
+    # never a guessed selection.
+    if slot.arg and "reason" in slot.arg:
+        return Operation(op="unknown_intent", arg={"intent": intent, **slot.arg})
     if intent not in _TABLE:
         # Unknown intent — return a no-op marker so the frontend can
         # surface a UI warning rather than guessing.

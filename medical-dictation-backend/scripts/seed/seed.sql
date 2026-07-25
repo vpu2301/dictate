@@ -27,6 +27,12 @@ ON CONFLICT (id) DO NOTHING;
 -- ── Users (sub = Keycloak user id from realm-export.json) ───────────────────
 INSERT INTO users (sub, tenant_id, email, display_name, role, status) VALUES
     ('0a000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'admin@tenant-a.example',     'Dev Admin A',     'tenant_admin', 'active'),
+    -- S14 — the ONLY seeded account with tenant_admin and NOTHING else.
+    -- Dev Admin A above deliberately also holds `clinician` in Keycloak (a
+    -- practising doctor who runs the clinic), so it does not exercise the
+    -- admin ⟂ PHI split. Log in as this one to see it: no notes, no
+    -- dictations, no reports — only the patient roster and break-glass.
+    ('0b000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000a', 'owner@tenant-a.example',     'Dev Owner A',     'tenant_admin', 'active'),
     ('0c000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'clinician@tenant-a.example', 'Dev Clinician A', 'clinician',    'active'),
     ('0d000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'nurse@tenant-a.example',     'Dev Nurse A',     'nurse',        'active'),
     ('0e000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'auditor@tenant-a.example',   'Dev Auditor A',   'auditor',      'active'),

@@ -14,7 +14,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from opentelemetry import metrics
 
 from audit import Severity
-from auth import Action, AuthzDeniedError, Claims, TargetKind, check
+from auth import Action, AuthzDeniedError, Claims, TargetKind, check, check_any
 
 from .main_deps import ServiceState
 
@@ -75,6 +75,34 @@ def requires(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(f"deny: roles={list(claims.roles)} cannot {action!r} on {target_kind!r}"),
+            ) from exc
+        return claims
+
+    return dep
+
+
+def requires_any(
+    *options: tuple[Action, TargetKind],
+) -> Callable[..., Awaitable[Claims]]:
+    """Admit a caller holding ANY of the given permissions (S14).
+
+    The job list is reachable both by a clinician with `asr.read` and by
+    a tenant_admin with only `stats.read`; the handler branches on which,
+    and serves a PHI-free projection for the latter. Put the primary
+    permission first — a denial is reported against it.
+    """
+
+    async def dep(claims: Annotated[Claims, Depends(current_user)]) -> Claims:
+        try:
+            check_any(claims, options=options)
+        except AuthzDeniedError as exc:
+            await _emit_authz_denied(exc)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"deny: roles={list(claims.roles)} hold none of "
+                    f"{[f'{a} on {t}' for a, t in options]}"
+                ),
             ) from exc
         return claims
 

@@ -6,7 +6,8 @@ introduced in Sprint 02 explicitly for the audit writer.
 """
 
 from .engine import Base, make_engine
+from .icd10_query import ICD10_SEARCH_SQL
 from .pool import create_pool
 from .tenant import tenant_connection
 
-__all__ = ["create_pool", "tenant_connection", "Base", "make_engine"]
+__all__ = ["ICD10_SEARCH_SQL", "create_pool", "tenant_connection", "Base", "make_engine"]

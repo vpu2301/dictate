@@ -1,0 +1,97 @@
+{
+  "code": "cardiology_outpatient_en",
+  "language": "en",
+  "metadata": {
+    "billing_code": "CARD-OUT-001-EN",
+    "fhir_template": "DiagnosticReport/cardiology-consultation",
+    "moh_order_ref": null,
+    "notes": ""
+  },
+  "name": "Cardiology Consultation (Outpatient)",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Cardiology history. Chief complaint: chest pain, dyspnea, palpitations, edema. Duration, provoking factors. Risk factors: hypertension, diabetes, smoking, dyslipidemia. Family history of CAD.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anamnesis",
+      "min_chars": 30,
+      "name": "History",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "history",
+        "anamnesis",
+        "section history",
+        "go to history"
+      ]
+    },
+    {
+      "asr_prompt": "Physical examination. General appearance, consciousness. Heart rate, blood pressure, respiratory rate, SpO2. Heart sounds, murmurs, cardiac borders. Pulmonary auscultation. Peripheral edema, peripheral pulses. Carotid auscultation.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "examination",
+      "min_chars": 30,
+      "name": "Physical Examination",
+      "order": 1,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "examination",
+        "exam",
+        "physical exam",
+        "section exam"
+      ]
+    },
+    {
+      "asr_prompt": "Results. ECG: rhythm, rate, conduction, ischemia signs. Echocardiography: LVEF, chamber sizes, valves. Troponin, NT-proBNP, lipid panel, creatinine, potassium, sodium. Holter if applicable.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "investigations",
+      "min_chars": 0,
+      "name": "Investigations",
+      "order": 2,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "investigations",
+        "studies",
+        "tests"
+      ]
+    },
+    {
+      "asr_prompt": "Clinical diagnosis. Primary: CAD, stable angina, CCS class. Complications: CHF with reduced LVEF. Comorbidities: hypertension stage, type 2 diabetes mellitus. ICD-10 code.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "diagnosis",
+      "min_chars": 10,
+      "name": "Diagnosis",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "diagnosis",
+        "section diagnosis",
+        "go to diagnosis"
+      ]
+    },
+    {
+      "asr_prompt": "Treatment plan. Medications: beta-blockers, ACE inhibitors, statins, antiplatelets. Dose adjustments. Non-pharmacologic: diet, physical activity. Follow-up timing. Referrals for further workup.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "plan",
+      "min_chars": 30,
+      "name": "Plan",
+      "order": 4,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "plan",
+        "treatment plan",
+        "section plan"
+      ]
+    }
+  ],
+  "specialty": "cardiology"
+}

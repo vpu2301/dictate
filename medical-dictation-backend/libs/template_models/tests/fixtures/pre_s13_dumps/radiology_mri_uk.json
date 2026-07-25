@@ -1,0 +1,72 @@
+{
+  "code": "radiology_mri_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "DiagnosticReport/radiology-mri",
+    "moh_order_ref": null,
+    "notes": ""
+  },
+  "name": "Магнітно-резонансна томографія",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Показання до МРТ. Клінічна задача. Зона дослідження. Протипоказання перевірено.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "indication",
+      "min_chars": 10,
+      "name": "Показання",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "показання"
+      ]
+    },
+    {
+      "asr_prompt": "Параметри МРТ. Імпульсні послідовності: T1, T2, FLAIR, DWI. Контраст: гадоліній, об'єм. Зрізи: аксіальні, сагітальні, корональні.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "technique",
+      "min_chars": 0,
+      "name": "Техніка",
+      "order": 1,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "техніка"
+      ]
+    },
+    {
+      "asr_prompt": "Опис МРТ. Анатомія, сигнальні характеристики на T1 і T2. Патологічні утворення: розміри, контури, інтенсивність сигналу, контрастування. Перифокальний набряк. Мас-ефект.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "findings",
+      "min_chars": 50,
+      "name": "Опис",
+      "order": 2,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "опис",
+        "розділ опис"
+      ]
+    },
+    {
+      "asr_prompt": "Висновок МРТ. Основна знахідка. Диференційна діагностика. Рекомендації.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "impression",
+      "min_chars": 10,
+      "name": "Висновок",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "висновок"
+      ]
+    }
+  ],
+  "specialty": "radiology"
+}

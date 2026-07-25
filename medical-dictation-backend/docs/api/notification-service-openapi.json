@@ -13,6 +13,7 @@
           "dictation.completed",
           "transcription.completed",
           "transcription.failed",
+          "phi_access.granted",
           "system.digest"
         ],
         "title": "Category",

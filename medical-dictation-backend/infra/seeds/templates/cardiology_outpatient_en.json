@@ -39,7 +39,7 @@
       "id": "diagnosis",
       "name": "Diagnosis",
       "voice_aliases": ["diagnosis", "section diagnosis", "go to diagnosis"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Clinical diagnosis. Primary: CAD, stable angina, CCS class. Complications: CHF with reduced LVEF. Comorbidities: hypertension stage, type 2 diabetes mellitus. ICD-10 code.",
       "min_chars": 10,

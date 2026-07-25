@@ -618,6 +618,16 @@
             "title": "Id",
             "type": "string"
           },
+          "patient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotePatientRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "patient_id": {
             "format": "uuid",
             "title": "Patient Id",
@@ -738,6 +748,26 @@
           }
         },
         "title": "NotePatch",
+        "type": "object"
+      },
+      "NotePatientRef": {
+        "additionalProperties": false,
+        "description": "The patient a note is about, embedded so a list renders without an\nN+1 fetch per row.\n\nName only \u2014 no DOB, no MRN, no \u0406\u041f\u041d flag. A notes feed needs to say\nWHOSE note this is; everything else about the patient belongs to the\npatient record, behind its own read.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/NameI18n"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "NotePatientRef",
         "type": "object"
       },
       "PatientCreate": {

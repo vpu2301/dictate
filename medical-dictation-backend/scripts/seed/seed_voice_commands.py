@@ -39,8 +39,9 @@ async def _seed(dsn: str, fixtures_dir: Path) -> int:
                     INSERT INTO voice_commands
                         (intent, language, phrases,
                          requires_pause_before_ms, min_avg_probability,
-                         is_section_command)
-                    VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+                         is_section_command, is_option_command,
+                         exact_match_only)
+                    VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8)
                     """,
                     cmd["intent"],
                     language,
@@ -48,6 +49,8 @@ async def _seed(dsn: str, fixtures_dir: Path) -> int:
                     int(cmd.get("requires_pause_before_ms", 200)),
                     float(cmd.get("min_avg_probability", 0.85)),
                     bool(cmd.get("is_section_command", False)),
+                    bool(cmd.get("is_option_command", False)),
+                    bool(cmd.get("exact_match_only", False)),
                 )
                 total += 1
             print(f"seeded {language}: {len(commands)} commands")

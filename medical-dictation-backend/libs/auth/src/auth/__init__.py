@@ -45,7 +45,9 @@ from .perms import (
     Role,
     TargetKind,
     can,
+    can_claims,
     check,
+    check_any,
 )
 from .verifier import verify_token
 
@@ -70,7 +72,9 @@ __all__ = [
     "TargetKind",
     "build_current_user",
     "can",
+    "can_claims",
     "check",
+    "check_any",
     "current_claims",
     "current_tenant_id",
     "require_current_claims",

@@ -53,6 +53,12 @@ EXEMPT: Final[frozenset[tuple[str, str]]] = frozenset(
             "signing_provider_health",
         ),  # global signing-provider health; no tenant dimension
         ("audit", "eval_baseline"),  # global WER baseline singleton; no tenant dimension
+        # Global МКХ-10 clinical reference (sprint 13, migration 0054).
+        # Read-only for services, loaded by scripts/load-icd10.py; contains
+        # published classification codes only — zero tenant/patient data.
+        # Rationale + reload policy: docs/runbooks/icd10.md; FTS choice:
+        # ADR-0021 amendment.
+        ("public", "icd10_codes"),
         (
             "audit",
             "public_verify_audit",

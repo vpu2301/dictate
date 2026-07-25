@@ -44,13 +44,13 @@ from asr_models import (
     TranscriptResultView,
 )
 from audit import Severity
-from auth import Claims
+from auth import Claims, can_claims
 from db import tenant_connection
 from storage import ObjectNotFoundError
 
 from .. import audit_kinds
 from ..config import settings
-from ..deps import get_state, requires
+from ..deps import get_state, requires, requires_any
 from ..domain import repository
 from ..validators import run_all
 from ..validators.quota import validate_quota
@@ -495,14 +495,46 @@ async def _enriched_result_view(
     summary="List tenant's recent jobs.",
 )
 async def list_jobs(
-    claims: Annotated[Claims, Depends(requires("asr.read", "asr_job"))],
+    claims: Annotated[
+        Claims,
+        Depends(requires_any(("asr.read", "asr_job"), ("stats.read", "tenant"))),
+    ],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     status_filter: Annotated[JobStatus | None, Query(alias="status")] = None,
     since: Annotated[datetime | None, Query()] = None,
 ) -> list[TranscriptionJobView]:
+    """S14 — two standings reach this list.
+
+    `asr.read` (clinician / nurse) gets the clinical list, and since S14
+    each row names the patient whose recording it is. `stats.read`
+    (tenant_admin, who holds no clinical read) gets the same rows with
+    every patient reference and every pointer AT the audio stripped:
+    enough to count jobs and chart throughput on the business dashboard,
+    not enough to identify or open anything.
+    """
     state = get_state()
+    clinical = can_claims(claims, "asr.read", "asr_job")
     async with tenant_connection(state.app_pool, claims.tid) as conn:
-        return await repository.list_jobs(conn, limit=limit, status=status_filter, since=since)
+        jobs = await repository.list_jobs(
+            conn, limit=limit, status=status_filter, since=since
+        )
+    if clinical:
+        return jobs
+    return [
+        job.model_copy(
+            update={
+                "patient_id": None,
+                "patient_name_uk": None,
+                "patient_name_en": None,
+                # A presigned result URL is a door to the transcript, and
+                # `error_detail` is free text built from an exception that
+                # may quote the audio it choked on.
+                "result_url": None,
+                "error_detail": None,
+            }
+        )
+        for job in jobs
+    ]
 
 
 @router.delete(

@@ -9,7 +9,6 @@
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
   "verifyEmail": false,
-
   "accessTokenLifespan": 900,
   "accessTokenLifespanForImplicitFlow": 900,
   "ssoSessionIdleTimeout": 1800,
@@ -18,10 +17,8 @@
   "accessCodeLifespan": 60,
   "accessCodeLifespanUserAction": 300,
   "accessCodeLifespanLogin": 1800,
-
   "revokeRefreshToken": true,
   "refreshTokenMaxReuse": 0,
-
   "bruteForceProtected": true,
   "permanentLockout": false,
   "failureFactor": 5,
@@ -30,25 +27,36 @@
   "minimumQuickLoginWaitSeconds": 60,
   "quickLoginCheckMilliSeconds": 1000,
   "maxDeltaTimeSeconds": 43200,
-
   "defaultSignatureAlgorithm": "RS256",
-
   "attributes": {
     "frontendUrl": "",
     "acr.loa.map": "{}"
   },
-
   "roles": {
     "realm": [
-      {"name": "tenant_admin", "description": "Tenant administrator — manages users and tenant config"},
-      {"name": "clinician",    "description": "Clinical staff who create and sign dictations"},
-      {"name": "nurse",        "description": "Nursing staff with limited create permissions"},
-      {"name": "auditor",      "description": "Read-only access to audit logs for compliance review"},
-      {"name": "service",      "description": "Service-to-service identity for backend daemons"}
+      {
+        "name": "tenant_admin",
+        "description": "Tenant administrator — manages users and tenant config"
+      },
+      {
+        "name": "clinician",
+        "description": "Clinical staff who create and sign dictations"
+      },
+      {
+        "name": "nurse",
+        "description": "Nursing staff with limited create permissions"
+      },
+      {
+        "name": "auditor",
+        "description": "Read-only access to audit logs for compliance review"
+      },
+      {
+        "name": "service",
+        "description": "Service-to-service identity for backend daemons"
+      }
     ],
     "client": {}
   },
-
   "clients": [
     {
       "clientId": "mdx-api",
@@ -63,7 +71,6 @@
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false
     },
-
     {
       "clientId": "mdx-frontend",
       "name": "MDX Frontend (browser SPA)",
@@ -133,7 +140,6 @@
         }
       ]
     },
-
     {
       "clientId": "mdx-backend",
       "name": "MDX Backend (login proxy + S2S)",
@@ -190,7 +196,6 @@
         }
       ]
     },
-
     {
       "clientId": "mdx-admin",
       "name": "MDX Admin (auth-service → Keycloak Admin API)",
@@ -208,7 +213,6 @@
         "access.token.signed.response.alg": "RS256"
       }
     },
-
     {
       "clientId": "mdx-dev-cli",
       "name": "MDX Dev CLI (password grant — DEV ONLY)",
@@ -220,7 +224,9 @@
       "directAccessGrantsEnabled": true,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost/*"],
+      "redirectUris": [
+        "http://localhost/*"
+      ],
       "attributes": {
         "access.token.signed.response.alg": "RS256"
       },
@@ -263,7 +269,6 @@
         }
       ]
     },
-
     {
       "clientId": "mdx-dictation",
       "name": "MDX Dictation (S2S — sprint 04)",
@@ -306,7 +311,6 @@
         }
       ]
     },
-
     {
       "clientId": "mdx-asr-worker",
       "name": "MDX ASR Worker (S2S)",
@@ -350,7 +354,6 @@
       ]
     }
   ],
-
   "users": [
     {
       "id": "0a000000-0000-0000-0000-00000000000a",
@@ -361,12 +364,53 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000a"
+        ],
         "mfa_enrolled_at": [],
-        "recovery_codes_hash_count": ["0"]
+        "recovery_codes_hash_count": [
+          "0"
+        ]
       },
-      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
-      "realmRoles": ["tenant_admin", "clinician"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "tenant_admin",
+        "clinician"
+      ]
+    },
+    {
+      "id": "0b000000-0000-0000-0000-00000000000b",
+      "username": "dev-owner",
+      "email": "owner@tenant-a.example",
+      "firstName": "Dev",
+      "lastName": "Owner",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000a"
+        ],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": [
+          "0"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "tenant_admin"
+      ]
     },
     {
       "id": "0c000000-0000-0000-0000-00000000000a",
@@ -377,12 +421,24 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000a"
+        ],
         "mfa_enrolled_at": [],
-        "recovery_codes_hash_count": ["0"]
+        "recovery_codes_hash_count": [
+          "0"
+        ]
       },
-      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
-      "realmRoles": ["clinician"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "clinician"
+      ]
     },
     {
       "id": "0d000000-0000-0000-0000-00000000000a",
@@ -393,12 +449,24 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000a"
+        ],
         "mfa_enrolled_at": [],
-        "recovery_codes_hash_count": ["0"]
+        "recovery_codes_hash_count": [
+          "0"
+        ]
       },
-      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
-      "realmRoles": ["nurse"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "nurse"
+      ]
     },
     {
       "id": "0e000000-0000-0000-0000-00000000000a",
@@ -409,12 +477,24 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["00000000-0000-0000-0000-00000000000a"],
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000a"
+        ],
         "mfa_enrolled_at": [],
-        "recovery_codes_hash_count": ["0"]
+        "recovery_codes_hash_count": [
+          "0"
+        ]
       },
-      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
-      "realmRoles": ["auditor"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "auditor"
+      ]
     },
     {
       "id": "0c000000-0000-0000-0000-00000000000b",
@@ -425,12 +505,24 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["00000000-0000-0000-0000-00000000000b"],
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000b"
+        ],
         "mfa_enrolled_at": [],
-        "recovery_codes_hash_count": ["0"]
+        "recovery_codes_hash_count": [
+          "0"
+        ]
       },
-      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
-      "realmRoles": ["clinician"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "clinician"
+      ]
     },
     {
       "id": "0a000000-0000-0000-0000-00000000000b",
@@ -441,12 +533,25 @@
       "enabled": true,
       "emailVerified": true,
       "attributes": {
-        "tenant_id": ["00000000-0000-0000-0000-00000000000b"],
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000b"
+        ],
         "mfa_enrolled_at": [],
-        "recovery_codes_hash_count": ["0"]
+        "recovery_codes_hash_count": [
+          "0"
+        ]
       },
-      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}],
-      "realmRoles": ["tenant_admin", "clinician"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "tenant_admin",
+        "clinician"
+      ]
     },
     {
       "username": "service-account-mdx-admin",

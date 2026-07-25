@@ -13,6 +13,8 @@ typos at import.
 | `auth.refresh`                    | info     | auth-service /auth/refresh       | Successful refresh-token rotation                                  |
 | `auth.refresh_replay_detected`    | sec      | auth-service /auth/refresh       | Old refresh token replayed after rotation. Sessions force-revoked. |
 | `auth.logout`                     | info     | auth-service /auth/logout        | Explicit logout (when Bearer header allowed tenant resolution)     |
+| `auth.reauth_succeeded`           | sec      | auth-service POST /auth/reauth   | S14 — step-up: an already-authenticated user re-entered their password, minting a single-use ticket. Payload: purpose. |
+| `auth.reauth_failed`              | sec      | auth-service POST /auth/reauth   | S14 — wrong password from a live session. Payload: purpose, kc_status. Repeated failures trip Keycloak's brute-force detector. |
 | `auth.account_locked`             | sec      | auth-service /auth/login         | Keycloak rejected the login with account-locked detail (currently surfaced as HTTP 423 + structured log; audit-row TBD) |
 | `authz.denied`                    | sec      | auth-service `requires()` dep    | Role/scope check failed. Payload carries action + target_kind + reason. |
 | `user.invited`                    | info     | auth-service /admin/users/invite | tenant_admin created a new user                                    |
@@ -59,7 +61,20 @@ typos at import.
 | `template.viewed_full`            | info     | report-service GET /templates/{id} | Sprint 06 — full schema_jsonb fetched                          |
 | `dictation.section_switched`      | info     | dictation-service WS handler     | Sprint 06 — section navigation; prompt swap for next window      |
 | `template.created`                | info     | report-service POST /templates   | M1 — plain create of a tenant template (vs clone). Payload: code, specialty |
+| `report.created`                  | info     | report-service POST /v1/reports (+ /from-transcript) | Sprint 08 — draft report created. Payload: code, version_id |
+| `report.draft.updated`            | info     | report-service PUT /v1/reports/{id}/draft | Sprint 08 — autosave, AGGREGATED per dictation session (not per keystroke). Payload: version_number, dictation_session_id |
+| `report.reverted`                 | info     | report-service POST /v1/reports/{id}/revert | Sprint 08 — finalized → draft inside the 1 h author window. |
+| `report.cancelled`                | info     | report-service POST /v1/reports/{id}/cancel | Sprint 08 — report cancelled. Payload: reason |
+| `report.amended`                  | info     | report-service (post-sign, sprint 09) | Sprint 08/09 — amendment signed; status → amended. |
+| `report.amendment_drafted`        | info     | report-service POST /v1/reports/{id}/amend | Sprint 08 — amendment version created on a signed report (pre-sign). Payload: amendment_type, version_number |
+| `report.viewed_full`              | info     | report-service GET /v1/reports/{id} | Sprint 08 — non-author full read; carries the declared `purpose`. |
+| `report.searched`                 | info     | report-service GET /v1/reports/search | Sprint 08 — search executed. Payload: filter shape only, never the query text. |
+| `report.chain_integrity_failure`  | sec      | report-service chain reconciler / property test | Sprint 08 — an append-only version chain anomaly was detected. Investigate immediately. |
 | `report.pdf_rendered`             | info     | report-service GET /v1/reports/{id}/pdf | M1 — unsigned PDF rendered for local KEP. Payload: version_number, size_bytes, purpose |
+| `phi_access.granted`              | sec      | report-service POST /v1/phi-access-requests | S14 break-glass — an admin was granted time-limited access to ONE report. Payload: grant_id, reason_code, reason_note, expires_at, patient_id. The note is staff-authored justification and belongs in the chain; it is deliberately NOT forwarded to notifications. |
+| `phi_access.denied`               | sec      | report-service POST /v1/phi-access-requests | S14 — a break-glass request refused. Payload: reason_code, cause (`reauth_ticket_invalid`). |
+| `phi_access.used`                 | sec      | report-service GET /v1/reports/{id} and /pdf | S14 — a read performed UNDER a grant, emitted alongside `report.viewed_full` so break-glass reads are one query rather than a filter over every view ever recorded. Payload: grant_id, reason_code, surface. |
+| `phi_access.revoked`              | sec      | report-service POST /v1/phi-access-requests/{id}/revoke | S14 — an open grant closed early. Payload: grant_id, reason_code. |
 | `report.completed`                | info     | report-service POST /v1/reports/{id}/finalize | M1 — finalize completion summary (paired with `report.finalized`). Payload: version_number, section_count, low_confidence_count, source_session_id |
 | `signing.session.cancelled`       | info     | signing-service DELETE /signing/sessions/{id} | M1 — user aborted an in-flight session. Payload: from_status |
 | `signing.session.local_upload`    | info     | signing-service POST /signing/sessions/{id}/upload | M1 — locally-signed PAdES uploaded + verified (paired with `signing.envelope.persisted`). Payload: provider, signed_envelope_id, is_qualified |
@@ -79,6 +94,9 @@ typos at import.
 | `consent.withdrawn`               | info     | core-service POST /patients/{id}/consents/{cid}/withdraw | Sprint 11 — consent withdrawn. Payload: consent_id |
 | `consent.signed`                  | info     | core-service POST /patients/{id}/consents/{cid}/sign | S11 step 03 — КЕП envelope linked to a digital consent (inline tiers; the envelope itself is audited by signing-service's `signing.envelope.persisted`). Payload: consent_id, envelope_id, signature_level, is_qualified |
 | `anamnesis.updated`               | info     | core-service PUT /patients/{id}/anamnesis | Sprint 11 — structured history saved. |
+| `anamnesis.field.extracted`       | info     | report-service POST /v1/reports/{id}/finalize | Sprint 13 — ONE aggregated row per finalized report: how many typed fields still carried machine-extracted values at finalize. Deliberately not per-utterance (chain pollution). Payload: field_types (list), section_count. **No values, no prose.** |
+| `anamnesis.field.confirmed`       | info     | report-service PUT /v1/reports/{id}/draft | Sprint 13 — a clinician confirmed an extracted typed-field value (extracted→manual with the same value, or a proposed ICD-10 code entering `section.icd10`). Payload: section_key, field_type, and for CLOSED vocabularies only: selected (option slugs) or codes (ICD-10). **Never free text.** |
+| `anamnesis.field.overridden`      | info     | report-service PUT /v1/reports/{id}/draft | Sprint 13 — a clinician REPLACED an extracted value with a different one; the extractor-quality signal behind step-08's override-rate dashboard. Payload: section_key, field_type, selected/was (slugs) or codes/proposed (ICD-10). **Never free text** — a free-text override records its section and type only. |
 | `privacy.dsar_requested`          | sec      | core-service POST /patients/{id}/dsar | Sprint 11 — data-subject access request logged. Payload: request_id, kind |
 | `privacy.erasure_scheduled`       | sec      | *(superseded S11 step 04)* | Historical (S11-M2): emitted when erasure requests auto-scheduled at creation. Replaced by `privacy.erasure_requested` + `privacy.erasure_approved`; existing chain rows remain valid. |
 | `privacy.erasure_requested`       | sec      | core-service POST /patients/{id}/erasure | S11 step 04 — erasure requested; awaits second-person approval. Payload: request_id, kind |
@@ -158,3 +176,32 @@ handles UUID/datetime/bytes for you.
 Sensitive values (passwords, raw OTP codes, PHI) **must not** appear in
 the payload. Audit is for *who did what when* — the *what* references
 IDs, not contents.
+
+
+## Sprint-13 reconciliation (2026-07-23)
+
+The three anamnesis kinds above are all **info**, including
+`anamnesis.field.overridden` — an override is a quality signal about
+the extractor, not a security event, and filing it as `sec` would
+dilute the security severity's meaning.
+
+### Deviation: `icd10.searched` is metrics-only
+
+The sprint-13 plan listed an `icd10.searched` audit kind for
+`GET /v1/icd10/search`. **It is deliberately not implemented.** That
+endpoint sits in the diagnosis picker's typing path, so it fires on
+substantially every keystroke; a hash-chained, append-only row per
+keystroke is chain pollution that would bury the clinically meaningful
+events around it. The path is instrumented with metrics instead
+(`mdx_icd10_searches_total`, `mdx_icd10_search_seconds`), which answer
+the same operational questions — volume, latency, zero-result rate —
+without touching the audit chain.
+
+Precedent: the sprint-10 autocomplete suggest path made exactly this
+call for exactly this reason. Rationale also recorded in
+`docs/runbooks/icd10.md`.
+
+**What is still audited** about ICD-10: the clinically meaningful act
+of a code entering a report — `anamnesis.field.confirmed` /
+`anamnesis.field.overridden` carry the codes. Searching is not a
+clinical act; choosing is.

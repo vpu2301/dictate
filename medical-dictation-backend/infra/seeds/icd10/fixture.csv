@@ -1,0 +1,240 @@
+code,display_uk,display_en,parent_code,chapter,is_leaf
+A00,Холера,Cholera,,I,false
+A00.9,"Холера, неуточнена",Cholera unspecified,A00,I,true
+A09,"Діарея та гастроентерит імовірно інфекційного походження",Infectious gastroenteritis and colitis unspecified,,I,true
+A15,"Туберкульоз органів дихання, підтверджений бактеріологічно та гістологічно",Respiratory tuberculosis bacteriologically and histologically confirmed,,I,false
+A15.0,"Туберкульоз легень, підтверджений бактеріоскопічно",Tuberculosis of lung confirmed by sputum microscopy,A15,I,true
+A16,"Туберкульоз органів дихання, не підтверджений бактеріологічно або гістологічно",Respiratory tuberculosis not confirmed bacteriologically or histologically,,I,true
+A41,Інший сепсис,Other sepsis,,I,false
+A41.9,"Септицемія, неуточнена",Sepsis unspecified,A41,I,true
+A49,"Бактеріальна інфекція неуточненої локалізації",Bacterial infection of unspecified site,,I,true
+B01,Вітряна віспа,Varicella (chickenpox),,I,true
+B02,Оперізувальний лишай,Zoster (herpes zoster),,I,true
+B18,Хронічний вірусний гепатит,Chronic viral hepatitis,,I,false
+B18.1,Хронічний вірусний гепатит B без дельта-агента,Chronic viral hepatitis B without delta-agent,B18,I,true
+B18.2,Хронічний вірусний гепатит C,Chronic viral hepatitis C,B18,I,true
+B20,"Хвороба, зумовлена ВІЛ",HIV disease,,I,true
+B34,Вірусна інфекція неуточненої локалізації,Viral infection of unspecified site,,I,false
+B34.9,"Вірусна інфекція, неуточнена",Viral infection unspecified,B34,I,true
+B37,Кандидоз,Candidiasis,,I,false
+B37.0,Кандидозний стоматит,Candidal stomatitis,B37,I,true
+C18,Злоякісне новоутворення ободової кишки,Malignant neoplasm of colon,,II,false
+C18.9,"Злоякісне новоутворення ободової кишки, неуточнене",Malignant neoplasm of colon unspecified,C18,II,true
+C34,Злоякісне новоутворення бронхів та легені,Malignant neoplasm of bronchus and lung,,II,false
+C34.9,"Злоякісне новоутворення бронхів або легені, неуточнене",Malignant neoplasm of bronchus or lung unspecified,C34,II,true
+C50,Злоякісне новоутворення молочної залози,Malignant neoplasm of breast,,II,false
+C50.9,"Злоякісне новоутворення молочної залози, неуточнене",Malignant neoplasm of breast unspecified,C50,II,true
+C61,Злоякісне новоутворення передміхурової залози,Malignant neoplasm of prostate,,II,true
+C78,Вторинне злоякісне новоутворення органів дихання та травлення,Secondary malignant neoplasm of respiratory and digestive organs,,II,true
+D50,Залізодефіцитна анемія,Iron deficiency anaemia,,III,false
+D50.0,"Залізодефіцитна анемія, вторинна внаслідок крововтрати",Iron deficiency anaemia secondary to blood loss,D50,III,true
+D50.9,"Залізодефіцитна анемія, неуточнена",Iron deficiency anaemia unspecified,D50,III,true
+D51,Вітамін-B12-дефіцитна анемія,Vitamin B12 deficiency anaemia,,III,true
+D64,Інші анемії,Other anaemias,,III,false
+D64.9,"Анемія, неуточнена",Anaemia unspecified,D64,III,true
+D69,Пурпура та інші геморагічні стани,Purpura and other haemorrhagic conditions,,III,true
+E03,Інші форми гіпотиреозу,Other hypothyroidism,,IV,false
+E03.9,"Гіпотиреоз, неуточнений",Hypothyroidism unspecified,E03,IV,true
+E04,Інший нетоксичний зоб,Other nontoxic goitre,,IV,true
+E05,Тиреотоксикоз,Thyrotoxicosis (hyperthyroidism),,IV,false
+E05.0,Тиреотоксикоз з дифузним зобом,Thyrotoxicosis with diffuse goitre,E05,IV,true
+E06,Тиреоїдит,Thyroiditis,,IV,false
+E06.3,Аутоімунний тиреоїдит,Autoimmune thyroiditis,E06,IV,true
+E10,Цукровий діабет 1 типу,Type 1 diabetes mellitus,,IV,false
+E10.9,Цукровий діабет 1 типу без ускладнень,Type 1 diabetes mellitus without complications,E10,IV,true
+E11,Цукровий діабет 2 типу,Type 2 diabetes mellitus,,IV,false
+E11.0,Цукровий діабет 2 типу з комою,Type 2 diabetes mellitus with coma,E11,IV,true
+E11.2,Цукровий діабет 2 типу з ураженням нирок,Type 2 diabetes mellitus with renal complications,E11,IV,true
+E11.3,Цукровий діабет 2 типу з ураженням очей,Type 2 diabetes mellitus with ophthalmic complications,E11,IV,true
+E11.4,Цукровий діабет 2 типу з неврологічними ускладненнями,Type 2 diabetes mellitus with neurological complications,E11,IV,true
+E11.5,Цукровий діабет 2 типу з порушенням периферичного кровообігу,Type 2 diabetes mellitus with peripheral circulatory complications,E11,IV,true
+E11.7,Цукровий діабет 2 типу з множинними ускладненнями,Type 2 diabetes mellitus with multiple complications,E11,IV,true
+E11.9,Цукровий діабет 2 типу без ускладнень,Type 2 diabetes mellitus without complications,E11,IV,true
+E14,"Цукровий діабет, неуточнений",Unspecified diabetes mellitus,,IV,true
+E66,Ожиріння,Obesity,,IV,false
+E66.0,Ожиріння внаслідок надмірного надходження енергії,Obesity due to excess calories,E66,IV,true
+E66.9,"Ожиріння, неуточнене",Obesity unspecified,E66,IV,true
+E78,Порушення обміну ліпопротеїдів та інші ліпідемії,Disorders of lipoprotein metabolism and other lipidaemias,,IV,false
+E78.0,Чиста гіперхолестеринемія,Pure hypercholesterolaemia,E78,IV,true
+E78.5,"Гіперліпідемія, неуточнена",Hyperlipidaemia unspecified,E78,IV,true
+E86,Зменшення об'єму рідини,Volume depletion,,IV,true
+E87,Інші порушення водно-сольового обміну,Other disorders of fluid electrolyte and acid-base balance,,IV,true
+F17,"Розлади психіки та поведінки, спричинені вживанням тютюну",Mental and behavioural disorders due to use of tobacco,,V,false
+F17.2,Синдром залежності від тютюну,Tobacco dependence syndrome,F17,V,true
+F32,Депресивний епізод,Depressive episode,,V,false
+F32.0,Депресивний епізод легкого ступеня,Mild depressive episode,F32,V,true
+F32.1,Депресивний епізод середнього ступеня,Moderate depressive episode,F32,V,true
+F32.9,"Депресивний епізод, неуточнений",Depressive episode unspecified,F32,V,true
+F33,Рекурентний депресивний розлад,Recurrent depressive disorder,,V,true
+F41,Інші тривожні розлади,Other anxiety disorders,,V,false
+F41.0,Панічний розлад,Panic disorder,F41,V,true
+F41.1,Генералізований тривожний розлад,Generalized anxiety disorder,F41,V,true
+F41.9,"Тривожний розлад, неуточнений",Anxiety disorder unspecified,F41,V,true
+F43,Реакція на тяжкий стрес та розлади адаптації,Reaction to severe stress and adjustment disorders,,V,false
+F43.1,Посттравматичний стресовий розлад,Post-traumatic stress disorder,F43,V,true
+F51,Розлади сну неорганічної природи,Nonorganic sleep disorders,,V,true
+G20,Хвороба Паркінсона,Parkinson disease,,VI,true
+G40,Епілепсія,Epilepsy,,VI,false
+G40.9,"Епілепсія, неуточнена",Epilepsy unspecified,G40,VI,true
+G43,Мігрень,Migraine,,VI,false
+G43.0,Мігрень без аури,Migraine without aura,G43,VI,true
+G43.1,Мігрень з аурою,Migraine with aura,G43,VI,true
+G43.9,"Мігрень, неуточнена",Migraine unspecified,G43,VI,true
+G44,Інші синдроми головного болю,Other headache syndromes,,VI,false
+G44.2,Головний біль напруження,Tension-type headache,G44,VI,true
+G45,Транзиторні церебральні ішемічні напади,Transient cerebral ischaemic attacks,,VI,true
+G47,Розлади сну,Sleep disorders,,VI,false
+G47.3,Апное сну,Sleep apnoea,G47,VI,true
+G56,Мононевропатії верхньої кінцівки,Mononeuropathies of upper limb,,VI,false
+G56.0,Синдром зап'ясткового каналу,Carpal tunnel syndrome,G56,VI,true
+G62,Інші полінейропатії,Other polyneuropathies,,VI,true
+H10,Кон'юнктивіт,Conjunctivitis,,VII,false
+H10.9,"Кон'юнктивіт, неуточнений",Conjunctivitis unspecified,H10,VII,true
+H25,Старечa катаракта,Senile cataract,,VII,true
+H40,Глаукома,Glaucoma,,VII,false
+H40.9,"Глаукома, неуточнена",Glaucoma unspecified,H40,VII,true
+H52,Порушення рефракції та акомодації,Disorders of refraction and accommodation,,VII,true
+H61,Інші хвороби зовнішнього вуха,Other disorders of external ear,,VIII,true
+H65,Негнійний середній отит,Nonsuppurative otitis media,,VIII,true
+H66,Гнійний та неуточнений середній отит,Suppurative and unspecified otitis media,,VIII,false
+H66.9,"Середній отит, неуточнений",Otitis media unspecified,H66,VIII,true
+H81,Порушення вестибулярної функції,Disorders of vestibular function,,VIII,false
+H81.1,Доброякісне пароксизмальне запаморочення,Benign paroxysmal vertigo,H81,VIII,true
+I10,Есенціальна (первинна) гіпертензія,Essential (primary) hypertension,,IX,true
+I11,Гіпертонічна хвороба з переважним ураженням серця,Hypertensive heart disease,,IX,false
+I11.0,Гіпертонічна хвороба з переважним ураженням серця із серцевою недостатністю,Hypertensive heart disease with heart failure,I11,IX,true
+I11.9,Гіпертонічна хвороба з переважним ураженням серця без серцевої недостатності,Hypertensive heart disease without heart failure,I11,IX,true
+I12,Гіпертонічна хвороба з переважним ураженням нирок,Hypertensive renal disease,,IX,false
+I12.0,Гіпертонічна хвороба з ураженням нирок із нирковою недостатністю,Hypertensive renal disease with renal failure,I12,IX,true
+I12.9,Гіпертонічна хвороба з ураженням нирок без ниркової недостатності,Hypertensive renal disease without renal failure,I12,IX,true
+I13,Гіпертонічна хвороба з переважним ураженням серця та нирок,Hypertensive heart and renal disease,,IX,false
+I13.9,"Гіпертонічна хвороба з ураженням серця та нирок, неуточнена",Hypertensive heart and renal disease unspecified,I13,IX,true
+I15,Вторинна гіпертензія,Secondary hypertension,,IX,false
+I15.9,"Вторинна гіпертензія, неуточнена",Secondary hypertension unspecified,I15,IX,true
+I20,Стенокардія,Angina pectoris,,IX,false
+I20.0,Нестабільна стенокардія,Unstable angina,I20,IX,true
+I20.8,Інші форми стенокардії,Other forms of angina pectoris,I20,IX,true
+I20.9,"Стенокардія, неуточнена",Angina pectoris unspecified,I20,IX,true
+I21,Гострий інфаркт міокарда,Acute myocardial infarction,,IX,false
+I21.0,Гострий трансмуральний інфаркт передньої стінки міокарда,Acute transmural myocardial infarction of anterior wall,I21,IX,true
+I21.4,Гострий субендокардіальний інфаркт міокарда,Acute subendocardial myocardial infarction,I21,IX,true
+I21.9,"Гострий інфаркт міокарда, неуточнений",Acute myocardial infarction unspecified,I21,IX,true
+I25,Хронічна ішемічна хвороба серця,Chronic ischaemic heart disease,,IX,false
+I25.1,Атеросклеротична хвороба серця,Atherosclerotic heart disease,I25,IX,true
+I25.9,"Хронічна ішемічна хвороба серця, неуточнена",Chronic ischaemic heart disease unspecified,I25,IX,true
+I26,Легенева емболія,Pulmonary embolism,,IX,true
+I48,Фібриляція та тріпотіння передсердь,Atrial fibrillation and flutter,,IX,false
+I48.0,Пароксизмальна фібриляція передсердь,Paroxysmal atrial fibrillation,I48,IX,true
+I48.9,"Фібриляція передсердь, неуточнена",Atrial fibrillation unspecified,I48,IX,true
+I49,Інші порушення серцевого ритму,Other cardiac arrhythmias,,IX,true
+I50,Серцева недостатність,Heart failure,,IX,false
+I50.0,Застійна серцева недостатність,Congestive heart failure,I50,IX,true
+I50.9,"Серцева недостатність, неуточнена",Heart failure unspecified,I50,IX,true
+I63,Інфаркт мозку,Cerebral infarction,,IX,false
+I63.9,"Інфаркт мозку, неуточнений",Cerebral infarction unspecified,I63,IX,true
+I64,"Інсульт, не уточнений як крововилив або інфаркт",Stroke not specified as haemorrhage or infarction,,IX,true
+I70,Атеросклероз,Atherosclerosis,,IX,true
+I80,Флебіт і тромбофлебіт,Phlebitis and thrombophlebitis,,IX,true
+I83,Варикозне розширення вен нижніх кінцівок,Varicose veins of lower extremities,,IX,true
+J00,Гострий назофарингіт (нежить),Acute nasopharyngitis (common cold),,X,true
+J01,Гострий синусит,Acute sinusitis,,X,false
+J01.9,"Гострий синусит, неуточнений",Acute sinusitis unspecified,J01,X,true
+J02,Гострий фарингіт,Acute pharyngitis,,X,false
+J02.9,"Гострий фарингіт, неуточнений",Acute pharyngitis unspecified,J02,X,true
+J03,Гострий тонзиліт,Acute tonsillitis,,X,false
+J03.9,"Гострий тонзиліт, неуточнений",Acute tonsillitis unspecified,J03,X,true
+J06,Гострі інфекції верхніх дихальних шляхів множинної локалізації,Acute upper respiratory infections of multiple sites,,X,false
+J06.9,"Гостра інфекція верхніх дихальних шляхів, неуточнена",Acute upper respiratory infection unspecified,J06,X,true
+J11,"Грип, вірус не ідентифікований",Influenza virus not identified,,X,true
+J18,"Пневмонія, збудник не уточнений",Pneumonia organism unspecified,,X,false
+J18.0,"Бронхопневмонія, неуточнена",Bronchopneumonia unspecified,J18,X,true
+J18.9,"Пневмонія, неуточнена",Pneumonia unspecified,J18,X,true
+J20,Гострий бронхіт,Acute bronchitis,,X,false
+J20.9,"Гострий бронхіт, неуточнений",Acute bronchitis unspecified,J20,X,true
+J40,"Бронхіт, не уточнений як гострий або хронічний",Bronchitis not specified as acute or chronic,,X,true
+J44,Хронічне обструктивне захворювання легень,Chronic obstructive pulmonary disease,,X,false
+J44.0,ХОЗЛ з гострою інфекцією нижніх дихальних шляхів,COPD with acute lower respiratory infection,J44,X,true
+J44.1,ХОЗЛ із загостренням,COPD with acute exacerbation,J44,X,true
+J44.9,"ХОЗЛ, неуточнене",COPD unspecified,J44,X,true
+J45,Астма,Asthma,,X,false
+J45.0,Астма з переважанням алергічного компонента,Predominantly allergic asthma,J45,X,true
+J45.9,"Астма, неуточнена",Asthma unspecified,J45,X,true
+J30,Вазомоторний та алергічний риніт,Vasomotor and allergic rhinitis,,X,false
+J30.1,"Алергічний риніт, спричинений пилком",Allergic rhinitis due to pollen,J30,X,true
+K21,Гастроезофагеальна рефлюксна хвороба,Gastro-oesophageal reflux disease,,XI,false
+K21.0,Гастроезофагеальний рефлюкс з езофагітом,Gastro-oesophageal reflux disease with oesophagitis,K21,XI,true
+K21.9,Гастроезофагеальний рефлюкс без езофагіту,Gastro-oesophageal reflux disease without oesophagitis,K21,XI,true
+K25,Виразка шлунка,Gastric ulcer,,XI,true
+K29,Гастрит і дуоденіт,Gastritis and duodenitis,,XI,false
+K29.7,"Гастрит, неуточнений",Gastritis unspecified,K29,XI,true
+K30,Диспепсія,Dyspepsia,,XI,true
+K35,Гострий апендицит,Acute appendicitis,,XI,true
+K57,Дивертикулярна хвороба кишечнику,Diverticular disease of intestine,,XI,true
+K58,Синдром подразненого кишечнику,Irritable bowel syndrome,,XI,true
+K59,Інші функціональні порушення кишечнику,Other functional intestinal disorders,,XI,false
+K59.0,Закреп,Constipation,K59,XI,true
+K76,Інші хвороби печінки,Other diseases of liver,,XI,true
+K80,Жовчнокам'яна хвороба,Cholelithiasis,,XI,true
+L20,Атопічний дерматит,Atopic dermatitis,,XII,true
+L23,Алергічний контактний дерматит,Allergic contact dermatitis,,XII,true
+L29,Свербіж,Pruritus,,XII,true
+L40,Псоріаз,Psoriasis,,XII,false
+L40.9,"Псоріаз, неуточнений",Psoriasis unspecified,L40,XII,true
+L50,Кропив'янка,Urticaria,,XII,false
+L50.0,Алергічна кропив'янка,Allergic urticaria,L50,XII,true
+M06,Інший ревматоїдний артрит,Other rheumatoid arthritis,,XIII,false
+M06.9,"Ревматоїдний артрит, неуточнений",Rheumatoid arthritis unspecified,M06,XIII,true
+M15,Поліартроз,Polyarthrosis,,XIII,true
+M16,Коксартроз,Coxarthrosis (arthrosis of hip),,XIII,true
+M17,Гонартроз,Gonarthrosis (arthrosis of knee),,XIII,true
+M25,Інші ураження суглобів,Other joint disorders,,XIII,false
+M25.5,Біль у суглобі,Pain in joint,M25,XIII,true
+M51,Ураження міжхребцевих дисків інших відділів,Other intervertebral disc disorders,,XIII,true
+M54,Дорсалгія,Dorsalgia,,XIII,false
+M54.1,Радикулопатія,Radiculopathy,M54,XIII,true
+M54.4,Люмбаго з ішіасом,Lumbago with sciatica,M54,XIII,true
+M54.5,Біль у нижній частині спини,Low back pain,M54,XIII,true
+M79,Інші м'якотканинні ураження,Other soft tissue disorders,,XIII,false
+M79.1,Міалгія,Myalgia,M79,XIII,true
+M81,Остеопороз без патологічного перелому,Osteoporosis without pathological fracture,,XIII,true
+N18,Хронічна хвороба нирок,Chronic kidney disease,,XIV,false
+N18.3,"Хронічна хвороба нирок, стадія 3",Chronic kidney disease stage 3,N18,XIV,true
+N18.9,"Хронічна хвороба нирок, неуточнена",Chronic kidney disease unspecified,N18,XIV,true
+N20,Камені нирки та сечоводу,Calculus of kidney and ureter,,XIV,false
+N20.0,Камінь нирки,Calculus of kidney,N20,XIV,true
+N30,Цистит,Cystitis,,XIV,false
+N30.0,Гострий цистит,Acute cystitis,N30,XIV,true
+N39,Інші хвороби сечової системи,Other disorders of urinary system,,XIV,false
+N39.0,Інфекція сечовивідних шляхів без уточнення локалізації,Urinary tract infection site not specified,N39,XIV,true
+N40,Гіперплазія передміхурової залози,Hyperplasia of prostate,,XIV,true
+O21,Надмірне блювання вагітних,Excessive vomiting in pregnancy,,XV,true
+O24,Цукровий діабет під час вагітності,Diabetes mellitus in pregnancy,,XV,false
+O24.4,Цукровий діабет під час вагітності (гестаційний),Diabetes mellitus arising in pregnancy,O24,XV,true
+Z00,Загальне обстеження без скарг,General examination without complaint,,XXI,false
+Z00.0,Загальне медичне обстеження,General medical examination,Z00,XXI,true
+Z03,Медичне спостереження за підозрою на хворобу,Medical observation for suspected diseases,,XXI,true
+Z34,Спостереження за перебігом нормальної вагітності,Supervision of normal pregnancy,,XXI,true
+Z71,Консультування,Persons seeking consultation,,XXI,false
+Z71.6,Консультування щодо відмови від тютюну,Tobacco abuse counselling,Z71,XXI,true
+R05,Кашель,Cough,,XVIII,true
+R06,Порушення дихання,Abnormalities of breathing,,XVIII,false
+R06.0,Задишка,Dyspnoea,R06,XVIII,true
+R07,Біль у горлі та грудній клітці,Pain in throat and chest,,XVIII,false
+R07.4,"Біль у грудній клітці, неуточнений",Chest pain unspecified,R07,XVIII,true
+R10,Біль у животі та тазі,Abdominal and pelvic pain,,XVIII,false
+R10.4,Інший та неуточнений біль у животі,Other and unspecified abdominal pain,R10,XVIII,true
+R11,Нудота і блювання,Nausea and vomiting,,XVIII,true
+R42,Запаморочення,Dizziness and giddiness,,XVIII,true
+R50,Гарячка невідомого походження,Fever of unknown origin,,XVIII,false
+R50.9,"Гарячка, неуточнена",Fever unspecified,R50,XVIII,true
+R51,Головний біль,Headache,,XVIII,true
+R53,Нездужання і втома,Malaise and fatigue,,XVIII,true
+R55,Непритомність і колапс,Syncope and collapse,,XVIII,true
+S06,Внутрішньочерепна травма,Intracranial injury,,XIX,false
+S06.0,Струс головного мозку,Concussion,S06,XIX,true
+S52,Перелом кісток передпліччя,Fracture of forearm,,XIX,true
+S72,Перелом стегнової кістки,Fracture of femur,,XIX,true
+S93,"Вивих, розтягнення зв'язок гомілковостопного суглоба",Dislocation sprain and strain of ankle,,XIX,true
+T78,Несприятливі ефекти не класифіковані в інших рубриках,Adverse effects not elsewhere classified,,XIX,false
+T78.2,"Анафілактичний шок, неуточнений",Anaphylactic shock unspecified,T78,XIX,true
+T78.4,"Алергія, неуточнена",Allergy unspecified,T78,XIX,true

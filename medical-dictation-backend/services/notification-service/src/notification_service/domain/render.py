@@ -47,7 +47,29 @@ ALLOWED_PAYLOAD_KEYS: Final[dict[Category, frozenset[str]]] = {
     # from an exception, and an exception that quotes the transcript it
     # choked on would carry PHI straight into the feed.
     Category.TRANSCRIPTION_FAILED: frozenset({"error_kind"}),
+    # `reason_code` is a closed vocabulary (see the CHECK on
+    # phi_access_requests). `reason_note` is NOT admitted: it is free
+    # text an administrator typed about a specific patient situation,
+    # and it belongs in the oversight view behind an authz check, not in
+    # a notification row that the digest renderer reads back.
+    # `requested_by_display` is a staff name, never a patient's.
+    Category.PHI_ACCESS_GRANTED: frozenset(
+        {"report_code", "reason_code", "requested_by_display", "expires_at"}
+    ),
     Category.SYSTEM_DIGEST: frozenset({"count", "period"}),
+}
+
+# Ukrainian labels for the break-glass reason vocabulary. A raw
+# `billing_dispute` in a clinician's feed is not a notification, it is a
+# database value that leaked into a UI.
+_REASON_LABELS_UK: Final[dict[str, str]] = {
+    "patient_complaint": "скарга пацієнта",
+    "legal_request": "юридичний запит",
+    "billing_dispute": "спір щодо оплати",
+    "quality_review": "перевірка якості",
+    "care_continuity": "безперервність надання допомоги",
+    "data_correction": "виправлення даних",
+    "other": "інша причина",
 }
 
 # Field clamp. Long enough for a report code or a provider name, far too
@@ -107,6 +129,8 @@ def render_title(event: NotificationEvent) -> str:
             return "Розшифровку аудіо завершено"
         case Category.TRANSCRIPTION_FAILED:
             return "Не вдалося розшифрувати аудіо"
+        case Category.PHI_ACCESS_GRANTED:
+            return f"Адміністратор відкрив звіт {code}"
         case Category.SYSTEM_DIGEST:
             return f"Ваші сповіщення: {fields.get('count', '0')}"
     # Unreachable: spec_for() has already rejected unknown categories.
@@ -149,6 +173,16 @@ def render_body(event: NotificationEvent) -> str:
         case Category.TRANSCRIPTION_FAILED:
             kind = fields.get("error_kind", "невідома причина")
             return f"Завдання на розшифровку не виконано: {kind}. Спробуйте ще раз."
+        case Category.PHI_ACCESS_GRANTED:
+            who = fields.get("requested_by_display", "Адміністратор")
+            raw_reason = fields.get("reason_code", "")
+            reason = _REASON_LABELS_UK.get(raw_reason, raw_reason or "причину не вказано")
+            until = fields.get("expires_at", "")
+            suffix = f" Доступ діє до {until}." if until else ""
+            return (
+                f"{who} отримав(-ла) тимчасовий доступ до звіту {code}. "
+                f"Підстава: {reason}.{suffix}"
+            )
         case Category.SYSTEM_DIGEST:
             return f"Підсумок за {fields.get('period', 'день')}."
     raise KeyError(event.category)

@@ -29,7 +29,7 @@
       "id": "diagnosis",
       "name": "Діагноз",
       "voice_aliases": ["діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Дерматологічний діагноз. Основне захворювання, форма, стадія. МКХ-10.",
       "min_chars": 10,

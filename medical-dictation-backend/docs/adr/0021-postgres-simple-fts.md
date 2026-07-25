@@ -77,3 +77,37 @@ Negative / accepted:
 - `services/report-service/src/report_service/domain/search.py`.
 - `docs/eval/sprint-08-loadtest.md`.
 - Sprint-15 backlog item: query expansion + search tips UI.
+
+---
+
+## Amendment (2026-07-22, sprint 13) — `icd10_codes` reuses `simple`, and has no RLS
+
+Sprint 13 adds the МКХ-10 reference table (`icd10_codes`, migration
+`0054`) with a `search_vector tsvector GENERATED ALWAYS AS
+to_tsvector('simple', display_uk || display_en || code) STORED` and a
+GIN index — the **same `simple` configuration and for the same
+reason**: there is no Postgres Ukrainian stemmer we trust, and clinical
+terminology is exactly where a wrong stemmer does damage. A clinician
+typing «гіпертонічна» matches the stored form directly; the FE
+debounces, and the ranking ladder (exact code → code prefix → FTS)
+means the code path never depends on stemming at all.
+
+Unlike the sprint-08 report search, this query **does** use `ts_rank`
+— within the FTS tier only, after `tier` and `is_leaf`. Ordering is
+fully deterministic (`code ASC` tiebreak) because the nlp extractor
+runs the same statement and the pipeline's replay contract requires
+byte-equal results.
+
+The ranking statement lives in exactly one place —
+`db.ICD10_SEARCH_SQL` — imported by both report-service's picker
+endpoint and nlp-service's extractor repository. A unit test fails if
+any service inlines a second copy: a picker and an extractor that
+disagreed about the best match would surface as the system
+contradicting itself in front of a clinician.
+
+**No RLS on `icd10_codes`**, following `medical_prompts` (0008) and
+`voice_commands` (0011): it is a published global classification with
+no tenant or patient dimension. Allowlisted in
+`scripts/ci/check-rls-policies.py` with a pointer to
+`docs/runbooks/icd10.md`, which also records the data-acquisition and
+reload policy.

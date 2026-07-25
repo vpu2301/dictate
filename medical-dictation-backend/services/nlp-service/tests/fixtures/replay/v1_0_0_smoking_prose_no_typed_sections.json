@@ -1,0 +1,16 @@
+{
+  "context": {
+    "fingerprint": "replay-fixture-fp",
+    "is_partial": false,
+    "language": "uk",
+    "reference_date": "2026-07-22",
+    "specialty": null,
+    "template_sections": [],
+    "tenant_id": "00000000-0000-0000-0000-00000000000a"
+  },
+  "expected_encoded": "{\"confidence_spans\":[],\"metadata\":{\"abbreviation.applied\":0,\"abbreviation.snapshot_fingerprint\":\"replay-fixture-fp\",\"confidence.spans\":0,\"date_norm.changed\":false,\"number_norm.changed\":false},\"operations\":[],\"text\":\"пацієнт не палить, алкоголь заперечує\",\"voice_commands\":[],\"warnings\":[],\"words\":[]}",
+  "input": {
+    "text": "пацієнт не палить, алкоголь заперечує"
+  },
+  "pipeline_version": "nlp-v1.0.0"
+}

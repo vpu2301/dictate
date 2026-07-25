@@ -23,7 +23,7 @@ from auth import Claims
 from db import tenant_connection
 
 from .. import audit_kinds
-from ..deps import get_state, requires
+from ..deps import get_state, requires, requires_any
 from ..domain import repository
 from ..session.state import SessionState
 
@@ -101,10 +101,25 @@ async def get_session(
     summary="List recent sessions for the caller (or filtered by status).",
 )
 async def list_sessions(
-    claims: Annotated[Claims, Depends(requires("dictation.read", "dictation_session"))],
+    claims: Annotated[
+        Claims,
+        Depends(
+            requires_any(
+                ("dictation.read", "dictation_session"), ("stats.read", "tenant")
+            )
+        ),
+    ],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     status_filter: Annotated[SessionState | None, Query(alias="status")] = None,
 ) -> list[SessionSummary]:
+    """S14 — also reachable by a tenant_admin holding only `stats.read`,
+    for the business dashboard's minutes-dictated KPI.
+
+    No stripping is needed here, unlike the ASR job list: `SessionSummary`
+    carries no patient reference and no transcript — only status, timings
+    and counters. The transcript lives on `SessionDetail`, behind
+    `dictation.read`, which an admin does not hold.
+    """
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         if status_filter is None:

@@ -18,16 +18,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from audit import Severity
-from auth import Claims
 from db import tenant_connection
 from report_models import ReadPurpose, ReportStatus
 
 from .. import audit_kinds
 from ..config import settings
-from ..deps import get_state, requires
+from ..deps import get_state
 from ..domain import reports_repository as repo
 from ..domain.branding import load_tenant_branding
 from ..domain.pdf import render_report_pdf
+from ._phi_access_guard import ReportReadAccess, report_read_access
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ router = APIRouter(prefix="/v1/reports", tags=["reports"])
 )
 async def get_report_pdf(
     report_id: UUID,
-    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
+    access: Annotated[ReportReadAccess, Depends(report_read_access)],
     purpose: Annotated[
         ReadPurpose | None, Query(description="Required for non-author reads.")
     ] = None,
@@ -54,6 +54,10 @@ async def get_report_pdf(
         Query(description="Render language; falls back to the report language, else 'uk'."),
     ] = None,
 ) -> Response:
+    # Break-glass reaches the PDF too (S14): a report an admin may read
+    # is a report they may export, and refusing the PDF would only push
+    # them to print the HTML. The guard has already counted the use.
+    claims = access.claims
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         report = await repo.fetch_report(conn, report_id=report_id)
@@ -127,9 +131,25 @@ async def get_report_pdf(
             "purpose": purpose.value if purpose else "author",
             "variant": "draft" if is_draft else "clean",
             "report_status": report.status.value,
+            "break_glass": access.is_break_glass,
         },
-        severity=Severity.INFO,
+        severity=Severity.SEC if access.is_break_glass else Severity.INFO,
     )
+    if access.is_break_glass:
+        await state.audit_writer.write_event(
+            tenant_id=claims.tid,
+            kind=audit_kinds.PHI_ACCESS_USED,
+            actor_sub=claims.sub,
+            actor_role=(claims.roles[0] if claims.roles else None),
+            target_kind="report",
+            target_id=report_id,
+            payload={
+                "grant_id": str(access.grant_id),
+                "reason_code": access.reason_code,
+                "surface": "pdf",
+            },
+            severity=Severity.SEC,
+        )
 
     filename = f"report-{report_id}-draft.pdf" if is_draft else f"report-{report_id}.pdf"
     return Response(

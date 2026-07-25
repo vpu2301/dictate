@@ -1,0 +1,90 @@
+{
+  "code": "pediatrics_outpatient_uk",
+  "language": "uk",
+  "metadata": {
+    "billing_code": null,
+    "fhir_template": "DiagnosticReport/pediatric-visit",
+    "moh_order_ref": "MoH-110-pediatrics",
+    "notes": ""
+  },
+  "name": "Педіатричний прийом",
+  "schema_version": 1,
+  "sections": [
+    {
+      "asr_prompt": "Педіатричний анамнез. Скарги. Перебіг захворювання. Анамнез життя: пологи, вакцинація, перенесені захворювання, алергії. Сімейний анамнез.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "anamnesis",
+      "min_chars": 30,
+      "name": "Анамнез",
+      "order": 0,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "анамнез",
+        "розділ анамнез"
+      ]
+    },
+    {
+      "asr_prompt": "Вага, зріст, окружність голови. Центильні коридори. Психомоторний розвиток за віком.",
+      "default_content": "",
+      "field_type": "numeric_with_unit",
+      "id": "growth",
+      "min_chars": 0,
+      "name": "Антропометрія",
+      "order": 1,
+      "required": false,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "антропометрія",
+        "вага зріст"
+      ]
+    },
+    {
+      "asr_prompt": "Огляд дитини. Загальний стан, свідомість, активність. Температура, ЧСС, ЧД, SpO2. Шкіра, слизові. Зів. Лімфовузли. Аускультація серця і легень. Живіт. Менінгеальні знаки.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "examination",
+      "min_chars": 30,
+      "name": "Об'єктивний огляд",
+      "order": 2,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "огляд",
+        "розділ огляд"
+      ]
+    },
+    {
+      "asr_prompt": "Педіатричний діагноз. Основне захворювання, ускладнення, супутні. МКХ-10.",
+      "default_content": "",
+      "field_type": "structured_diagnosis",
+      "id": "diagnosis",
+      "min_chars": 10,
+      "name": "Діагноз",
+      "order": 3,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "діагноз",
+        "розділ діагноз"
+      ]
+    },
+    {
+      "asr_prompt": "План лікування. Препарати з урахуванням маси тіла і віку. Режим. Дієта. Рекомендації батькам. Повторний візит.",
+      "default_content": "",
+      "field_type": "free_text",
+      "id": "plan",
+      "min_chars": 20,
+      "name": "План",
+      "order": 4,
+      "required": true,
+      "synthesis_prompt": "",
+      "voice_aliases": [
+        "план",
+        "розділ план"
+      ]
+    }
+  ],
+  "specialty": "pediatrics"
+}

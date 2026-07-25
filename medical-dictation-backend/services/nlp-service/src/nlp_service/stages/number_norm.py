@@ -16,8 +16,19 @@ from ..pipeline.base import (
     StageInput,
     StageOutput,
 )
+from .artifacts import numeric_artifacts_from_output
+from .number_norm_en import _UNITS as _UNITS_EN
 from .number_norm_en import normalize_en
+from .number_norm_uk import _UNITS as _UNITS_UK
 from .number_norm_uk import normalize_uk
+
+# The normalizer's OWN canonical unit vocabulary — imported, never
+# re-declared, so the artifact reader cannot drift from what the
+# normalizer actually writes.
+_CANONICAL_UNITS = {
+    "uk": frozenset(_UNITS_UK.values()) | {"мм рт. ст."},
+    "en": frozenset(_UNITS_EN.values()) | {"mmHg"},
+}
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +53,11 @@ class NumberNormStage:
                 decimal_separator=ctx.decimal_separator,
                 bp_separator=ctx.bp_separator,
             )
+        artifacts = numeric_artifacts_from_output(
+            new_text,
+            decimal_separator=ctx.decimal_separator,
+            canonical_units=_CANONICAL_UNITS[ctx.language],
+        )
         return StageOutput(
             text=new_text,
             words=input.words,
@@ -53,4 +69,6 @@ class NumberNormStage:
                 self.name + ".latency_ms": (time.monotonic() - t0) * 1000.0,
                 self.name + ".changed": new_text != input.text,
             },
+            numeric_artifacts=artifacts,
+            date_artifacts=input.date_artifacts,
         )

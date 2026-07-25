@@ -62,7 +62,7 @@ class SuggestResponse(BaseModel):
 @router.post("/suggest", response_model=SuggestResponse)
 async def suggest(
     body: SuggestRequest,
-    claims: Annotated[Claims, Depends(requires("report.read", "report"))],
+    claims: Annotated[Claims, Depends(requires("autocomplete.read", "phrase"))],
 ) -> SuggestResponse:
     state = get_state()
     request_id = uuid.uuid4()

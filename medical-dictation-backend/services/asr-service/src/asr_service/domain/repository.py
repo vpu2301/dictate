@@ -110,18 +110,30 @@ async def list_jobs(
     where_parts: list[str] = []
     args: list[Any] = []
     if status is not None:
-        where_parts.append(f"status = ${len(args) + 1}")
+        where_parts.append(f"j.status = ${len(args) + 1}")
         args.append(str(status))
     if since is not None:
-        where_parts.append(f"queued_at >= ${len(args) + 1}")
+        where_parts.append(f"j.queued_at >= ${len(args) + 1}")
         args.append(since)
     where_sql = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     args.append(limit)
+    # S14 — carry the patient through so a dictation list can name whose
+    # recording each row is. LEFT JOINs throughout: a job with no
+    # encounter (a plain upload) and a job whose patient RLS hides must
+    # both still appear. `where_sql` predicates are on transcription_jobs
+    # columns only, so the alias keeps them unambiguous.
     rows = await conn.fetch(
         f"""
-        SELECT * FROM transcription_jobs
+        SELECT j.*,
+               e.patient_id      AS patient_id,
+               p.name_uk         AS patient_name_uk,
+               p.name_en         AS patient_name_en
+        FROM transcription_jobs j
+        LEFT JOIN audio_files a ON a.id = j.audio_id
+        LEFT JOIN encounters  e ON e.id = a.encounter_id
+        LEFT JOIN patients    p ON p.id = e.patient_id
         {where_sql}
-        ORDER BY queued_at DESC
+        ORDER BY j.queued_at DESC
         LIMIT ${len(args)}
         """,
         *args,
@@ -237,4 +249,8 @@ def _row_to_view(row: asyncpg.Record) -> TranscriptionJobView:
         started_at=row["started_at"],
         finished_at=row["finished_at"],
         attempts=int(row["attempts"]),
+        # Present only on the list projection, which joins them in.
+        patient_id=row.get("patient_id"),
+        patient_name_uk=row.get("patient_name_uk"),
+        patient_name_en=row.get("patient_name_en"),
     )

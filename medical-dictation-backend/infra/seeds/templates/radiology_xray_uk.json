@@ -39,7 +39,7 @@
       "id": "impression",
       "name": "Висновок",
       "voice_aliases": ["висновок", "розділ висновок", "діагноз"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Радіологічний висновок. Основна знахідка. Диференційна діагностика. Рекомендації щодо додаткових обстежень.",
       "min_chars": 10,

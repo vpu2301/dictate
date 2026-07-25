@@ -39,7 +39,7 @@
       "id": "impression",
       "name": "Висновок",
       "voice_aliases": ["висновок"],
-      "required": true,
+      "required": false,
       "field_type": "structured_diagnosis",
       "asr_prompt": "Висновок МРТ. Основна знахідка. Диференційна діагностика. Рекомендації.",
       "min_chars": 10,
