@@ -1,0 +1,42 @@
+{
+  "dialogue_id": "uk-command-004",
+  "language": "uk",
+  "sample_rate": 16000,
+  "duration_ms": 21155,
+  "num_speakers": 2,
+  "roles": {
+    "A": "doctor",
+    "B": "patient"
+  },
+  "notes": "patient says «новий абзац» mid-story — voice-command gating fixture",
+  "turns": [
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Розкажіть, будь ласка, як почалося захворювання.",
+      "start_ms": 400,
+      "end_ms": 4676
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Спочатку був просто кашель, а потім, новий абзац, так мій син каже постійно, вибачте, потім додалася температура.",
+      "start_ms": 5126,
+      "end_ms": 13029
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Зрозуміло. Чи був кашель сухий або з мокротинням?",
+      "start_ms": 13479,
+      "end_ms": 17310
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Сухий, особливо вночі, аж спати не могла.",
+      "start_ms": 17760,
+      "end_ms": 20705
+    }
+  ]
+}

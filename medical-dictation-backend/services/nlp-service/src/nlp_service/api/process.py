@@ -80,6 +80,20 @@ class ProcessRequest(_StrictModel):
     decimal_separator: str | None = None
     bp_separator: str | None = None
     date_format: Literal["DD.MM.YYYY", "YYYY-MM-DD", "WORD"] | None = None
+    # Sprint 14 — additive: pipeline stages to skip for this request.
+    # Conversation mode passes ["voice_commands"] so patient speech can
+    # never trigger editing operations.
+    stages_disabled: list[
+        Literal[
+            "voice_commands",
+            "punctuation",
+            "number_norm",
+            "date_norm",
+            "abbreviation",
+            "field_extraction",
+            "confidence",
+        ]
+    ] = Field(default_factory=list)
 
 
 class ConfidenceSpanOut(_StrictModel):
@@ -160,6 +174,7 @@ async def process(
         decimal_separator=body.decimal_separator or _default_decimal(body.language),
         bp_separator=body.bp_separator or "/",
         date_format=body.date_format or _default_date_format(body.language),
+        stages_disabled=tuple(sorted(set(body.stages_disabled))),
     )
 
     initial = StageInput(
@@ -228,6 +243,20 @@ class BatchProcessRequest(_StrictModel):
     decimal_separator: str | None = None
     bp_separator: str | None = None
     date_format: Literal["DD.MM.YYYY", "YYYY-MM-DD", "WORD"] | None = None
+    # Sprint 14 — additive, request-level: applies to ALL segments.
+    # Conversation mode passes ["voice_commands"] so patient speech can
+    # never trigger editing operations.
+    stages_disabled: list[
+        Literal[
+            "voice_commands",
+            "punctuation",
+            "number_norm",
+            "date_norm",
+            "abbreviation",
+            "field_extraction",
+            "confidence",
+        ]
+    ] = Field(default_factory=list)
 
 
 class BatchSegmentOut(_StrictModel):
@@ -275,6 +304,7 @@ async def process_batch(
         # Batch consumers have no editor to run Operations — dictated
         # punctuation is applied straight into the text.
         apply_operations_inline=True,
+        stages_disabled=tuple(sorted(set(body.stages_disabled))),
     )
 
     out_segments: list[BatchSegmentOut] = []

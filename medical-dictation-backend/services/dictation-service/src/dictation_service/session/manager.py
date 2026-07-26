@@ -85,6 +85,25 @@ class SessionContext:
     active_section_id: str | None = None
     active_section_prompt: str | None = None
 
+    # Sprint-14: conversation mode + protocol v2. The diarization stream
+    # and mapping inference live on the context so an in-process resume
+    # keeps the speaker timeline exactly like `finalized_segments`.
+    mode: str = "dictation"  # 'dictation' | 'conversation'
+    protocol_version: int = 1
+    bearer: str | None = None  # raw token — draft creation forwards the clinician's identity
+    capacity_weight: int = 1
+    patient_id: UUID | None = None  # resolved by the consent gate (conversation only)
+    diarization: Any | None = None  # DiarizationStream (Any: torch-free import path)
+    mapping_inference: Any | None = None  # SpeakerMappingInference
+    mapping_manual: bool = False  # a SetSpeakerMapping arrived; inference frozen
+    # Honesty metrics (Grafana DER proxy). Counted on COMMITTED words
+    # only — partials are re-emitted every tick until they commit.
+    unknown_speaker_words: int = 0
+    labeled_speaker_words: int = 0
+    pending_speaker_words: int = 0
+    speaker_mapping_updates: int = 0
+    speaker_mapping_manual_sets: int = 0
+
     def touch(self) -> None:
         self.last_active_at = time.monotonic()
 
@@ -108,10 +127,23 @@ class SessionManager:
     def total_count(self) -> int:
         return len(self._sessions)
 
+    @property
+    def total_weight(self) -> int:
+        """Mode-aware load: dictation = 1, conversation = its configured
+        weight (2 by default — two resident models). The cap compares
+        weight, not headcount: 4 dictation OR 2 conversation OR a mix."""
+        return sum(s.capacity_weight for s in self._sessions.values())
+
+    def fits(self, weight: int) -> bool:
+        return self.total_weight + weight <= self._max_sessions
+
     async def register(self, ctx: SessionContext) -> None:
         async with self._lock:
-            if self.total_count >= self._max_sessions:
-                raise CapacityError(f"worker at capacity ({self._max_sessions} sessions)")
+            if self.total_weight + ctx.capacity_weight > self._max_sessions:
+                raise CapacityError(
+                    f"worker at capacity (weight {self.total_weight}"
+                    f"+{ctx.capacity_weight} > {self._max_sessions})"
+                )
             if ctx.session_id in self._sessions:
                 raise DuplicateSessionError(f"session_id {ctx.session_id} already attached")
             self._sessions[ctx.session_id] = ctx

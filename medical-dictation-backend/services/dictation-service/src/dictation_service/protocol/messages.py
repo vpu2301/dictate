@@ -20,6 +20,16 @@ from .error_catalogue import ErrorCode
 
 # Bumping this is the only way to break v1 compatibly — see ADR-0012.
 PROTOCOL_VERSION_V1: int = 1
+# Sprint 14: medical-dictation.v2 — diarization fields + conversation
+# mode. Negotiated via the Sec-WebSocket-Protocol header; a session is
+# exactly one version for its whole lifetime. See docs/api/dictation-ws-v2.md.
+PROTOCOL_VERSION_V2: int = 2
+
+# Anonymous diarization labels (raw clustering output). The doctor/
+# patient interpretation is a SEPARATE, overridable mapping — see
+# SpeakerMappingUpdated / SetSpeakerMapping.
+SpeakerLabel = Literal["S1", "S2", "UNKNOWN"]
+SpeakerRole = Literal["doctor", "patient"]
 
 
 class _StrictModel(BaseModel):
@@ -223,3 +233,94 @@ class AudioFrame(_StrictModel):
     type: Literal["audio_frame"] = "audio_frame"
     seq: NonNegativeInt
     opus: bytes
+
+
+# ──────────────────────────────────────────────────────────────────────
+# medical-dictation.v2 (sprint 14) — diarization + conversation mode.
+#
+# v1 stays byte-stable: none of the classes above changed. The v2
+# unions swap in subclasses for the messages that gained fields and add
+# the two new speaker-mapping messages. A v1 client that receives a v2
+# frame rejects it cleanly via extra="forbid" (the sprint-04 promise —
+# proven in tests/unit/test_protocol_v2.py).
+# ──────────────────────────────────────────────────────────────────────
+
+
+class SessionStartedV2(SessionStarted):
+    protocol_version: int = PROTOCOL_VERSION_V2
+    mode: Literal["dictation", "conversation"] = "dictation"
+
+
+class PartialV2(Partial):
+    """v2 partial: segment-level speaker proposal. ``speaker`` may be
+    null while diarization trails the text by up to one window — the FE
+    renders text immediately and colours it when the label lands."""
+
+    speaker: SpeakerLabel | None = None
+    speaker_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    speaker_mapping_hint: dict[str, SpeakerRole | None] | None = None
+
+
+class FinalV2(Final):
+    """v2 final: committed segment with its speaker proposal. The label
+    itself is still a PROPOSAL (confidence + UNKNOWN honesty) — only the
+    clinician's review makes it ground truth."""
+
+    speaker: SpeakerLabel | None = None
+    speaker_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    speaker_mapping_hint: dict[str, SpeakerRole | None] | None = None
+
+
+class SpeakerMappingUpdated(_StrictModel):
+    """Server → client: the doctor/patient mapping inference changed its
+    hypothesis (or acknowledges a manual set). The FE relabels
+    already-rendered turns. Never emitted again after a manual set,
+    except as the ``manual=True`` acknowledgement itself."""
+
+    type: Literal["speaker_mapping_updated"] = "speaker_mapping_updated"
+    session_id: UUID
+    mapping: dict[str, SpeakerRole | None]
+    confidence: float = Field(ge=0.0, le=1.0)
+    rationale: str = ""
+    manual: bool = False
+
+
+class SetSpeakerMapping(_StrictModel):
+    """Client → server: the clinician's manual assignment. Authoritative
+    from the moment received — the server stops re-inferring."""
+
+    type: Literal["set_speaker_mapping"] = "set_speaker_mapping"
+    mapping: dict[str, SpeakerRole]
+
+
+class StartSessionV2(StartSession):
+    protocol_version: int = PROTOCOL_VERSION_V2
+    mode: Literal["dictation", "conversation"] = "dictation"
+
+
+ServerMessageV2 = Annotated[
+    SessionStartedV2
+    | PartialV2
+    | FinalV2
+    | SpeakerMappingUpdated
+    | VoiceCommand
+    | WarningMessage
+    | Heartbeat
+    | TokenExpiring
+    | SessionTerminated
+    | Error,
+    Field(discriminator="type"),
+]
+
+
+ClientMessageV2 = Annotated[
+    StartSessionV2
+    | SetSpeakerMapping
+    | RefreshToken
+    | EndSession
+    | Pause
+    | Resume
+    | RetransmitRange
+    | SwitchSection,
+    Field(discriminator="type"),
+]

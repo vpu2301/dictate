@@ -9,7 +9,16 @@ members = ["services/*", "libs/*"]
 # harness (scripts/eval/run_wer.py) runs out of the box with a bare
 # `uv run python scripts/eval/run_wer.py --corpus eval/corpus`. macOS-gated:
 # Linux/CI resolution and the production images are unchanged.
-dev = ["faster-whisper>=1.0.0 ; sys_platform == 'darwin'"]
+dev = [
+    "faster-whisper>=1.0.0 ; sys_platform == 'darwin'",
+    # Sprint 14 diarization: silero-vad + speechbrain are excluded from
+    # dictation-service's runtime deps on macOS (same rationale as
+    # faster-whisper above) but the DER eval harness
+    # (scripts/eval/run_der.py) must run on a dev laptop. macOS-gated:
+    # Linux/CI resolution and the production images are unchanged.
+    "silero-vad>=6.0.0 ; sys_platform == 'darwin'",
+    "speechbrain>=1.0.0 ; sys_platform == 'darwin'",
+]
 
 
 [tool.ruff]
@@ -122,6 +131,7 @@ layers = [
     "dictation_service.routers",
     "dictation_service.ws",
     "dictation_service.session",
+    "dictation_service.diarization",
     "dictation_service.inference",
     "dictation_service.audio",
     "dictation_service.protocol",

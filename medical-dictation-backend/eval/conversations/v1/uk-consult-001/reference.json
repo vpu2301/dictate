@@ -1,0 +1,63 @@
+{
+  "dialogue_id": "uk-consult-001",
+  "language": "uk",
+  "sample_rate": 16000,
+  "duration_ms": 29470,
+  "num_speakers": 2,
+  "roles": {
+    "A": "doctor",
+    "B": "patient"
+  },
+  "notes": "doctor opens; canonical mapping fixture",
+  "turns": [
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Доброго дня, проходьте, сідайте. Що вас турбує?",
+      "start_ms": 400,
+      "end_ms": 4799
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Доброго дня, лікарю. Вже тиждень болить голова, особливо зранку.",
+      "start_ms": 5249,
+      "end_ms": 9978
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Чи вимірювали ви артеріальний тиск останнім часом?",
+      "start_ms": 10428,
+      "end_ms": 13654
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Так, вчора був сто сорок на дев'яносто.",
+      "start_ms": 14104,
+      "end_ms": 16733
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Чи приймаєте ви зараз якісь препарати від тиску?",
+      "start_ms": 17183,
+      "end_ms": 20325
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Ні, нічого не приймаю, тільки іноді цитрамон від голови.",
+      "start_ms": 20775,
+      "end_ms": 24406
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Призначаю добове моніторування тиску та загальний аналіз крові.",
+      "start_ms": 24856,
+      "end_ms": 29020
+    }
+  ]
+}

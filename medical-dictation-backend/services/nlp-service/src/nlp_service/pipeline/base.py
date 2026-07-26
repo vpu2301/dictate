@@ -161,6 +161,12 @@ class ProcessingContext:
     # into ``text`` at the command's position by Stage 1. Streaming
     # keeps False — the FE editor owns op application (sprint 04/06).
     apply_operations_inline: bool = False
+    # Sprint 14: stage names (matching ``Stage.name``) the orchestrator
+    # must skip for this request — conversation-mode transcripts pass
+    # ("voice_commands",) so patient speech can never trigger editing
+    # operations. Callers normalize (dedupe + sort) before constructing;
+    # the value participates in the idempotence cache key.
+    stages_disabled: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

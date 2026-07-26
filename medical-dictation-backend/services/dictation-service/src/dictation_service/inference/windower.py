@@ -138,7 +138,11 @@ class StreamingWindower:
         decisions: list[CommitDecision] = self.committer.evaluate(
             candidates=candidates,
             now_ms=window_end_ms,
-            window_seconds=self.window_s,
+            # The next window re-transcribes the trailing `overlap_s`;
+            # anything older than that cannot be revised again, so it is
+            # commit-eligible. Passing the full window here meant no
+            # candidate ever qualified (see committer docstring).
+            commit_horizon_ms=int(self.overlap_s * 1000),
             no_speech_prob=window_no_speech_prob,
             last_silence_boundary_ms=silence_boundary_ms,
         )

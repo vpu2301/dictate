@@ -75,25 +75,37 @@ class NlpClient:
         specialty: str | None,
         reference_date: date | None,
         template_sections: list[dict[str, Any]] | None = None,
+        stages_disabled: list[str] | None = None,
+        bearer: str | None = None,
     ) -> NlpResult | None:
         """Run the pipeline on a final segment. Returns None on timeout.
 
         Caller (dictation-service handler) treats None as a graceful
         degradation cue: emit the raw text + a ``dictation.nlp_timeout``
         audit row.
+
+        Sprint 14: ``stages_disabled=["voice_commands"]`` for
+        conversation-mode finals — a patient saying «новий абзац» must
+        stay verbatim text, never an editing operation. ``bearer``
+        forwards the clinician's token (the repo's cross-service-action
+        pattern); the constructor-level service token is the fallback.
         """
+        body: dict[str, Any] = {
+            "text": text,
+            "words": words,
+            "language": language,
+            "specialty": specialty,
+            "reference_date": reference_date.isoformat() if reference_date else None,
+            "is_partial": False,
+            "template_sections": template_sections or [],
+        }
+        if stages_disabled:
+            body["stages_disabled"] = sorted(stages_disabled)
         return await self._post(
             "/nlp/process",
             timeout=self._config.timeout_seconds,
-            body={
-                "text": text,
-                "words": words,
-                "language": language,
-                "specialty": specialty,
-                "reference_date": reference_date.isoformat() if reference_date else None,
-                "is_partial": False,
-                "template_sections": template_sections or [],
-            },
+            body=body,
+            bearer=bearer,
         )
 
     async def process_partial(
@@ -118,16 +130,61 @@ class NlpClient:
             },
         )
 
+    async def process_segments_batch(
+        self,
+        *,
+        segments: list[dict[str, Any]],
+        language: str,
+        specialty: str | None = None,
+        stages_disabled: list[str] | None = None,
+        bearer: str | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any] | None:
+        """Finalize-time enrichment: one batch call over all committed
+        segments (sprint 14). Segment dicts follow ``BatchSegmentIn``:
+        {"text": ..., "words": [{"text","start_s","end_s","probability"}]}.
+        Returns the raw response dict or None on any failure — the raw
+        transcript always persists regardless."""
+        body: dict[str, Any] = {
+            "segments": segments,
+            "language": language,
+            "specialty": specialty,
+        }
+        if stages_disabled:
+            body["stages_disabled"] = sorted(stages_disabled)
+        headers = {"Authorization": f"Bearer {bearer}"} if bearer else None
+        effective_timeout = timeout if timeout is not None else self._config.timeout_seconds
+        try:
+            resp = await asyncio.wait_for(
+                self._client.post("/nlp/process/batch", json=body, headers=headers),
+                timeout=effective_timeout,
+            )
+        except (TimeoutError, httpx.TimeoutException):
+            logger.info("nlp.batch_timeout", extra={"timeout_s": effective_timeout})
+            return None
+        except httpx.HTTPError as exc:
+            logger.warning("nlp.batch_transport_error", extra={"error_class": type(exc).__name__})
+            return None
+        if resp.status_code != 200:
+            logger.warning("nlp.batch_non_200", extra={"status": resp.status_code})
+            return None
+        return dict(resp.json())
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
     # ── HTTP ───────────────────────────────────────────────────────
 
-    async def _post(self, path: str, *, timeout: float, body: dict[str, Any]) -> NlpResult | None:
+    async def _post(
+        self, path: str, *, timeout: float, body: dict[str, Any], bearer: str | None = None
+    ) -> NlpResult | None:
+        headers = {"Authorization": f"Bearer {bearer}"} if bearer else None
         attempts = 2 if self._config.retry_on_503 else 1
         for attempt in range(attempts):
             try:
-                resp = await asyncio.wait_for(self._client.post(path, json=body), timeout=timeout)
+                resp = await asyncio.wait_for(
+                    self._client.post(path, json=body, headers=headers), timeout=timeout
+                )
             except (TimeoutError, httpx.TimeoutException):
                 logger.info(
                     "nlp.timeout",

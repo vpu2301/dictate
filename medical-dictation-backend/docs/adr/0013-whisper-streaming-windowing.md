@@ -97,3 +97,63 @@ No protocol or repository changes needed.
   audio (validated by clinical content lead).
 - GPU cost of windowing becomes a budget concern (unlikely — sprint 16
   capacity model has headroom).
+
+---
+
+## Amendment (sprint 14, 2026-07-26): the commit policy never committed
+
+Running real audio end-to-end through the production streaming path for
+the first time (`scripts/eval/run_conversation_e2e.py`, needed for
+conversation mode) exposed **three defects in the as-built commit
+policy that between them meant a session could emit partials forever
+and finalize an EMPTY transcript.** No test caught them because the
+committer's unit tests fed it inputs the windower cannot produce, and
+sprint-04's chaos/load suites drive synthetic Opus frames that never
+reach a commit decision. (The SPA has been on browser Web Speech, so no
+live client exercised this path either.)
+
+**1. The commit horizon was unreachable.** Rule 1 required a word to be
+older than one FULL window (4 s), but `StreamingWindower.integrate`
+only ever offers candidates drawn from the current 4 s window, so
+`now_ms - w.end_ms < 4000` always held and *every* candidate was
+rejected as `too_recent`.
+*Fix*: the horizon is the OVERLAP (2 s) — the correct LocalAgreement
+criterion, since the next window re-transcribes only the trailing
+`overlap_s` and anything older can no longer be revised.
+`Committer.evaluate` now takes `commit_horizon_ms` instead of
+`window_seconds`, and the windower passes `overlap_s`.
+
+**2. The VAD silence gate was unreachable in real speech.** Rule 2
+requires a VAD silence boundary, and `VadConfig.min_silence_frames` was
+25 frames = **500 ms of contiguous silence**. Measured inter-utterance
+pauses in natural clinical dictation and in doctor↔patient turn-taking
+run ~200–450 ms, so `last_silence_boundary_ms` returned `None` for
+every window of real speech.
+*Fix*: 12 frames = **240 ms**, matching the standard inter-pause
+threshold and Silero's own turn-splitting default.
+
+**3. Silence-gating had no backstop.** Even correctly tuned, rule 2
+made transcript progress *conditional on the speaker pausing*. A
+pause-free stretch (fast dictation, an animated consultation) would
+hold words provisional indefinitely and lose them at finalize — data
+loss in a medical record.
+*Fix*: `commit_max_provisional_ms` (default 4000, 2× the horizon):
+past it a word commits with reason `stale_commit` even without a
+silence boundary. It is already outside the revision horizon, so
+holding it back only risks losing it.
+
+### Consequences
+
+- Targets §9 are unchanged and still met on the CPU harness: partial
+  p95 400 ms (budget 1100 ms) with both Whisper and the diarizer
+  resident; diarization is ~10 % of per-window pipeline cost.
+- The normal commit path is still silence-gated, so the "final p95
+  ≤ 2500 ms after a silence boundary" target keeps its meaning; the
+  backstop only bounds the pathological case.
+- Regression coverage now sits at the level where the bug lived:
+  `tests/unit/test_windower_commits.py` drives the real
+  `StreamingWindower` and asserts finals are produced, so an
+  unreachable commit horizon fails CI instead of shipping.
+- **The A10G rig must re-verify these numbers with `large-v3`**
+  (todo.md, S14): window inference there is ~5× faster than the CPU
+  `tiny` used here, which changes the cadence these thresholds sit in.

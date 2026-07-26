@@ -1,0 +1,84 @@
+{
+  "dialogue_id": "uk-rapid-005",
+  "language": "uk",
+  "sample_rate": 16000,
+  "duration_ms": 12809,
+  "num_speakers": 2,
+  "roles": {
+    "A": "doctor",
+    "B": "patient"
+  },
+  "notes": "rapid short turns — hardest windowed-diarization case",
+  "turns": [
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Алергія на ліки є?",
+      "start_ms": 400,
+      "end_ms": 1796
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Ні.",
+      "start_ms": 2096,
+      "end_ms": 2373
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Курите?",
+      "start_ms": 2673,
+      "end_ms": 3200
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Ні, кинув.",
+      "start_ms": 3500,
+      "end_ms": 4397
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Давно?",
+      "start_ms": 4697,
+      "end_ms": 5206
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Три роки тому.",
+      "start_ms": 5506,
+      "end_ms": 6345
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Алкоголь?",
+      "start_ms": 6645,
+      "end_ms": 7416
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Рідко, по святах.",
+      "start_ms": 7716,
+      "end_ms": 9028
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Тиск підвищується?",
+      "start_ms": 9328,
+      "end_ms": 10653
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Буває, після стресу.",
+      "start_ms": 10953,
+      "end_ms": 12359
+    }
+  ]
+}

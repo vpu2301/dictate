@@ -71,7 +71,10 @@ class _InMemoryCache:
         self.store[key] = value
 
 
-def _ctx(is_partial: bool = False) -> ProcessingContext:
+def _ctx(
+    is_partial: bool = False,
+    stages_disabled: tuple[str, ...] = (),
+) -> ProcessingContext:
     return ProcessingContext(
         tenant_id=UUID("00000000-0000-0000-0000-000000000001"),
         language="uk",
@@ -80,6 +83,7 @@ def _ctx(is_partial: bool = False) -> ProcessingContext:
         is_partial=is_partial,
         abbreviation_snapshot=AbbreviationSnapshot(entries=(), fingerprint="x"),
         pipeline_version="t",
+        stages_disabled=stages_disabled,
     )
 
 
@@ -112,6 +116,40 @@ def test_idempotence_key_changes_with_partial_flag() -> None:
     a = idempotence_key(_ctx(is_partial=False), StageInput(text="hello"))
     b = idempotence_key(_ctx(is_partial=True), StageInput(text="hello"))
     assert a != b
+
+
+def test_disabled_stage_is_skipped_with_metadata() -> None:
+    # Sprint 14: a disabled stage is skipped and leaves a deterministic
+    # metadata marker (must survive _strip_nondeterministic).
+    orch = Orchestrator(stages=[_Identity(), _Uppercase()])
+    out = asyncio.run(
+        orch.run(_ctx(stages_disabled=("uppercase",)), StageInput(text="hello"))
+    )
+    assert out.text == "hello"  # NOT uppercased
+    assert out.metadata["uppercase.skipped_disabled"] is True
+
+
+def test_idempotence_key_changes_with_stages_disabled() -> None:
+    a = idempotence_key(_ctx(), StageInput(text="hello"))
+    b = idempotence_key(_ctx(stages_disabled=("uppercase",)), StageInput(text="hello"))
+    assert a != b
+
+
+def test_disabled_stage_not_run_on_partials_either() -> None:
+    # Disabled wins even for a stage that WOULD run on partials.
+    orch = Orchestrator(stages=[_Identity(), _Uppercase()])
+    out = asyncio.run(
+        orch.run(
+            _ctx(is_partial=True, stages_disabled=("identity", "uppercase")),
+            StageInput(text="hello"),
+        )
+    )
+    assert out.text == "hello"
+    assert out.metadata["identity.skipped_disabled"] is True
+    # uppercase is disabled — the disabled marker takes precedence over
+    # the partial-skip marker.
+    assert out.metadata["uppercase.skipped_disabled"] is True
+    assert "uppercase.skipped_partial" not in out.metadata
 
 
 def test_cache_hit_returns_cached_output() -> None:

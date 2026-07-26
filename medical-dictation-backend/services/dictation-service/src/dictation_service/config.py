@@ -123,10 +123,48 @@ class Settings(BaseSettings):
     no_speech_prob_drop_threshold: float = Field(
         default=0.6, alias="MDX_NO_SPEECH_PROB_DROP_THRESHOLD"
     )
+    # Backstop for the silence-gated commit rule: a word older than this
+    # commits even without a VAD silence boundary, so continuous speech
+    # can never stall the transcript (sprint-14 fix, ADR-0013 amendment).
+    # 4 s = 2× the commit horizon; keeps final latency inside the
+    # sprint-04 p95 ≤ 2500 ms target for the normal (silence-gated) path.
+    commit_max_provisional_ms: int = Field(
+        default=4000, alias="MDX_COMMIT_MAX_PROVISIONAL_MS"
+    )
     aligner_boundary_uncertainty_threshold: float = Field(
         default=0.30, alias="MDX_ALIGNER_BOUNDARY_UNCERTAINTY_THRESHOLD"
     )
     prompt_max_tokens: int = Field(default=150, alias="MDX_PROMPT_MAX_TOKENS")
+
+    # ── Conversation mode / diarization (sprint 14, ADR-0034) ───────────
+    conversation_enabled: bool = Field(default=True, alias="MDX_CONVERSATION_ENABLED")
+    # Baked model dir produced by scripts/models/prepare_ecapa.py
+    # (Dockerfile bakes /opt/models/ecapa; macOS dev default matches the
+    # prepare script's default target so `make prepare-ecapa` just works).
+    diar_model_dir: str = Field(default="/opt/models/ecapa", alias="MDX_DIAR_MODEL_DIR")
+    # "cpu" is the safe-everywhere default; the GPU compose overlay sets
+    # MDX_DIAR_DEVICE=cuda so ECAPA shares the A10G with Whisper.
+    diar_device: str = Field(default="cpu", alias="MDX_DIAR_DEVICE")
+    # A conversation session runs two models; weighted capacity below.
+    # Weight 2 => 4 dictation OR 2 conversation OR 2+1 mix per worker.
+    # CONFIGURED, not yet GPU-measured — see todo.md (S14) + ADR-0034.
+    conversation_session_weight: int = Field(
+        default=2, alias="MDX_CONVERSATION_SESSION_WEIGHT"
+    )
+
+    # ── Finalize-time NLP + draft creation (sprint 14) ──────────────────
+    # Finalize is not latency-critical; generous timeouts, graceful
+    # degradation (raw transcript persists if either call fails).
+    nlp_base_url: str = Field(default="http://nlp-service:8000", alias="MDX_NLP_BASE_URL")
+    finalize_nlp_timeout_seconds: float = Field(
+        default=5.0, alias="MDX_FINALIZE_NLP_TIMEOUT_SECONDS"
+    )
+    report_base_url: str = Field(
+        default="http://report-service:8000", alias="MDX_REPORT_BASE_URL"
+    )
+    report_draft_timeout_seconds: float = Field(
+        default=5.0, alias="MDX_REPORT_DRAFT_TIMEOUT_SECONDS"
+    )
 
     # ── Concurrency cap per GPU worker ──────────────────────────────────
     per_worker_max_sessions: int = Field(default=4, alias="MDX_PER_WORKER_MAX_SESSIONS")

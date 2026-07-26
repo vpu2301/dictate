@@ -246,6 +246,14 @@ wer-eval-corpus: ## Run the sprint-07 manifest corpus WER eval (GPU+model on Lin
 	    --output eval/reports \
 	    $(if $(EVAL_DB_DSN),--dsn $(EVAL_DB_DSN),)
 
+prepare-ecapa: ## Fetch + checksum-verify the pinned ECAPA diarization model (sprint 14, ADR-0034)
+	uv run python scripts/models/prepare_ecapa.py
+
+der-eval: ## Run the sprint-14 conversation diarization eval (DER + attribution + latency; CPU on macOS, A10G rig is the gate)
+	uv run python scripts/eval/run_der.py \
+	    --corpus eval/conversations/v1 \
+	    $(if $(DER_JSON),--json $(DER_JSON),)
+
 chaos-dictation: ## Run dictation chaos scenarios (needs dev stack + token)
 	RUN_DICTATION_CHAOS=1 uv run --project services/dictation-service pytest tests/chaos/dictation_chaos.py -v
 

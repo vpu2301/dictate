@@ -75,3 +75,31 @@ ws_upgrade_rejections = _meter.create_counter(
     description="Rejected WS upgrades by reason",
     unit="1",
 )
+
+# ── Conversation mode / diarization (sprint 14, ADR-0034) ────────────
+# The DER proxy: we cannot compute true DER in production (no ground
+# truth), so the honesty signals stand in for it — a diarizer that has
+# started guessing shows up as a falling UNKNOWN rate paired with a
+# rising manual-override rate. Counted on COMMITTED words only (a
+# partial is re-emitted every tick until it commits; counting those
+# would multiply-count the same word and bias the ratio).
+conversation_words = _meter.create_counter(
+    "mdx_dictation_conversation_words_total",
+    description="Committed conversation words by speaker-label outcome (labeled|unknown|pending)",
+    unit="1",
+)
+conversation_sessions = _meter.create_counter(
+    "mdx_dictation_conversation_sessions_total",
+    description="Sessions started by mode (dictation|conversation)",
+    unit="1",
+)
+speaker_mapping_updates = _meter.create_counter(
+    "mdx_dictation_speaker_mapping_updates_total",
+    description="Doctor/patient mapping emissions by source (inferred|manual)",
+    unit="1",
+)
+diarization_window_ms = _meter.create_histogram(
+    "mdx_dictation_diarization_window_ms",
+    description="Wall-clock for one diarization window (VAD + embed + cluster)",
+    unit="ms",
+)

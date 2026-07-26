@@ -1,0 +1,77 @@
+{
+  "dialogue_id": "uk-cardio-002",
+  "language": "uk",
+  "sample_rate": 16000,
+  "duration_ms": 34615,
+  "num_speakers": 2,
+  "roles": {
+    "A": "doctor",
+    "B": "patient"
+  },
+  "notes": "cardiology vocabulary; doctor opens",
+  "turns": [
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "На що скаржитеся сьогодні?",
+      "start_ms": 400,
+      "end_ms": 2347
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Серце ніби вискакує, і задишка коли підіймаюся сходами.",
+      "start_ms": 2797,
+      "end_ms": 6277
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Як давно з'явилася задишка при фізичному навантаженні?",
+      "start_ms": 6727,
+      "end_ms": 10516
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Місяців зо два тому, спочатку не звертала уваги.",
+      "start_ms": 10966,
+      "end_ms": 14090
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Чи бували напади болю за грудиною з віддачею у ліву руку?",
+      "start_ms": 14540,
+      "end_ms": 18249
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Один раз було, минулого тижня, хвилин п'ять тримало.",
+      "start_ms": 18699,
+      "end_ms": 22300
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Направляю вас на електрокардіограму та ехокардіографію серця.",
+      "start_ms": 22750,
+      "end_ms": 27015
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Добре, лікарю, а це терміново?",
+      "start_ms": 27465,
+      "end_ms": 29725
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Бажано цього тижня. Також здайте аналіз на тропонін.",
+      "start_ms": 30175,
+      "end_ms": 34165
+    }
+  ]
+}

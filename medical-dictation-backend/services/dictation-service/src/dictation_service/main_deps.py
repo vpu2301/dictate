@@ -15,7 +15,11 @@ from db import create_pool
 from storage import EncryptedObjectStore, S3Client
 
 from .config import settings
+from .diarization.engine import DiarizationEngine
 from .inference import InferenceQueue
+from .integrations.nlp_client import NlpClient, NlpClientConfig
+from .integrations.report_client import ReportClient, ReportClientConfig
+from .integrations.template_client import TemplateClient, TemplateClientConfig
 from .session.manager import SessionManager
 
 
@@ -33,6 +37,16 @@ class ServiceState:
     engine: WhisperEngine
     inference_queue: InferenceQueue
     session_manager: SessionManager
+    # Sprint 14: conversation mode. The diarization engine loads lazily
+    # on the first conversation session (dictation-only deployments never
+    # touch torch); the HTTP clients are used at finalize only.
+    diarization_engine: DiarizationEngine
+    nlp_client: NlpClient
+    report_client: ReportClient
+    # Sprint-06 client, actually wired in sprint 14 (was dead code: no
+    # instance and no bearer existed before the upgrade began retaining
+    # the clinician's token).
+    template_client: TemplateClient
 
 
 async def build_state() -> ServiceState:
@@ -89,6 +103,27 @@ async def build_state() -> ServiceState:
 
     session_manager = SessionManager(max_sessions=settings.per_worker_max_sessions)
 
+    diarization_engine = DiarizationEngine(
+        model_dir=settings.diar_model_dir,
+        device=settings.diar_device,
+        enabled=settings.conversation_enabled,
+    )
+    nlp_client = NlpClient(
+        config=NlpClientConfig(
+            base_url=settings.nlp_base_url,
+            timeout_seconds=settings.finalize_nlp_timeout_seconds,
+        )
+    )
+    report_client = ReportClient(
+        config=ReportClientConfig(
+            base_url=settings.report_base_url,
+            timeout_seconds=settings.report_draft_timeout_seconds,
+        )
+    )
+    template_client = TemplateClient(
+        config=TemplateClientConfig(base_url=settings.report_base_url)
+    )
+
     return ServiceState(
         jwks_cache=jwks_cache,
         app_pool=app_pool,
@@ -102,6 +137,10 @@ async def build_state() -> ServiceState:
         engine=engine,
         inference_queue=inference_queue,
         session_manager=session_manager,
+        diarization_engine=diarization_engine,
+        nlp_client=nlp_client,
+        report_client=report_client,
+        template_client=template_client,
     )
 
 
@@ -112,3 +151,6 @@ async def teardown_state(state: ServiceState) -> None:
     await state.audit_writer_pool.close()
     await state.crypto_pool.close()
     await state.s3.aclose()
+    await state.nlp_client.aclose()
+    await state.report_client.aclose()
+    await state.template_client.aclose()

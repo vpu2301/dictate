@@ -13,6 +13,16 @@ Pins resolved from the Hugging Face API on **2026-06-10**.
 | asr-worker, dictation-service (GPU) | `Systran/faster-whisper-large-v3` | `edaa852ec7e145841d8ffdb056a99866b5f0a478` | `model.bin` | `69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1` | `/opt/models/whisper-large-v3` |
 | asr-worker, dictation-service (CPU dev) | `Systran/faster-whisper-tiny` | `d90ca5fe260221311c53c58e660288d3deb8d356` | `model.bin` | `dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1` | `/opt/models/whisper-tiny` |
 | nlp-service | `oliverguhr/fullstop-punctuation-multilang-large` | `345e80adc07e761d3a35feafd20f2f44a151f453` | `model.safetensors` | `270f27d7398a5fdad43bdf9953ea532fbe62c5f5227ed5f5316e9bd64a9255e1` | `/opt/models/punctuation` |
+| dictation-service (conversation mode, sprint 14, ADR-0034) | `speechbrain/spkrec-ecapa-voxceleb` | `0f99f2d0ebe89ac095bcc5903c4dd8f72b367286` | `embedding_model.ckpt` | `0575cb64845e6b9a10db9bcb74d5ac32b326b8dc90352671d345e2ee3d0126a2` | `/opt/models/ecapa` |
+
+Assembly for the ECAPA row is scripted — `scripts/models/prepare_ecapa.py`
+(also verifies `mean_var_norm_emb.ckpt`
+`cd70225b05b37be64fc5a95e24395d804231d43f74b2e1e5a513db7b69b34c33` and copies
+the repo-owned offline-patched `infra/models/ecapa/hyperparams.yaml`). Known
+gap, recorded deliberately: **Silero VAD weights ship inside the `silero-vad`
+PyPI wheel** (uv.lock-pinned, MIT) rather than through this table's
+fetch+checksum flow — acceptable for the pilot because the wheel hash is
+locked, but a future sprint should hoist the JIT file into a pinned artifact.
 
 ## How the pin is enforced
 

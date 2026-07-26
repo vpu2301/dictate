@@ -39,7 +39,12 @@ from auth.exceptions import (
 
 from ..audit_kinds import UPGRADE_FAILED
 from ..config import settings
-from ..protocol.codec import SUBPROTOCOL
+from ..protocol.codec import (
+    SUBPROTOCOL,
+    SUBPROTOCOL_PREFERENCE,
+    VERSION_BY_SUBPROTOCOL,
+    negotiate_subprotocol,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +57,13 @@ class UpgradeContext:
     subprotocol: str
     client_ip: str
     origin: str | None
+    # Sprint 14: negotiated wire version (1 = medical-dictation.v1,
+    # 2 = .v2) and the raw bearer. The bearer is retained because
+    # conversation finalize creates the report draft over HTTP with the
+    # CLINICIAN's identity (report-service enforces report.write on the
+    # caller), matching the repo's forward-the-caller's-bearer pattern.
+    protocol_version: int = VERSION_BY_SUBPROTOCOL[SUBPROTOCOL]
+    bearer: str | None = None
 
 
 class UpgradeRejected(HTTPException):
@@ -117,9 +129,12 @@ async def authorize_upgrade(
             detail="too many upgrade attempts from this IP",
         )
 
-    # Subprotocol negotiation: client must offer `medical-dictation.v1`.
+    # Subprotocol negotiation (sprint 14): the client offers a list; the
+    # server selects by preference (v2 over v1). A v1-only client is
+    # untouched; a v2-capable client that offers both gets v2.
     offered = _parse_subprotocols(websocket.headers.get("sec-websocket-protocol"))
-    if SUBPROTOCOL not in offered:
+    negotiated = negotiate_subprotocol(offered)
+    if negotiated is None:
         await _audit_upgrade_fail(
             audit_writer,
             tenant_id=None,
@@ -132,7 +147,9 @@ async def authorize_upgrade(
         raise UpgradeRejected(
             status_code=status.HTTP_400_BAD_REQUEST,
             code="unsupported_protocol",
-            detail=(f"client did not offer {SUBPROTOCOL!r}; offered={offered!r}"),
+            detail=(
+                f"client offered none of {list(SUBPROTOCOL_PREFERENCE)!r}; offered={offered!r}"
+            ),
         )
 
     # Bearer token. We accept Authorization header *or* (some browsers
@@ -217,9 +234,11 @@ async def authorize_upgrade(
 
     return UpgradeContext(
         claims=claims,
-        subprotocol=SUBPROTOCOL,
+        subprotocol=negotiated,
         client_ip=client_ip,
         origin=origin,
+        protocol_version=VERSION_BY_SUBPROTOCOL[negotiated],
+        bearer=bearer,
     )
 
 

@@ -27,13 +27,14 @@ async def insert_session(
     encounter_id: UUID | None,
     template_id: UUID | None,
     worker_id: str,
+    mode: str = "dictation",
 ) -> None:
     await conn.execute(
         """
         INSERT INTO dictation_sessions
             (id, tenant_id, user_id, language, prompt_id, target_kind,
-             encounter_id, template_id, worker_id, status, started_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',now())
+             encounter_id, template_id, worker_id, status, started_at, mode)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',now(),$10)
         """,
         session_id,
         tenant_id,
@@ -44,6 +45,7 @@ async def insert_session(
         encounter_id,
         template_id,
         worker_id,
+        mode,
     )
 
 

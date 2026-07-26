@@ -1,5 +1,50 @@
 # Outstanding human / business actions
 
+## 🔴 PRE-EXISTING BREAKAGE found during S14 — S13 template regression
+
+- [ ] **`required: true → false` on the diagnosis/assessment sections of
+      all 20 shipped templates** (owner: clinical content lead + tech
+      lead). Commit `991fc20` (S13) flipped the flag in
+      `infra/seeds/templates/*.json` while converting those sections to
+      `field_type: structured_diagnosis`. By the schema's own doctrine
+      (`classify_edit`, ADR-0016) a flipped `required` is a
+      **STRUCTURAL** template change, and clinically it means the
+      diagnosis section is now optional in every template.
+      `libs/template_models/tests/unit/test_schema.py::test_all_seed_templates_validate_and_dump_byte_identical`
+      has been failing on the branch ever since — the gate worked; the
+      change shipped anyway. **`make test` / `make ci` are red for this
+      reason alone**, independent of S14.
+      Decide: (a) intentional → re-freeze the fixtures with a recorded
+      ADR-0016 amendment, or (b) accidental → restore `required: true`
+      in the seeds. S14 deliberately did NOT regenerate the frozen
+      dumps, because doing so would erase the only evidence.
+
+## Conversation mode & diarization (S14)
+
+- [ ] **A10G rig DER gate** (owner: SRE/DevOps + tech lead). The
+      diarization numbers in ADR-0034 are CPU (Apple M5) plumbing
+      numbers, per the ADR-0019 WER precedent. Before conversation mode
+      ships to staging, run `make der-eval` on the A10G rig with both
+      models resident and record: DER, per-window latency alongside 4
+      Whisper sessions, VRAM headroom. The same missing rig already
+      blocks the sprint-07 WER gate (docs/sprint-07/SPRINT-TODO.md).
+- [ ] **Conversation session weight is configured, not measured**
+      (owner: tech lead). `MDX_CONVERSATION_SESSION_WEIGHT=2` (so 4
+      dictation OR 2 conversation per worker) is an estimate; re-measure
+      on the rig and re-tune.
+- [ ] **pyannote gated weights — decision recorded, revisit only with
+      process** (owner: tech lead + security lead). pyannote 3.x was
+      desk-rejected (ADR-0034): HF-gated weights with no gated-model
+      process in the platform, and network-resolving pipeline config vs
+      the offline bake. If SOTA DER is ever needed, first define the
+      gated-weights acceptance/custody process, then re-open with an ADR.
+- [ ] **Real two-speaker eval audio** (owner: clinical content lead +
+      DPO). `eval/conversations/v1` is synthetic TTS with generator
+      ground truth. Real consented consultation recordings (or acted
+      scripts) with hand-labeled turns are needed before the DER bar is
+      a clinical claim; the PII sweep + consent path for that corpus is
+      DPO territory.
+
 ## Structured anamnesis (S13)
 
 - [ ] **May a tenant finalize with auto-promoted ICD-10 proposals?** —
