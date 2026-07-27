@@ -67,6 +67,17 @@ class Settings(BaseSettings):
     # Roster list page size ceiling.
     patient_list_max_limit: int = Field(default=200, alias="MDX_PATIENT_LIST_MAX_LIMIT")
 
+    # ── Encounter lifecycle ─────────────────────────────────────────
+    # Ending a visit is refused while a dictation session on it is still
+    # live. A session stranded by a dead worker keeps a non-terminal status
+    # until dictation-service's reaper clears it, so only sessions heard
+    # from inside this window count — otherwise a crashed worker could wedge
+    # a visit open indefinitely. Keep this comfortably above
+    # dictation-service's heartbeat interval and below its reaper threshold.
+    encounter_live_session_window_seconds: int = Field(
+        default=120, alias="MDX_ENCOUNTER_LIVE_SESSION_WINDOW_SECONDS"
+    )
+
     # ── Patient identity (ІПН) — S11 step 01 ────────────────────────
     # HMAC key for the ipn_hmac lookup token. Deliberately independent from
     # signing-service's SIGNER_IPN_HMAC_KEY (ADR-0027): patient identity and

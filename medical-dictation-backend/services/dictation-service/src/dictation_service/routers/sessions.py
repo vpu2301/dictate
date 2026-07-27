@@ -10,6 +10,7 @@ All endpoints are RLS-scoped via :func:`db.tenant_connection`.
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from typing import Annotated, Any
@@ -30,6 +31,25 @@ from ..session.state import SessionState
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dictate", tags=["dictate"])
+
+
+def _transcript_from_row(raw: Any) -> list[dict[str, Any]]:
+    """Decode ``transcript_jsonb`` off an asyncpg row.
+
+    No dict/list↔jsonb codec is registered on the pool (the same reason
+    finalize writes the column with ``json.dumps``), so this column reads
+    back as a JSON **string**. Handing it straight to the response model
+    raised ``ValidationError`` → 500 on every read of this endpoint. The
+    conversation review swallows that error and falls back to what it
+    rendered live, so it stayed invisible until a transcript existed to
+    read back. Same defensive shape report-service uses for its jsonb.
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        decoded: Any = json.loads(raw)
+        return decoded if isinstance(decoded, list) else []
+    return list(raw)
 
 
 class SessionSummary(BaseModel):
@@ -84,7 +104,7 @@ async def get_session(
         language=row["language"],
         target_kind=row["target_kind"],
         prompt_id=row["prompt_id"],
-        transcript=row["transcript_jsonb"] or [],
+        transcript=_transcript_from_row(row["transcript_jsonb"]),
         total_audio_ms=int(row["total_audio_ms"]),
         avg_partial_latency_ms=row["avg_partial_latency_ms"],
         avg_final_latency_ms=row["avg_final_latency_ms"],

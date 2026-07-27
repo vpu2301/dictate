@@ -19,11 +19,13 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from observability import bootstrap, register_exception_handlers
 
+from . import telemetry
 from .config import settings
 from .deps import install_state
 from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
 from .routers import health, sessions, ws
+from .session.reaper import reaper_loop
 from .session.resume import heartbeat_worker
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,19 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     hb_task = asyncio.create_task(_hb_loop())
 
+    # Worker-state gauges (capacity weight, per-mode sessions, model
+    # residency, device memory). Sampled on a timer because they describe a
+    # standing condition, not an event — see telemetry.gauge_loop.
+    gauge_stop = asyncio.Event()
+    gauge_task = asyncio.create_task(telemetry.gauge_loop(state, gauge_stop))
+
+    # Out-of-process backstop for sessions stranded by a dead worker — the
+    # in-process abandon timer cannot survive the process that owns it.
+    reaper_stop = asyncio.Event()
+    reaper_task: asyncio.Task[None] | None = None
+    if settings.session_reaper_enabled:
+        reaper_task = asyncio.create_task(reaper_loop(state, reaper_stop))
+
     logger.info(
         "dictation-service.started",
         extra={
@@ -74,15 +89,30 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "env": settings.environment,
             "worker_id": settings.worker_id,
             "model": state.engine.model_name,
+            # Conversation capacity is a deployment-visible property of this
+            # worker: a cold diarizer means dictation-only.
+            "conversation_ready": state.diarization_engine.ready_for_conversation,
+            "conversation_session_weight": settings.conversation_session_weight,
+            "per_worker_max_sessions": settings.per_worker_max_sessions,
         },
     )
     try:
         yield
     finally:
         hb_stop.set()
+        gauge_stop.set()
+        reaper_stop.set()
         hb_task.cancel()
+        gauge_task.cancel()
+        if reaper_task is not None:
+            reaper_task.cancel()
         with suppress(asyncio.CancelledError, Exception):
             await hb_task
+        with suppress(asyncio.CancelledError, Exception):
+            await gauge_task
+        if reaper_task is not None:
+            with suppress(asyncio.CancelledError, Exception):
+                await reaper_task
         await state.inference_queue.__aexit__(None, None, None)
         await teardown_state(state)
         logger.info("dictation-service.stopped")

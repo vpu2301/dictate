@@ -1,0 +1,195 @@
+groups:
+  - name: sprint-14-conversation-capacity
+    interval: 30s
+    rules:
+      # ── Device memory ────────────────────────────────────────────────
+      # Conversation mode puts a SECOND model on the same device. This is
+      # the guard the sprint-14 deployment exists for: two resident models
+      # plus N sessions must not walk the device into an OOM mid-consultation.
+      # kind="vram" on CUDA workers, kind="rss" on CPU workers — the alert
+      # covers both because a CPU pilot worker can OOM just as hard.
+      - alert: DictationDeviceMemoryHigh
+        expr: |
+          max by (worker_id, kind) (
+            mdx_dictation_device_memory_utilization_ratio
+          ) > 0.90
+        for: 5m
+        labels:
+          severity: page
+          team: capacity
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} {{ $labels.kind }} at {{ $value | humanizePercentage }}"
+          description: |
+            Inference-device memory above 90%. Two models are resident
+            (Whisper + ECAPA/Silero, ADR-0034). An OOM here kills live
+            consultations, not just the next request.
+            Runbook: docs/runbooks/dictation.md § device-memory-pressure.
+
+      - alert: DictationDeviceMemoryCritical
+        expr: |
+          max by (worker_id, kind) (
+            mdx_dictation_device_memory_utilization_ratio
+          ) > 0.97
+        for: 1m
+        labels:
+          severity: page
+          team: capacity
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} {{ $labels.kind }} CRITICAL ({{ $value | humanizePercentage }})"
+          description: "OOM imminent. Drain conversation sessions from this worker now."
+
+      # ── Weighted saturation ──────────────────────────────────────────
+      # Replaces sprint-04's headcount rule. Headcount stopped meaning
+      # anything once a conversation session began costing 2 slots: a worker
+      # full of 2 conversation sessions reads as "2 sessions" and looks
+      # half-idle while it is in fact refusing everything with gpu_full.
+      - alert: DictationWorkerWeightSaturated
+        expr: |
+          max by (worker_id) (mdx_dictation_capacity_weight_used)
+            >=
+          max by (worker_id) (mdx_dictation_capacity_weight_max)
+        for: 5m
+        labels:
+          severity: warn
+          team: capacity
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} at full weighted capacity"
+          description: |
+            Every slot is admitted; new sessions are getting gpu_full.
+            Sprint 16 wires HPA on this metric. Today: scale manually.
+
+      - alert: DictationGpuFullRefusalsSustained
+        expr: sum(rate(mdx_dictation_session_drops_total{reason="gpu_full"}[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: page
+          team: capacity
+        annotations:
+          summary: "Clinicians are being refused sessions (gpu_full) at a sustained rate"
+          description: "The fleet is undersized for the current conversation/dictation mix."
+
+      # ── Conversation readiness ───────────────────────────────────────
+      # A worker whose diarizer failed to load stays a healthy DICTATION
+      # worker (readyz 200) — so nothing else would notice. This is the
+      # only signal that conversation capacity has silently vanished.
+      - alert: DictationConversationCapacityUnavailable
+        expr: |
+          max by (worker_id) (mdx_dictation_conversation_ready) == 0
+            and on (worker_id)
+          max by (worker_id) (mdx_dictation_model_loaded{model="whisper"}) == 1
+        for: 10m
+        labels:
+          severity: warn
+          team: dictation
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} serves dictation but NOT conversation"
+          description: |
+            The diarizer is not warm — a failed model load or a failed
+            startup checksum (fail-closed, docs/models/PINS.md). Check the
+            worker's diarization.warmup_failed / model_verified log lines
+            and /readyz `diarizer_error`.
+
+      - alert: DictationConversationFleetUnavailable
+        expr: |
+          (sum(mdx_dictation_conversation_ready) or vector(0)) == 0
+        for: 5m
+        labels:
+          severity: page
+          team: dictation
+        annotations:
+          summary: "NO worker in the fleet can take a conversation session"
+          description: "Conversation mode is effectively down. Dictation may still be fine."
+
+      # ── Latency under co-tenancy ─────────────────────────────────────
+      # THE co-tenancy claim: dictation latency survives sharing a worker
+      # with conversation sessions. Split by mode so a conversation-driven
+      # regression cannot hide inside a blended p95.
+      - alert: DictationPartialLatencyHighByMode
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, mode) (rate(mdx_dictation_partial_latency_ms_bucket[5m]))
+          ) > 1500
+        for: 5m
+        labels:
+          severity: page
+          team: dictation
+        annotations:
+          summary: "Partial latency p95 > 1500 ms in {{ $labels.mode }} mode"
+          description: |
+            Sprint-04 target is 1100 ms and it must hold for mode="dictation"
+            even while conversation sessions share the worker. If only
+            mode="conversation" is breaching, the diarizer is the suspect;
+            if BOTH are, the worker is oversubscribed — revisit
+            MDX_CONVERSATION_SESSION_WEIGHT (ADR-0035).
+
+      - alert: DictationConversationWindowSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(mdx_dictation_conversation_window_total_ms_bucket[5m]))
+          ) > 1200
+        for: 5m
+        labels:
+          severity: warn
+          team: dictation
+        annotations:
+          summary: "Combined conversation window (inference + diarization) p95 > 1200 ms"
+          description: |
+            The SUM is what has to fit the tick budget. Compare against
+            mdx_dictation_diarization_window_ms to see which half moved.
+
+      - alert: DictationDiarizationSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(mdx_dictation_diarization_window_ms_bucket[5m]))
+          ) > 250
+        for: 10m
+        labels:
+          severity: warn
+          team: dictation
+        annotations:
+          summary: "Diarization p95 > 250 ms/window"
+          description: |
+            Measured budget is ~55 ms/window on CPU (ADR-0034). A 4-5x
+            regression means CPU/GPU contention or a model/config change.
+
+      # ── Diarization honesty — the live DER proxy ─────────────────────
+      # True DER is uncomputable in production (no ground truth). ADR-0034
+      # makes UNKNOWN-rate the stand-in: the pipeline is built to answer
+      # UNKNOWN rather than guess, so a RISING UNKNOWN rate means it is
+      # struggling — and a rate near zero paired with rising manual
+      # overrides means it has started guessing. Both are alertable.
+      - alert: DictationUnknownSpeakerRateHigh
+        expr: |
+          (sum(increase(mdx_dictation_conversation_words_total{outcome="unknown"}[30m])) or vector(0))
+            /
+          clamp_min(sum(increase(mdx_dictation_conversation_words_total[30m])), 1)
+            > 0.25
+        for: 30m
+        labels:
+          severity: warn
+          team: dictation
+        annotations:
+          summary: "UNKNOWN speaker rate {{ $value | humanizePercentage }} over 30m"
+          description: |
+            Corpus baseline is 0.03 (ADR-0034); the rapid-turn stress case
+            reaches 0.38. Sustained >25% in production means real audio is
+            harder than the eval corpus — clinicians are getting unlabeled
+            words. Review with the clinical lead; consider re-baselining DER
+            on real consultation audio (todo.md).
+
+      - alert: DictationSpeakerOverrideRateHigh
+        expr: |
+          (sum(increase(mdx_dictation_speaker_mapping_updates_total{source="manual"}[6h])) or vector(0))
+            /
+          clamp_min(sum(increase(mdx_dictation_conversation_sessions_total{mode="conversation"}[6h])), 1)
+            > 0.30
+        for: 1h
+        labels:
+          severity: warn
+          team: dictation
+        annotations:
+          summary: "Clinicians manually fix doctor/patient mapping in {{ $value | humanizePercentage }} of sessions"
+          description: |
+            The mapping inference is guessing wrong often enough that
+            clinicians correct it. Paired with a LOW unknown rate this is
+            the "confidently wrong" signature — the dangerous one.

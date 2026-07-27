@@ -15,6 +15,14 @@ The directory layout it produces:
 
 Usage:
     uv run python scripts/models/prepare_ecapa.py [--target DIR]
+
+Re-pinning without editing this file (the same contract the Whisper bake
+offers via --build-arg, docs/models/PINS.md § Re-pinning):
+
+    uv run python scripts/models/prepare_ecapa.py \
+        --revision <new-commit> \
+        --embedding-sha256 <new-embedding_model.ckpt-sha256> \
+        --meanvar-sha256 <new-mean_var_norm_emb.ckpt-sha256>
 """
 
 from __future__ import annotations
@@ -48,14 +56,20 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def prepare(target: Path) -> Path:
+def prepare(
+    target: Path,
+    *,
+    revision: str = REVISION,
+    pinned: dict[str, str] | None = None,
+) -> Path:
     from huggingface_hub import snapshot_download  # lazy: needs network path only
 
+    pinned = pinned or PINNED
     snapshot = Path(
-        snapshot_download(REPO, revision=REVISION, allow_patterns=sorted(PINNED))
+        snapshot_download(REPO, revision=revision, allow_patterns=sorted(pinned))
     )
     target.mkdir(parents=True, exist_ok=True)
-    for name, want in PINNED.items():
+    for name, want in pinned.items():
         src = snapshot / name
         got = _sha256(src)
         if got != want:
@@ -74,8 +88,23 @@ def prepare(target: Path) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=DEFAULT_TARGET)
+    parser.add_argument("--revision", default=REVISION, help="immutable commit, never a tag")
+    parser.add_argument("--embedding-sha256", default=PINNED["embedding_model.ckpt"])
+    parser.add_argument("--meanvar-sha256", default=PINNED["mean_var_norm_emb.ckpt"])
     args = parser.parse_args()
-    prepare(args.target)
+    if args.revision != REVISION:
+        print(
+            f"WARNING: re-pinning to {args.revision} (default {REVISION}). "
+            "Re-baselining the DER gate after a model change is ADR-gated (ADR-0034)."
+        )
+    prepare(
+        args.target,
+        revision=args.revision,
+        pinned={
+            "embedding_model.ckpt": args.embedding_sha256,
+            "mean_var_norm_emb.ckpt": args.meanvar_sha256,
+        },
+    )
     return 0
 
 

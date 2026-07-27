@@ -43,6 +43,7 @@ from .messages import (
     StartSessionV2,
     SwitchSection,
     TokenExpiring,
+    TokenTiming,
     VoiceCommand,
     WarningMessage,
 )
@@ -80,6 +81,7 @@ __all__ = [
     "StartSessionV2",
     "SwitchSection",
     "TokenExpiring",
+    "TokenTiming",
     "VoiceCommand",
     "WarningMessage",
     "decode_binary",

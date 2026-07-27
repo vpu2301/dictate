@@ -93,6 +93,11 @@ typos at import.
 | `patient.updated`                 | info     | core-service PUT /patients/{id}  | Sprint 11 — patient demographics edited. Payload: fields (changed column names) |
 | `patient.viewed`                  | info     | core-service GET /patients/{id}  | Sprint 11 — full patient record fetched (PHI access). |
 | `encounter.created`              | info     | core-service POST /patients/{id}/encounters | Sprint 11 — encounter recorded. Payload: encounter_id, kind |
+| `encounter.started`               | info     | core-service POST /encounters/{id}/start | Migration 0058 — scheduled visit went live. Payload: encounter_id, from, to |
+| `encounter.paused`                | info     | core-service POST /encounters/{id}/pause | Migration 0058 — visit paused (clinician stepped out). Payload: encounter_id, from, to, reason? |
+| `encounter.resumed`               | info     | core-service POST /encounters/{id}/resume | Migration 0058 — paused visit resumed. Payload: encounter_id, from, to |
+| `encounter.completed`             | info     | core-service POST /encounters/{id}/complete | Migration 0058 — visit ended; stamps patients.last_visit_at. Payload: encounter_id, from, to, reason?, forced_over_live_sessions? |
+| `encounter.cancelled`             | info     | core-service POST /encounters/{id}/cancel | Migration 0058 — visit abandoned. Payload: encounter_id, from, to, reason?, forced_over_live_sessions? |
 | `note.created`                    | info     | core-service POST /notes         | Sprint 11 — clinical note created. Payload: patient_id, structure |
 | `note.updated`                    | info     | core-service PATCH /notes/{id}   | Sprint 11 — draft note edited. |
 | `note.signed`                     | info     | core-service POST /notes/{id}/sign | Sprint 11 — note signed (becomes immutable). |

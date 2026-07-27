@@ -31,6 +31,35 @@ class Settings(BaseSettings):
     asr_compute_type: str = Field(default="float16", alias="MD_ASR_COMPUTE_TYPE")
     asr_beam_size: int = Field(default=5, alias="MD_ASR_BEAM_SIZE")
 
+    # ── Streaming-window hallucination guard ────────────────────────────
+    # A streaming window is a fixed-length slice, so it regularly contains
+    # only silence or a breath between utterances. Whisper does not return
+    # nothing for those — it emits its training-set attractors ("Дякую за
+    # перегляд!" / "Thanks for watching!"), which the committer then
+    # promotes into the transcript as real speech.
+    #
+    # Running faster-whisper's bundled Silero VAD in front of the decoder
+    # drops silence-only windows BEFORE they reach the decoder. Measured on
+    # large-v3/int8/CPU: a silent 3.5 s window went from 13.8 s of compute
+    # that produced a hallucinated sentence to 0.01 s that produced
+    # nothing. The VAD asset ships inside the wheel, so this stays offline.
+    #
+    # Timestamps survive the filter: faster-whisper maps them back onto the
+    # unfiltered window (verified ≤ 20 ms drift), which is what the
+    # windower's overlap alignment and commit horizon depend on.
+    #
+    # The batch path (`transcribe`) does its own VAD segmentation upstream
+    # in `vad.detect_speech`, so this applies to the streaming path only.
+    asr_streaming_vad_filter: bool = Field(
+        default=True, alias="MD_ASR_STREAMING_VAD_FILTER"
+    )
+    # Below the sprint-04 committer's 500 ms silence-smoothing threshold, so
+    # the VAD never swallows a pause the committer wants to see as a
+    # segment boundary.
+    asr_streaming_vad_min_silence_ms: int = Field(
+        default=300, alias="MD_ASR_STREAMING_VAD_MIN_SILENCE_MS"
+    )
+
     # ── Model sourcing / pinning (Sprint B1 Day 1, ADR-0021) ────────────
     # These are build-time provenance knobs. Defaults are a no-op for the
     # runtime: `asr_model` above still selects the weights (a HF id like

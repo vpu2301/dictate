@@ -56,17 +56,24 @@ groups:
           summary: "Reconnect rate > 10% over 1h"
           description: "Likely a network or proxy issue. Check LB logs."
 
-      - alert: DictationWorkerSaturated
-        expr: max by (worker_id) (mdx_dictation_active_sessions) >= 4
+      # Sprint-14 amendment: the per-worker cap is WEIGHTED now (a
+      # conversation session costs MDX_CONVERSATION_SESSION_WEIGHT slots),
+      # and mdx_dictation_active_sessions carries a `mode` label — so the
+      # original `max by (worker_id) (...) >= 4` both under-counted a
+      # conversation-heavy worker and silently split per mode. Saturation
+      # lives in sprint-14-alerts.yml § DictationWorkerWeightSaturated;
+      # this rule now watches raw session headcount only as context.
+      - alert: DictationWorkerHighSessionCount
+        expr: sum by (worker_id) (mdx_dictation_active_sessions) >= 4
         for: 5m
         labels:
-          severity: warn
+          severity: info
           team: capacity
         annotations:
-          summary: "Worker {{ $labels.worker_id }} at capacity (4 sessions)"
+          summary: "Worker {{ $labels.worker_id }} is carrying {{ $value }} sessions"
           description: |
-            Sprint 16 will wire HPA on this metric. Today it pages capacity
-            engineer to scale manually.
+            Headcount only — NOT the capacity gate. See
+            DictationWorkerWeightSaturated for the real saturation signal.
 
       - alert: DictationUpgradeRejectionRate
         expr: |

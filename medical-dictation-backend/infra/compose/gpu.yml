@@ -52,6 +52,11 @@ services:
       # break the offline guarantee below.
       MD_ASR_MODEL: /opt/models/whisper-large-v3
       MD_ASR_COMPUTE_TYPE: float16
+      # Sprint 14: ECAPA shares the GPU with Whisper (ADR-0034). Both
+      # models are baked + checksum-pinned in the image; MDX_DIAR_MODEL_DIR
+      # and the digests come from the image ENV, so only the device differs
+      # from the CPU default here.
+      MDX_DIAR_DEVICE: cuda
       # Cut all runtime egress to Hugging Face.
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"

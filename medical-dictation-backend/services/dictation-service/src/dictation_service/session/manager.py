@@ -64,6 +64,15 @@ class SessionContext:
     last_partial_emit_ms: int = 0
     last_window_cursor_ms: int = 0
     finalized_segments: list[Any] = field(default_factory=list)  # list[Segment]
+    # The session's StreamingWindower. Held here so every teardown path
+    # (normal, cap, failure, abandon) can flush the words still provisional
+    # at end-of-session instead of dropping them — see
+    # `StreamingWindower.flush_provisional`.
+    windower: Any | None = None  # StreamingWindower
+    # Serialises windower mutation. The tick loop is still live when
+    # EndSession triggers finalize, so the end-of-session drain would
+    # otherwise race a normal tick and corrupt the windower's cursor.
+    window_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     # Timing
     created_at: float = field(default_factory=time.monotonic)

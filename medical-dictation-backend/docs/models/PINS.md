@@ -34,7 +34,26 @@ Each service Dockerfile has a `model-fetch` build stage that:
    mismatch fails the build** (AC-B1-1).
 3. The runtime stage `COPY --from=model-fetch` bakes the weights and stamps
    OCI labels `mdx.model.repo` / `mdx.model.revision` / `mdx.model.sha256`,
-   so a deployed image is self-describing (`docker inspect`).
+   so a deployed image is self-describing (`docker inspect`). The ECAPA row
+   adds `mdx.diar.model.*` from its own `ecapa-fetch` stage, which reuses
+   `scripts/models/prepare_ecapa.py` so the image and a developer's
+   `make prepare-ecapa` produce byte-identical dirs.
+
+### Re-asserted at startup (sprint 14)
+
+A build-time check only proves the image was correct **when it was built**.
+Since sprint 14 the diarization digests are verified AGAIN when the process
+starts (`dictation_service/diarization/integrity.py`), before the weights are
+loaded, driven by the `MDX_DIAR_MODEL_SHA256` / `MDX_DIAR_MEANVAR_SHA256`
+ENV the Dockerfile bakes. A mismatch, a missing artifact, or a missing
+`hyperparams.yaml` **refuses to start the diarizer** — the worker degrades
+to dictation-only and `/readyz` reports `conversation_ready: false` with the
+reason. Diarizing with weights nobody can account for is not an option for a
+medical product.
+
+Whisper is not yet startup-verified — `MD_ASR_MODEL_SHA256` is logged as
+provenance only. Extending the same assertion to the ASR weights is a
+follow-up (todo.md).
 
 `HF_TOKEN` is consumed only as a BuildKit `--secret` (`--mount=type=secret,id=hf_token`)
 and never lands in any layer, env, or log. The public Systran/oliverguhr

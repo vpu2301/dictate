@@ -10,15 +10,57 @@ from opentelemetry import metrics
 
 _meter = metrics.get_meter("mdx.dictation")
 
-# Gauges
+# Gauges — sampled on a timer by telemetry.gauge_loop, not at event sites.
 active_sessions = _meter.create_gauge(
     "mdx_dictation_active_sessions",
-    description="Live sessions per worker",
+    description="Live sessions per worker, split by mode (dictation|conversation)",
     unit="1",
 )
 model_loaded = _meter.create_gauge(
     "mdx_dictation_model_loaded",
-    description="1 if Whisper model is loaded on this worker",
+    description="1 if the named model (whisper|diarizer) is resident on this worker",
+    unit="1",
+)
+
+# ── Weighted capacity (sprint-14 deployment) ─────────────────────────
+# Headcount stopped being the cap when conversation sessions arrived: one
+# conversation session runs two models and costs
+# MDX_CONVERSATION_SESSION_WEIGHT slots. Saturation alerts must compare
+# WEIGHT against the budget, not sessions against 4 — otherwise a worker
+# full of 2 conversation sessions looks half-idle.
+capacity_weight_used = _meter.create_gauge(
+    "mdx_dictation_capacity_weight_used",
+    description="Sum of session weights currently admitted on this worker",
+    unit="1",
+)
+capacity_weight_max = _meter.create_gauge(
+    "mdx_dictation_capacity_weight_max",
+    description="Per-worker weight budget (MDX_PER_WORKER_MAX_SESSIONS)",
+    unit="1",
+)
+conversation_ready = _meter.create_gauge(
+    "mdx_dictation_conversation_ready",
+    description="1 if this worker has a warm diarizer and can take conversation sessions",
+    unit="1",
+)
+
+# ── Device memory (sprint-14 deployment) ─────────────────────────────
+# kind="vram" on CUDA hosts (whole-device, via cuda.mem_get_info) and
+# kind="rss" on CPU hosts. Two models now share the device; the 90 %
+# alert is the guard against a second resident model OOM-ing the first.
+device_memory_bytes = _meter.create_gauge(
+    "mdx_dictation_device_memory_bytes",
+    description="Inference-device memory in use (kind=vram on CUDA, kind=rss on CPU)",
+    unit="By",
+)
+device_memory_total_bytes = _meter.create_gauge(
+    "mdx_dictation_device_memory_total_bytes",
+    description="Inference-device memory capacity",
+    unit="By",
+)
+device_memory_utilization = _meter.create_gauge(
+    "mdx_dictation_device_memory_utilization_ratio",
+    description="used/total device memory, 0..1 — alerts at 0.90",
     unit="1",
 )
 
@@ -101,5 +143,13 @@ speaker_mapping_updates = _meter.create_counter(
 diarization_window_ms = _meter.create_histogram(
     "mdx_dictation_diarization_window_ms",
     description="Wall-clock for one diarization window (VAD + embed + cluster)",
+    unit="ms",
+)
+# The number that actually has to fit the tick budget: Whisper AND
+# diarization for the same window. Watching the two separately hides the
+# case where each is individually fine but their sum is not.
+conversation_window_total_ms = _meter.create_histogram(
+    "mdx_dictation_conversation_window_total_ms",
+    description="Combined per-window cost for a conversation session (inference + diarization)",
     unit="ms",
 )

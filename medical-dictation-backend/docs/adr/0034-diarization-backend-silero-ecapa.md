@@ -101,6 +101,12 @@ ground truth (see `scripts/eval/build_conversation_fixtures.py`).
    GPU capacity weighting is therefore configured, not measured:
    conversation sessions default to weight 2 vs dictation 1
    (`MDX_CONVERSATION_SESSION_WEIGHT`), to be re-measured on the rig.
+   **Amended by ADR-0035** (sprint-14 deployment): the dual-model
+   residency and per-window diarization cost have since been measured on
+   CPU (+166 MB RSS over Whisper; 33–47 ms/window), the fleet shape is
+   decided (single mixed pool), and weight 2 is retained as a deliberate
+   conservative choice. The rig re-run remains the blocking gate for the
+   latency claim, which CPU cannot evaluate.
 
 ## Supply chain
 

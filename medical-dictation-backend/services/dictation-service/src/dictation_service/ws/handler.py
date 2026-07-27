@@ -69,6 +69,7 @@ from ..protocol import (
     StartSession,
     StartSessionV2,
     SwitchSection,
+    TokenTiming,
     WarningMessage,
     decode_binary,
     decode_text,
@@ -234,21 +235,23 @@ async def _new_session(
 
     # S11 step 02: a named encounter must exist in-tenant (RLS makes a
     # foreign encounter look nonexistent) and not be cancelled — rejected
-    # here, before a single audio frame is accepted.
+    # here, before a single audio frame is accepted. Conversation mode
+    # additionally needs the visit to still be open (0058).
     if start.encounter_id is not None:
-        gate = encounters.encounter_gate(encounter_status)
+        gate = encounters.encounter_gate(encounter_status, mode=mode)
         if gate is not None:
+            if gate is ErrorCode.ENCOUNTER_INVALID:
+                detail = "encounter not found in this tenant"
+            elif encounter_status == "cancelled":
+                detail = "encounter is cancelled; dictation is not allowed"
+            else:
+                detail = (
+                    f"visit is already {encounter_status}; "
+                    "start a new visit to record a conversation"
+                )
             await _send_and_close(
                 websocket,
-                Error(
-                    code=gate,
-                    detail=(
-                        "encounter not found in this tenant"
-                        if gate is ErrorCode.ENCOUNTER_INVALID
-                        else "encounter is cancelled; dictation is not allowed"
-                    ),
-                    recoverable=False,
-                ),
+                Error(code=gate, detail=detail, recoverable=False),
                 protocol_version=upgrade.protocol_version,
             )
             return None
@@ -514,6 +517,9 @@ async def _resume_session(
     ctx.state = SessionState.ACTIVE
     ctx.bearer = upgrade.bearer  # reconnects may carry a fresher token
     ctx.touch()
+    # Sprint 04 declared this instrument but never emitted it, so
+    # DictationReconnectRateHigh could not fire (sprint-14 deployment pass).
+    metrics.reconnects.add(1, {"worker_id": settings.worker_id, "mode": ctx.mode})
 
     await state.audit_writer.write_event(
         tenant_id=ctx.tenant_id,
@@ -550,6 +556,8 @@ async def _run_loop(ctx: SessionContext, websocket: Any, state: Any) -> None:
         base_prompt=ctx.prompt_text,
         language=ctx.language,
     )
+    # Reachable from the finalize paths, which do not take the windower.
+    ctx.windower = windower
     stop = asyncio.Event()
 
     async def _on_idle(_ctx: SessionContext) -> None:
@@ -627,8 +635,7 @@ async def _on_text(
                 encode_server(Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True))
             )
             return True
-        ctx.state = SessionState.PAUSED
-        ctx.paused_at = time.monotonic()
+        await apply_pause(ctx, state)
         return True
 
     if isinstance(msg, Resume):
@@ -637,8 +644,7 @@ async def _on_text(
                 encode_server(Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True))
             )
             return True
-        ctx.state = SessionState.ACTIVE
-        ctx.paused_at = None
+        await apply_resume(ctx, state)
         return True
 
     if isinstance(msg, RetransmitRange):
@@ -888,6 +894,10 @@ async def _on_binary(ctx: SessionContext, websocket: Any, state: Any, data: byte
 
 # ── Background tasks ─────────────────────────────────────────────────
 
+# How many ticks in a row may fail before the session is failed outright
+# rather than left "recording" with a transcriber that produces nothing.
+_MAX_CONSECUTIVE_TICK_FAILURES = 3
+
 
 async def _window_loop(
     ctx: SessionContext,
@@ -895,8 +905,20 @@ async def _window_loop(
     state: Any,
     stop: asyncio.Event,
 ) -> None:
-    """Tick the windower every N ms; emit partials + finals."""
+    """Tick the windower every N ms; emit partials + finals.
+
+    This loop IS the transcript: if it stops, the session keeps accepting
+    audio, keeps looking healthy to the clinician, and finalizes empty.
+    It ran as a bare ``create_task`` with no error path, so a single
+    unhandled exception in one tick killed the transcript for the rest of
+    the session and left nothing in the log (that is exactly how the
+    ``TokenTiming`` serialization defect above stayed invisible). Every
+    tick is now guarded: one bad tick is logged and skipped, the loop
+    survives, and a genuinely broken session fails the session rather
+    than silently transcribing nothing.
+    """
     interval = settings.window_tick_interval_ms / 1000.0
+    consecutive_failures = 0
     while not stop.is_set() and ctx.ws is not None:
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval)
@@ -905,65 +927,187 @@ async def _window_loop(
             pass
         if ctx.state != SessionState.ACTIVE or ctx.buffer is None:
             continue
-        slice_ = windower.next_slice(buffer_total_ms=ctx.buffer.total_ms)
-        if slice_ is None:
-            continue
         try:
-            pcm = decode_pcm_view(ctx.buffer, slice_.start_ms, slice_.end_ms)
+            await _window_tick(ctx, windower, state)
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "windower.buffer_read_failed",
-                extra={"session_id": str(ctx.session_id), "error": str(exc)},
+            consecutive_failures += 1
+            logger.exception(
+                "windower.tick_failed",
+                extra={
+                    "session_id": str(ctx.session_id),
+                    "mode": ctx.mode,
+                    "error_class": type(exc).__name__,
+                    "consecutive": consecutive_failures,
+                },
             )
-            continue
-        prompt = windower.build_prompt_for_next_window()
-        t0 = time.monotonic()
-        try:
-            window_result = await state.inference_queue.submit(
-                pcm,
-                language=ctx.language,
-                prompt=ctx.prompt_text,
-                prev_text=prompt,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "windower.inference_failed",
-                extra={"session_id": str(ctx.session_id), "error": str(exc)},
-            )
-            continue
-        infer_seconds = time.monotonic() - t0
-        tick = windower.integrate(
-            window_segments=getattr(window_result, "segments", []),
-            window_no_speech_prob=getattr(window_result, "no_speech_prob", 1.0),
-            window_start_ms=slice_.start_ms,
-            window_end_ms=slice_.end_ms,
-            infer_seconds=infer_seconds,
-            pcm_for_vad=pcm,
+            if consecutive_failures >= _MAX_CONSECUTIVE_TICK_FAILURES:
+                # Never let a session go on "recording" with a dead
+                # transcriber — tell the clinician instead.
+                await _on_failed(
+                    ctx,
+                    state,
+                    kind="worker_failed",
+                    detail=f"window loop failed {consecutive_failures}x: {type(exc).__name__}",
+                )
+                return
+        else:
+            consecutive_failures = 0
+
+
+async def _drain_final_window(ctx: SessionContext, state: Any) -> None:
+    """Transcribe the audio tail that is shorter than one hop.
+
+    ``next_slice`` only yields a window once a full hop of fresh audio has
+    arrived, so whatever is shorter than that when the session ends never
+    reaches the model. Run one forced window to pick it up.
+
+    Best-effort: the transcript that IS committed must never be lost to a
+    failure in here, so every error is swallowed and finalize continues.
+    """
+    windower = ctx.windower
+    if windower is None or ctx.buffer is None:
+        return
+    try:
+        await _window_tick(ctx, windower, state, force=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "windower.final_drain_failed",
+            extra={"session_id": str(ctx.session_id), "error_class": type(exc).__name__},
         )
 
-        # Sprint-14: diarize the same window (conversation sessions).
-        # Runs in a thread so the tick loop never blocks the event loop;
-        # measured ≤ ~60 ms/window on CPU (ADR-0034). Failure degrades to
-        # unlabeled words — text delivery always wins over labels.
-        if ctx.mode == "conversation" and ctx.diarization is not None:
-            try:
-                await asyncio.to_thread(
-                    ctx.diarization.process_window,
-                    pcm,
-                    window_start_ms=slice_.start_ms,
-                )
-                metrics.diarization_window_ms.record(
-                    ctx.diarization.last_window_seconds * 1000.0
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "diarization.window_failed",
-                    extra={"session_id": str(ctx.session_id), "error_class": type(exc).__name__},
-                )
 
-        await _emit_tick(ctx, tick)
-        if ctx.mode == "conversation":
-            await _maybe_emit_mapping_update(ctx, state)
+async def _window_tick(
+    ctx: SessionContext,
+    windower: StreamingWindower,
+    state: Any,
+    *,
+    force: bool = False,
+) -> None:
+    """One windower tick: slice → inference (+ diarization) → emit."""
+    if ctx.buffer is None:
+        return
+    async with ctx.window_lock:
+        await _window_tick_locked(ctx, windower, state, force=force)
+
+
+async def _window_tick_locked(
+    ctx: SessionContext,
+    windower: StreamingWindower,
+    state: Any,
+    *,
+    force: bool = False,
+) -> None:
+    if ctx.buffer is None:
+        return
+    slice_ = windower.next_slice(buffer_total_ms=ctx.buffer.total_ms, force=force)
+    if slice_ is None:
+        return
+    try:
+        pcm = decode_pcm_view(ctx.buffer, slice_.start_ms, slice_.end_ms)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "windower.buffer_read_failed",
+            extra={"session_id": str(ctx.session_id), "error": str(exc)},
+        )
+        return
+    prompt = windower.build_prompt_for_next_window()
+    t_window = time.monotonic()
+    t0 = t_window
+    try:
+        window_result = await state.inference_queue.submit(
+            pcm,
+            language=ctx.language,
+            # `prompt` already carries the specialty prompt: the windower
+            # composes base + finalized-tail and budgets the pair to
+            # `prompt_max_tokens`. Also passing ctx.prompt_text as `prompt`
+            # made the engine's `_combine_prompts` concatenate the specialty
+            # prompt to itself, so every window's initial_prompt opened with
+            # it twice. A repeated initial_prompt is a documented Whisper
+            # repetition/hallucination trigger, and the duplicate also ate
+            # the token budget meant for real decoded context.
+            prompt=None,
+            prev_text=prompt,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "windower.inference_failed",
+            extra={"session_id": str(ctx.session_id), "error": str(exc)},
+        )
+        return
+    infer_seconds = time.monotonic() - t0
+    # Sprint-04 declared these instruments but never emitted them, so the
+    # streaming dashboard and its latency alerts had no data (found in the
+    # sprint-14 deployment pass). Conversation mode makes them mandatory:
+    # the co-tenancy claim is exactly "dictation latency survives".
+    mode_attrs = {"worker_id": settings.worker_id, "mode": ctx.mode}
+    metrics.window_inference_ms.record(infer_seconds * 1000.0, mode_attrs)
+    window_audio_seconds = max(0, slice_.end_ms - slice_.start_ms) / 1000.0
+    if infer_seconds > 0:
+        metrics.rtf.record(window_audio_seconds / infer_seconds, mode_attrs)
+    tick = windower.integrate(
+        window_segments=getattr(window_result, "segments", []),
+        window_no_speech_prob=getattr(window_result, "no_speech_prob", 1.0),
+        window_start_ms=slice_.start_ms,
+        window_end_ms=slice_.end_ms,
+        infer_seconds=infer_seconds,
+        pcm_for_vad=pcm,
+    )
+
+    # Sprint-14: diarize the same window (conversation sessions).
+    # Runs in a thread so the tick loop never blocks the event loop;
+    # measured ≤ ~60 ms/window on CPU (ADR-0034). Failure degrades to
+    # unlabeled words — text delivery always wins over labels.
+    if ctx.mode == "conversation" and ctx.diarization is not None:
+        try:
+            await asyncio.to_thread(
+                ctx.diarization.process_window,
+                pcm,
+                window_start_ms=slice_.start_ms,
+            )
+            metrics.diarization_window_ms.record(
+                ctx.diarization.last_window_seconds * 1000.0,
+                {"worker_id": settings.worker_id},
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "diarization.window_failed",
+                extra={"session_id": str(ctx.session_id), "error_class": type(exc).__name__},
+            )
+        # Inference AND diarization for this window — the sum is what has
+        # to fit the tick budget, and it is what the fleet decision
+        # (single mixed pool vs a dedicated conversation pool) is judged on.
+        metrics.conversation_window_total_ms.record(
+            (time.monotonic() - t_window) * 1000.0,
+            {"worker_id": settings.worker_id},
+        )
+
+    await _emit_tick(ctx, tick)
+    if ctx.mode == "conversation":
+        await _maybe_emit_mapping_update(ctx, state)
+
+
+def _wire_words(words: Any) -> list[TokenTiming]:
+    """Project inference ``WordTiming``s onto the wire's ``TokenTiming``.
+
+    The two models are field-identical but are DIFFERENT classes
+    (``asr_models.WordTiming`` is the inference contract, ``TokenTiming``
+    the protocol one), and pydantic v2 does not coerce one BaseModel
+    instance into another. Passing the raw list raised ``ValidationError``
+    inside ``_emit_tick`` — which killed the whole window loop on the
+    first partial, so every streaming session emitted nothing and
+    finalized an empty transcript (sprint-04 latent; found S14).
+    """
+    return [
+        TokenTiming(
+            text=w.text,
+            start_ms=w.start_ms,
+            end_ms=w.end_ms,
+            probability=w.probability,
+        )
+        for w in words
+    ]
 
 
 async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
@@ -988,13 +1132,19 @@ async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
         ctx.out_seq += 1
         partial_age_ms = max(0, ctx.buffer.total_ms - tick.new_partial.end_ms) if ctx.buffer else 0
         ctx.partial_latencies_ms.append(partial_age_ms)
+        # Split by mode: "dictation p95 survives co-tenancy" is only checkable
+        # if dictation latency is separable from conversation latency on the
+        # same worker (sprint-14 deployment).
+        metrics.partial_latency_ms.record(
+            partial_age_ms, {"worker_id": settings.worker_id, "mode": ctx.mode}
+        )
         partial_kwargs: dict[str, Any] = {
             "session_id": ctx.session_id,
             "seq": ctx.out_seq,
             "text": tick.new_partial.text,
             "start_ms": tick.new_partial.start_ms,
             "end_ms": tick.new_partial.end_ms,
-            "words": list(tick.new_partial.words),
+            "words": _wire_words(tick.new_partial.words),
             "avg_confidence": tick.new_partial.avg_confidence,
         }
         if v2:
@@ -1016,6 +1166,9 @@ async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
         ctx.out_seq += 1
         final_age_ms = max(0, ctx.buffer.total_ms - seg.end_ms) if ctx.buffer else 0
         ctx.final_latencies_ms.append(final_age_ms)
+        metrics.final_latency_ms.record(
+            final_age_ms, {"worker_id": settings.worker_id, "mode": ctx.mode}
+        )
         ctx.finalized_segments.append(seg)
         final_kwargs: dict[str, Any] = {
             "session_id": ctx.session_id,
@@ -1023,7 +1176,7 @@ async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
             "text": seg.text,
             "start_ms": seg.start_ms,
             "end_ms": seg.end_ms,
-            "words": list(seg.words),
+            "words": _wire_words(seg.words),
             "avg_confidence": seg.avg_confidence,
             "voice_command": None,
         }
@@ -1153,6 +1306,11 @@ def _exceeds_hard_cap(ctx: SessionContext) -> bool:
 
 
 async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> None:
+    # Single funnel for every completion path (normal, cap_reached,
+    # force_finalize), so the tail is picked up once regardless of which
+    # one got here. Must precede finalize_session, which only serialises
+    # what is already committed.
+    await _drain_final_window(ctx, state)
     try:
         result = await finalize_session(
             ctx=ctx,
@@ -1204,6 +1362,36 @@ async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> N
         with suppress(Exception):
             await ctx.ws.close(code=1000)
     await state.session_manager.unregister(ctx.session_id)
+
+
+async def apply_pause(ctx: SessionContext, state: Any) -> None:
+    """active → paused, persisted.
+
+    The pause used to live only in ``ctx.state``, which made it invisible to
+    every other process: ``GET /dictate/sessions`` still reported the session
+    as active, and so did the per-tenant capacity count. Anything that has to
+    reason about "is this session still going" reads the DB, so the DB has to
+    know. Shared with the HTTP pause endpoint, which is the only way back for
+    a client whose socket is gone.
+    """
+    assert_transition(ctx.state, SessionState.PAUSED)
+    ctx.state = SessionState.PAUSED
+    ctx.paused_at = time.monotonic()
+    async with tenant_connection(state.app_pool, ctx.tenant_id) as conn:
+        await repository.update_status(
+            conn, session_id=ctx.session_id, new_status=SessionState.PAUSED
+        )
+
+
+async def apply_resume(ctx: SessionContext, state: Any) -> None:
+    """paused → active, persisted. Mirror of :func:`apply_pause`."""
+    assert_transition(ctx.state, SessionState.ACTIVE)
+    ctx.state = SessionState.ACTIVE
+    ctx.paused_at = None
+    async with tenant_connection(state.app_pool, ctx.tenant_id) as conn:
+        await repository.update_status(
+            conn, session_id=ctx.session_id, new_status=SessionState.ACTIVE
+        )
 
 
 async def _on_client_disconnect(ctx: SessionContext, state: Any) -> None:

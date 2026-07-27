@@ -100,6 +100,19 @@ services:
       ENVIRONMENT: development
       LOG_LEVEL: INFO
       MD_ASR_DEVICE: cpu
+      # PLUMBING ONLY — tiny does not produce usable Ukrainian. It invents
+      # words that do not exist in the language ("Добро губня, лікарию, в
+      # житті жди ні бомсь" for "Доброго дня, лікарю, вже тиждень болі"),
+      # so any transcript from this overlay is worthless for judging
+      # quality. It stays tiny here because these are the weights baked
+      # into Dockerfile.cpu, so `make dev-up-asr` works with no host
+      # prerequisites.
+      #
+      # For real Ukrainian quality use either:
+      #   - the root docker-compose.override.yml full stack, which mounts
+      #     pinned large-v3 from the host HF cache and retunes the window
+      #     for CPU throughput; or
+      #   - make dev-up-gpu (infra/compose/gpu.yml), the low-latency path.
       MD_ASR_MODEL: /opt/models/whisper-tiny  # baked + offline (Dockerfile.cpu)
       MD_ASR_COMPUTE_TYPE: int8
       MDX_WORKER_ID: dictation-dev-1

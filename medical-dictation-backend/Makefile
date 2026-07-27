@@ -2,6 +2,10 @@
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
+# Kept ahead of the dev-stack Prometheus (v2.51.2) on purpose: promtool is
+# only used to lint/test rule files, and the newer binary parses everything
+# the older server does.
+PROMTOOL_IMAGE = prom/prometheus:v2.54.1
 
 ##@ Local Development
 
@@ -215,6 +219,21 @@ check-corpus: ## CI gate — WER corpus SHA-256 integrity + PII sweep + eval uni
 	uv run python scripts/eval/check_corpus_pii.py
 	uv run pytest scripts/eval/tests/ -q
 
+check-alert-rules: ## CI gate — promtool syntax check + alert unit tests (sprint 14)
+	@# Syntax alone is not enough: a valid rule that never fires reads as
+	@# "no problem" on a green dashboard. rules/tests/ proves each alert
+	@# actually fires on the failure it claims to watch.
+	@# --entrypoint sh: docker run does not expand globs (no shell), and
+	@# promtool takes explicit paths only.
+	docker run --rm -v "$(PWD)/infra/prometheus/rules:/rules:ro" \
+	    --entrypoint sh $(PROMTOOL_IMAGE) -c \
+	    'promtool check rules /rules/*.yml && promtool test rules /rules/tests/*.yml'
+
+capacity-probe: ## Sprint-14 dual-model capacity probe (residency + per-window latency; CPU on macOS, A10G rig is the gate)
+	uv run python scripts/eval/run_capacity_probe.py \
+	    --scenarios $(or $(SCENARIOS),1c,2c,2c1d,4d) \
+	    $(if $(PROBE_JSON),--json $(PROBE_JSON),)
+
 check-autocomplete-corpus: ## CI gate — validate the autocomplete seed corpus (sprint 10)
 	uv run python scripts/validate-autocomplete-corpus.py
 
@@ -277,7 +296,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-alert-rules ## Mirror CI gates locally
 
 ci-with-db: ci check-rls check-erasure-fanout openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

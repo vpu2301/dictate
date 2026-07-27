@@ -37,6 +37,7 @@ from auth.exceptions import (
     MalformedClaimsError,
 )
 
+from .. import metrics
 from ..audit_kinds import UPGRADE_FAILED
 from ..config import settings
 from ..protocol.codec import (
@@ -72,6 +73,12 @@ class UpgradeRejected(HTTPException):
     def __init__(self, status_code: int, code: str, detail: str = "") -> None:
         super().__init__(status_code=status_code, detail={"code": code, "detail": detail})
         self.code = code
+        # Counted here rather than at each of the ~9 raise sites: this is the
+        # one choke point every rejection passes through, so the metric cannot
+        # drift as rejection reasons are added. Sprint 04 declared this
+        # instrument but never emitted it, leaving DictationUpgradeRejectionRate
+        # unable to fire (found in the sprint-14 deployment pass).
+        metrics.ws_upgrade_rejections.add(1, {"reason": code})
 
 
 async def authorize_upgrade(

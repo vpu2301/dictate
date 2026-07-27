@@ -1,0 +1,337 @@
+{
+  "host": "Darwin arm64 / py3.12.7",
+  "cuda": false,
+  "asr_model": "tiny",
+  "asr_device": "cpu",
+  "asr_compute_type": "int8",
+  "diar_model_dir": "/Users/volodymyrpugachov/.cache/mdx-models/ecapa-voxceleb",
+  "scenarios": [
+    {
+      "sessions": [
+        {
+          "name": "dict-0-en-consult-008",
+          "mode": "dictation",
+          "windows": 39
+        },
+        {
+          "name": "dict-1-uk-anamnesis-007",
+          "mode": "dictation",
+          "windows": 40
+        },
+        {
+          "name": "dict-2-uk-cardio-002",
+          "mode": "dictation",
+          "windows": 40
+        }
+      ],
+      "windows_total": 119,
+      "all": {
+        "whisper_ms_p50": 478.0,
+        "whisper_ms_p95": 4934.7,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 478.1,
+        "combined_ms_p95": 4935.0,
+        "combined_ms_max": 6069.7,
+        "partial_age_ms_p50": 1908.0,
+        "partial_age_ms_p95": 10491.0,
+        "partial_samples": 119
+      },
+      "dictation": {
+        "whisper_ms_p50": 478.0,
+        "whisper_ms_p95": 4934.7,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 478.1,
+        "combined_ms_p95": 4935.0,
+        "combined_ms_max": 6069.7,
+        "partial_age_ms_p50": 1908.0,
+        "partial_age_ms_p95": 10491.0,
+        "partial_samples": 119
+      },
+      "scenario": "3d",
+      "conversation_sessions": 0,
+      "dictation_sessions": 3,
+      "capacity_weight": 3,
+      "wall_seconds": 92.5,
+      "audio_seconds_per_session": 75.0,
+      "memory_before": {
+        "rss_mb": 748.9,
+        "vram_mb": null,
+        "loadavg": [
+          3.23,
+          3.65,
+          3.87
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 740.0,
+        "vram_mb": null,
+        "loadavg": [
+          5.76,
+          4.34,
+          4.11
+        ]
+      }
+    },
+    {
+      "sessions": [
+        {
+          "name": "conv-0-en-consult-008",
+          "mode": "conversation",
+          "windows": 37
+        },
+        {
+          "name": "conv-1-uk-anamnesis-007",
+          "mode": "conversation",
+          "windows": 38
+        },
+        {
+          "name": "dict-2-uk-cardio-002",
+          "mode": "dictation",
+          "windows": 38
+        }
+      ],
+      "windows_total": 113,
+      "all": {
+        "whisper_ms_p50": 2647.4,
+        "whisper_ms_p95": 9630.3,
+        "diar_ms_p50": 34.5,
+        "diar_ms_p95": 45.1,
+        "combined_ms_p50": 2690.3,
+        "combined_ms_p95": 9630.5,
+        "combined_ms_max": 11708.9,
+        "partial_age_ms_p50": 14528.0,
+        "partial_age_ms_p95": 37299.0,
+        "partial_samples": 112
+      },
+      "conversation": {
+        "whisper_ms_p50": 2618.7,
+        "whisper_ms_p95": 9467.7,
+        "diar_ms_p50": 39.2,
+        "diar_ms_p95": 46.0,
+        "combined_ms_p50": 2665.4,
+        "combined_ms_p95": 9507.6,
+        "combined_ms_max": 11708.9,
+        "partial_age_ms_p50": 13299.0,
+        "partial_age_ms_p95": 37299.0,
+        "partial_samples": 74
+      },
+      "dictation": {
+        "whisper_ms_p50": 2870.2,
+        "whisper_ms_p95": 9630.3,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 2870.4,
+        "combined_ms_p95": 9630.5,
+        "combined_ms_max": 11477.2,
+        "partial_age_ms_p50": 12983.0,
+        "partial_age_ms_p95": 36528.0,
+        "partial_samples": 38
+      },
+      "scenario": "2c1d",
+      "conversation_sessions": 2,
+      "dictation_sessions": 1,
+      "capacity_weight": 5,
+      "wall_seconds": 154.7,
+      "audio_seconds_per_session": 75.0,
+      "memory_before": {
+        "rss_mb": 750.6,
+        "vram_mb": null,
+        "loadavg": [
+          5.76,
+          4.34,
+          4.11
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 644.6,
+        "vram_mb": null,
+        "loadavg": [
+          6.99,
+          5.24,
+          4.49
+        ]
+      }
+    },
+    {
+      "sessions": [
+        {
+          "name": "dict-0-en-consult-008",
+          "mode": "dictation",
+          "windows": 40
+        },
+        {
+          "name": "dict-1-uk-anamnesis-007",
+          "mode": "dictation",
+          "windows": 40
+        },
+        {
+          "name": "dict-2-uk-cardio-002",
+          "mode": "dictation",
+          "windows": 40
+        }
+      ],
+      "windows_total": 120,
+      "all": {
+        "whisper_ms_p50": 476.0,
+        "whisper_ms_p95": 3690.5,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 476.2,
+        "combined_ms_p95": 3690.9,
+        "combined_ms_max": 5284.7,
+        "partial_age_ms_p50": 897.0,
+        "partial_age_ms_p95": 8708.0,
+        "partial_samples": 120
+      },
+      "dictation": {
+        "whisper_ms_p50": 476.0,
+        "whisper_ms_p95": 3690.5,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 476.2,
+        "combined_ms_p95": 3690.9,
+        "combined_ms_max": 5284.7,
+        "partial_age_ms_p50": 897.0,
+        "partial_age_ms_p95": 8708.0,
+        "partial_samples": 120
+      },
+      "scenario": "3d",
+      "conversation_sessions": 0,
+      "dictation_sessions": 3,
+      "capacity_weight": 3,
+      "wall_seconds": 88.2,
+      "audio_seconds_per_session": 75.0,
+      "memory_before": {
+        "rss_mb": 655.2,
+        "vram_mb": null,
+        "loadavg": [
+          6.99,
+          5.24,
+          4.49
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 794.3,
+        "vram_mb": null,
+        "loadavg": [
+          6.23,
+          5.39,
+          4.62
+        ]
+      }
+    },
+    {
+      "sessions": [
+        {
+          "name": "conv-0-en-consult-008",
+          "mode": "conversation",
+          "windows": 39
+        },
+        {
+          "name": "conv-1-uk-anamnesis-007",
+          "mode": "conversation",
+          "windows": 40
+        },
+        {
+          "name": "dict-2-uk-cardio-002",
+          "mode": "dictation",
+          "windows": 40
+        }
+      ],
+      "windows_total": 119,
+      "all": {
+        "whisper_ms_p50": 443.5,
+        "whisper_ms_p95": 5673.7,
+        "diar_ms_p50": 24.8,
+        "diar_ms_p95": 44.9,
+        "combined_ms_p50": 461.6,
+        "combined_ms_p95": 5695.3,
+        "combined_ms_max": 8037.9,
+        "partial_age_ms_p50": 1524.0,
+        "partial_age_ms_p95": 12562.0,
+        "partial_samples": 119
+      },
+      "conversation": {
+        "whisper_ms_p50": 394.4,
+        "whisper_ms_p95": 5673.7,
+        "diar_ms_p50": 33.2,
+        "diar_ms_p95": 46.9,
+        "combined_ms_p50": 436.2,
+        "combined_ms_p95": 5721.0,
+        "combined_ms_max": 8037.9,
+        "partial_age_ms_p50": 1524.0,
+        "partial_age_ms_p95": 12562.0,
+        "partial_samples": 79
+      },
+      "dictation": {
+        "whisper_ms_p50": 499.4,
+        "whisper_ms_p95": 5308.0,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 499.5,
+        "combined_ms_p95": 5308.2,
+        "combined_ms_max": 6299.2,
+        "partial_age_ms_p50": 1536.0,
+        "partial_age_ms_p95": 12490.0,
+        "partial_samples": 40
+      },
+      "scenario": "2c1d",
+      "conversation_sessions": 2,
+      "dictation_sessions": 1,
+      "capacity_weight": 5,
+      "wall_seconds": 100.1,
+      "audio_seconds_per_session": 75.0,
+      "memory_before": {
+        "rss_mb": 794.3,
+        "vram_mb": null,
+        "loadavg": [
+          6.23,
+          5.39,
+          4.62
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 798.9,
+        "vram_mb": null,
+        "loadavg": [
+          6.39,
+          5.57,
+          4.76
+        ]
+      }
+    }
+  ],
+  "residency": {
+    "no_models": {
+      "rss_mb": 203.8,
+      "vram_mb": null,
+      "loadavg": [
+        3.23,
+        3.65,
+        3.87
+      ]
+    },
+    "whisper_only": {
+      "rss_mb": 563.3,
+      "vram_mb": null,
+      "loadavg": [
+        3.23,
+        3.65,
+        3.87
+      ]
+    },
+    "both_models": {
+      "rss_mb": 729.8,
+      "vram_mb": null,
+      "loadavg": [
+        3.23,
+        3.65,
+        3.87
+      ]
+    },
+    "diarizer_delta_mb": 166.5,
+    "diarizer_warmup_ms": 802.0
+  }
+}

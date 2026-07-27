@@ -407,6 +407,7 @@
             "enum": [
               "scheduled",
               "in_progress",
+              "paused",
               "completed",
               "cancelled"
             ],
@@ -424,6 +425,18 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
           },
           "id": {
             "format": "uuid",
@@ -448,9 +461,33 @@
             "title": "Reason",
             "type": "string"
           },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
@@ -463,6 +500,30 @@
           "created_at"
         ],
         "title": "EncounterOut",
+        "type": "object"
+      },
+      "EncounterTransition": {
+        "additionalProperties": false,
+        "description": "Body for a lifecycle verb. All fields optional \u2014 a bare ``{}`` works.",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "EncounterTransition",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -768,6 +829,52 @@
           "name"
         ],
         "title": "NotePatientRef",
+        "type": "object"
+      },
+      "PatientBrief": {
+        "additionalProperties": false,
+        "description": "Just enough patient to render a worklist row.",
+        "properties": {
+          "dob": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dob"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mrn": {
+            "default": "",
+            "title": "Mrn",
+            "type": "string"
+          },
+          "name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Name",
+            "type": "object"
+          },
+          "sex": {
+            "default": "U",
+            "title": "Sex",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PatientBrief",
         "type": "object"
       },
       "PatientCreate": {
@@ -1316,6 +1423,101 @@
         "title": "PrivacyRequestStatus",
         "type": "object"
       },
+      "QueueEncounterOut": {
+        "additionalProperties": false,
+        "description": "Encounter as it appears in a worklist (schedule / open visits).\n\nThe queue surfaces carry the patient inline. Without it the SPA rendered\nnameless rows \u2014 and a nameless row is not a worklist a clinician can act\non. Joined server-side rather than fetched per row.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "patient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PatientBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "kind",
+          "reason",
+          "occurred_at",
+          "status",
+          "created_at"
+        ],
+        "title": "QueueEncounterOut",
+        "type": "object"
+      },
       "ReadyResponse": {
         "properties": {
           "db": {
@@ -1416,6 +1618,17 @@
             "title": "Kind",
             "type": "string"
           },
+          "segments": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segments"
+          },
           "status": {
             "anyOf": [
               {
@@ -1490,6 +1703,82 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/encounters/open": {
+      "get": {
+        "description": "Declared before ``/encounters/{encounter_id}``: FastAPI matches routes\nin declaration order, and the parametrised one would swallow ``open``.\n\n``mine=false`` widens to every open visit in the tenant \u2014 the view a\ntenant_admin needs to find visits colleagues left hanging.",
+        "operationId": "list_open_encounters_encounters_open_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QueueEncounterOut"
+                  },
+                  "title": "Response List Open Encounters Encounters Open Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Visits still open (in_progress | paused) \u2014 the clinician's pipeline.",
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
     "/encounters/{encounter_id}": {
       "get": {
         "operationId": "get_encounter_encounters__encounter_id__get",
@@ -1544,6 +1833,386 @@
           }
         },
         "summary": "Fetch one encounter.",
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/encounters/{encounter_id}/cancel": {
+      "post": {
+        "operationId": "cancel_encounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "encounter_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Encounter Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EncounterTransition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncounterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Abandon the visit (\u2192 cancelled).",
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/encounters/{encounter_id}/complete": {
+      "post": {
+        "operationId": "complete_encounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "encounter_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Encounter Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EncounterTransition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncounterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End the visit (\u2192 completed); stamps the patient's last visit.",
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/encounters/{encounter_id}/pause": {
+      "post": {
+        "operationId": "pause_encounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "encounter_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Encounter Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EncounterTransition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncounterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Step out of an in-progress visit (\u2192 paused).",
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/encounters/{encounter_id}/resume": {
+      "post": {
+        "operationId": "resume_encounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "encounter_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Encounter Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EncounterTransition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncounterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Return to a paused visit (\u2192 in_progress).",
+        "tags": [
+          "encounters"
+        ]
+      }
+    },
+    "/encounters/{encounter_id}/start": {
+      "post": {
+        "operationId": "start_encounter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "encounter_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Encounter Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EncounterTransition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncounterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Begin a scheduled visit (\u2192 in_progress).",
         "tags": [
           "encounters"
         ]
@@ -2921,7 +3590,7 @@
     },
     "/patients/{patient_id}/timeline": {
       "get": {
-        "description": "Reports and encounter-linked recordings for this patient, newest first.\n\nThe SPA merges this with encounters / notes / consents (each fetched from\nits own endpoint) to build the on-screen feed, and reads ``kind='dictate'``\nrows here to populate the Reports tab \u2014 so this endpoint deliberately\nskips the core-owned records to avoid double-counting. ``kind='recording'``\nrows (S11 step 02) carry metadata only \u2014 never a media URL; audio access\nstays on the ASR surface with its own authz + audit.",
+        "description": "Reports, encounter-linked recordings and conversations, newest first.\n\nThe SPA merges this with encounters / notes / consents (each fetched from\nits own endpoint) to build the on-screen feed, and reads ``kind='dictate'``\nrows here to populate the Reports tab \u2014 so this endpoint deliberately\nskips the core-owned records to avoid double-counting. ``kind='recording'``\nrows (S11 step 02) carry metadata only \u2014 never a media URL; audio access\nstays on the ASR surface with its own authz + audit. ``kind='scribe'``\nrows (S14) are conversation-mode consultations, and carry a segment\nCOUNT rather than transcript text for the same reason.",
         "operationId": "patient_timeline_patients__patient_id__timeline_get",
         "parameters": [
           {
@@ -2973,7 +3642,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Dictated reports (and, later, scribe sessions) for the patient.",
+        "summary": "Dictated reports, recordings and scribe sessions for the patient.",
         "tags": [
           "patients"
         ]
@@ -3456,7 +4125,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/EncounterOut"
+                    "$ref": "#/components/schemas/QueueEncounterOut"
                   },
                   "title": "Response List Schedule Schedule Get",
                   "type": "array"

@@ -172,6 +172,12 @@ async def finalize_session(
             severity=Severity.WARN,
         )
 
+    # End of session: nothing will revise the still-provisional words and no
+    # further audio will produce the silence boundary they are waiting on, so
+    # commit them now or lose them. Purely a promotion of already-decoded
+    # words — no inference here, so this cannot slow finalize down.
+    _flush_provisional_tail(ctx)
+
     # Persist the transcript + timing metrics.
     transcript_jsonb = _transcript_to_jsonb(ctx)
 
@@ -306,6 +312,38 @@ def _pcm_to_wav(pcm: np.ndarray) -> bytes:
     buf.write(struct.pack("<I", len(raw)))
     buf.write(raw)
     return buf.getvalue()
+
+
+def _flush_provisional_tail(ctx: SessionContext) -> None:
+    """Promote the windower's remaining provisional words into the transcript.
+
+    Best-effort: a session that never reached the window loop (immediate
+    failure, resume that never re-armed) has no windower, and a flush that
+    somehow raises must not cost the clinician the transcript that IS
+    committed.
+    """
+    windower = getattr(ctx, "windower", None)
+    if windower is None:
+        return
+    try:
+        tail = windower.flush_provisional()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "finalize.provisional_flush_failed",
+            extra={"session_id": str(ctx.session_id), "error_class": type(exc).__name__},
+        )
+        return
+    if not tail:
+        return
+    ctx.finalized_segments.extend(tail)
+    logger.info(
+        "finalize.provisional_flushed",
+        extra={
+            "session_id": str(ctx.session_id),
+            "segments": len(tail),
+            "words": sum(len(s.words or []) for s in tail),
+        },
+    )
 
 
 def _transcript_to_jsonb(ctx: SessionContext) -> list[dict[str, Any]]:

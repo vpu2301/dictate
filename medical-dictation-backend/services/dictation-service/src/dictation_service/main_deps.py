@@ -37,9 +37,10 @@ class ServiceState:
     engine: WhisperEngine
     inference_queue: InferenceQueue
     session_manager: SessionManager
-    # Sprint 14: conversation mode. The diarization engine loads lazily
-    # on the first conversation session (dictation-only deployments never
-    # touch torch); the HTTP clients are used at finalize only.
+    # Sprint 14: conversation mode. The diarization engine is warmed at
+    # startup when MDX_DIAR_WARM_AT_STARTUP (the default) — readiness gates
+    # conversation capacity on it. Dictation-only deployments set
+    # MDX_CONVERSATION_ENABLED=false and never touch torch.
     diarization_engine: DiarizationEngine
     nlp_client: NlpClient
     report_client: ReportClient
@@ -107,7 +108,21 @@ async def build_state() -> ServiceState:
         model_dir=settings.diar_model_dir,
         device=settings.diar_device,
         enabled=settings.conversation_enabled,
+        pins={
+            "embedding_model.ckpt": settings.diar_model_sha256,
+            "mean_var_norm_emb.ckpt": settings.diar_meanvar_sha256,
+        },
+        model_repo=settings.diar_model_repo,
+        model_revision=settings.diar_model_revision,
     )
+    # BOTH models warm before the worker is ready. Whisper is warmed
+    # eagerly above (engine.load()); the diarizer used to load lazily on
+    # the first conversation session, which meant that session paid weight
+    # loading inside its first window. Warmup failure is non-fatal — the
+    # worker still serves dictation — but /readyz then advertises no
+    # conversation capacity (sprint-14 deployment).
+    if settings.diar_warm_at_startup:
+        await diarization_engine.warm_up()
     nlp_client = NlpClient(
         config=NlpClientConfig(
             base_url=settings.nlp_base_url,

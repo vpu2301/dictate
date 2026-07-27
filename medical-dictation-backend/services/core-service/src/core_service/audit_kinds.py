@@ -11,6 +11,14 @@ PATIENT_VIEWED: Final = "patient.viewed"
 
 # ── encounters ──────────────────────────────────────────────────────
 ENCOUNTER_CREATED: Final = "encounter.created"
+# Lifecycle (0058). One kind per clinical action, not a generic
+# `encounter.updated` — "who ended this visit and when" has to be answerable
+# from the audit chain alone.
+ENCOUNTER_STARTED: Final = "encounter.started"
+ENCOUNTER_PAUSED: Final = "encounter.paused"
+ENCOUNTER_RESUMED: Final = "encounter.resumed"
+ENCOUNTER_COMPLETED: Final = "encounter.completed"
+ENCOUNTER_CANCELLED: Final = "encounter.cancelled"
 
 # ── clinical notes ──────────────────────────────────────────────────
 NOTE_CREATED: Final = "note.created"

@@ -78,17 +78,26 @@ async def evaluate_resume(
 
     worker_id = row["worker_id"]
     if worker_id:
-        alive = await _worker_alive(redis, worker_id)
+        alive = await worker_alive(redis, worker_id)
         if not alive:
             return ResumeOutcome(allowed=False, reason="worker_dead")
 
     return ResumeOutcome(allowed=True, reason="ok", row=row)
 
 
-async def _worker_alive(redis: Redis, worker_id: str) -> bool:
+async def worker_alive(redis: Redis, worker_id: str) -> bool:
+    """True while ``worker_id``'s heartbeat key is still alive.
+
+    The reaper's only safety interlock, so it is public: a session is
+    stranded iff the process that owned it stopped heart-beating.
+    """
     ttl_raw: object = await redis.ttl(f"mdx:dict:worker:{worker_id}:hb")
     ttl = int(ttl_raw) if isinstance(ttl_raw, (int, str)) else -2
     return ttl > 0
+
+
+#: Back-compat alias for the original private name.
+_worker_alive = worker_alive
 
 
 async def heartbeat_worker(redis: Redis) -> None:

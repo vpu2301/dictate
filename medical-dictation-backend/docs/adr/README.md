@@ -44,6 +44,7 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0032  | [Typed anamnesis field extraction stage](0032-field-extraction-stage.md) | Accepted |
 | 0033  | [Administrators are separated from PHI; break-glass is the door](0033-admin-phi-separation-and-break-glass.md) | Accepted |
 | 0034  | [Speaker-diarization backend — Silero VAD + ECAPA + online clustering](0034-diarization-backend-silero-ecapa.md) | Accepted |
+| 0035  | [Conversation capacity — single mixed worker pool with weighted caps](0035-conversation-fleet-single-mixed-pool.md) | Accepted |
 
 ## Template
 
