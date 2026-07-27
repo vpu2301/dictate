@@ -132,3 +132,17 @@ VOIP profile, 20-ms frames. Limits:
 - Sprint 5 fills `voice_command` on `final`; field shape locked here.
 - Sprint 14 forks to `medical-dictation.v2` adding diarization fields.
   v1 clients reject v2 messages cleanly (`extra="forbid"`).
+
+---
+
+## Sprint 14: `medical-dictation.v2` has forked
+
+The hand-off promised above is delivered — see **`dictation-ws-v2.md`**.
+Everything in THIS document remains accurate and byte-stable for v1
+clients: no v1 message gained a field, and a v1 client rejects a v2
+frame cleanly via `extra="forbid"` (proven in
+`services/dictation-service/tests/unit/test_protocol_v2.py`).
+
+v2 adds, for conversation mode only: `start_session.mode`, speaker
+fields on `partial`/`final`, the `speaker_mapping_updated` and
+`set_speaker_mapping` messages, and the `consent_required` error code.

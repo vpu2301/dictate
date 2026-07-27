@@ -226,6 +226,16 @@ class WhisperEngine:
         prompt: str | None,
     ) -> tuple[list[Segment], float, float]:
         assert self._model is not None
+        vad_kwargs: dict[str, Any] = {}
+        if settings.asr_streaming_vad_filter:
+            # Silence-only windows never reach the decoder, so they cannot
+            # be hallucinated into text (see config for the measurements).
+            vad_kwargs = {
+                "vad_filter": True,
+                "vad_parameters": {
+                    "min_silence_duration_ms": settings.asr_streaming_vad_min_silence_ms,
+                },
+            }
         result_segs, _info = self._model.transcribe(
             pcm,
             language=language,
@@ -233,6 +243,7 @@ class WhisperEngine:
             word_timestamps=True,
             beam_size=settings.asr_beam_size,
             condition_on_previous_text=False,  # caller owns context via prompt
+            **vad_kwargs,
         )
         segments: list[Segment] = []
         logprobs: list[float] = []

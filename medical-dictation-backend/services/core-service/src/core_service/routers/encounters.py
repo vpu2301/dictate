@@ -1,9 +1,17 @@
-"""Encounters — per-patient visit history, single-encounter read, and the
-day's scheduled-visit queue."""
+"""Encounters — per-patient visit history, single-encounter read, the day's
+scheduled-visit queue, and the visit lifecycle (start/pause/resume/end).
+
+Until 0058 a visit's status was write-once at INSERT: the SPA opened one as
+``in_progress`` and nothing could ever move it out, so the pipeline filled
+with visits that were long over. The ``POST /encounters/{id}/{verb}``
+surface below is the missing half — one endpoint per clinical action, each
+guarded by :mod:`..domain.encounter_state` and each emitting its own audit
+kind.
+"""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -15,12 +23,23 @@ from auth import Claims
 from db import tenant_connection
 
 from .. import audit_helper, audit_kinds
+from ..config import settings
 from ..deps import get_state, requires
-from ..domain import encounters_repository, patients_repository
+from ..domain import encounter_state, encounters_repository, patients_repository
 
 router = APIRouter(tags=["encounters"])
 
 EncounterKind = Literal["visit", "phone", "video", "scribe", "followup", "other"]
+
+EncounterAction = Literal["start", "pause", "resume", "complete", "cancel"]
+
+_ACTION_AUDIT_KIND: dict[str, str] = {
+    "start": audit_kinds.ENCOUNTER_STARTED,
+    "pause": audit_kinds.ENCOUNTER_PAUSED,
+    "resume": audit_kinds.ENCOUNTER_RESUMED,
+    "complete": audit_kinds.ENCOUNTER_COMPLETED,
+    "cancel": audit_kinds.ENCOUNTER_CANCELLED,
+}
 
 
 class _Strict(BaseModel):
@@ -31,7 +50,19 @@ class EncounterCreate(_Strict):
     kind: EncounterKind = "visit"
     datetime: str | None = None  # ISO 8601; defaults to now()
     reason: str = ""
-    status: Literal["scheduled", "in_progress", "completed", "cancelled"] = "completed"
+    status: Literal[
+        "scheduled", "in_progress", "paused", "completed", "cancelled"
+    ] = "completed"
+
+
+class EncounterTransition(_Strict):
+    """Body for a lifecycle verb. All fields optional — a bare ``{}`` works."""
+
+    reason: str | None = None
+    #: End the visit even though a dictation session on it is still live.
+    #: The clinician has been told what they are abandoning; the override is
+    #: recorded in the audit payload.
+    force: bool = False
 
 
 class EncounterOut(_Strict):
@@ -42,6 +73,30 @@ class EncounterOut(_Strict):
     occurred_at: datetime
     status: str
     created_at: datetime
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class PatientBrief(_Strict):
+    """Just enough patient to render a worklist row."""
+
+    id: UUID
+    name: dict[str, str]
+    mrn: str = ""
+    dob: date | None = None
+    sex: str = "U"
+
+
+class QueueEncounterOut(EncounterOut):
+    """Encounter as it appears in a worklist (schedule / open visits).
+
+    The queue surfaces carry the patient inline. Without it the SPA rendered
+    nameless rows — and a nameless row is not a worklist a clinician can act
+    on. Joined server-side rather than fetched per row.
+    """
+
+    patient: PatientBrief | None = None
 
 
 def _to_out(row: asyncpg.Record) -> EncounterOut:
@@ -53,6 +108,25 @@ def _to_out(row: asyncpg.Record) -> EncounterOut:
         occurred_at=row["occurred_at"],
         status=row["status"],
         created_at=row["created_at"],
+        started_at=row["started_at"],
+        ended_at=row["ended_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def _to_queue_out(row: asyncpg.Record) -> QueueEncounterOut:
+    base = _to_out(row)
+    return QueueEncounterOut(
+        **base.model_dump(),
+        patient=PatientBrief(
+            id=row["patient_id"],
+            # Same {uk, en} shape the roster serves, so the SPA's existing
+            # name resolver works unchanged.
+            name={"uk": row["patient_name_uk"], "en": row["patient_name_en"]},
+            mrn=row["patient_mrn"],
+            dob=row["patient_dob"],
+            sex=row["patient_sex"],
+        ),
     )
 
 
@@ -110,7 +184,10 @@ async def create_encounter(
             occurred_at=occurred_at,
             status=body.status,
         )
-        if body.status != "scheduled":
+        # Only a retro-logged, already-finished visit bumps last-visit here.
+        # An open visit gets its bump when it is completed (0058) — before
+        # the lifecycle existed, create-time was the only chance we had.
+        if body.status == encounter_state.COMPLETED:
             await patients_repository.bump_last_visit(
                 conn, patient_id=patient_id, when=occurred_at
             )
@@ -123,6 +200,30 @@ async def create_encounter(
         payload={"encounter_id": str(row["id"]), "kind": body.kind},
     )
     return _to_out(row)
+
+
+@router.get(
+    "/encounters/open",
+    response_model=list[QueueEncounterOut],
+    summary="Visits still open (in_progress | paused) — the clinician's pipeline.",
+)
+async def list_open_encounters(
+    claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
+    mine: Annotated[bool, Query()] = True,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> list[QueueEncounterOut]:
+    """Declared before ``/encounters/{encounter_id}``: FastAPI matches routes
+    in declaration order, and the parametrised one would swallow ``open``.
+
+    ``mine=false`` widens to every open visit in the tenant — the view a
+    tenant_admin needs to find visits colleagues left hanging.
+    """
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        rows = await encounters_repository.list_open(
+            conn, created_by=claims.sub if mine else None, limit=limit
+        )
+    return [_to_queue_out(r) for r in rows]
 
 
 @router.get(
@@ -142,16 +243,139 @@ async def get_encounter(
     return _to_out(row)
 
 
+async def _apply_transition(
+    *,
+    encounter_id: UUID,
+    action: EncounterAction,
+    body: EncounterTransition,
+    claims: Claims,
+) -> EncounterOut:
+    """Shared body for the five lifecycle verbs.
+
+    Order matters: validate the transition against the row we read, refuse
+    if a live recording would be orphaned, then CAS. The CAS re-checks the
+    status we validated, so a concurrent transition loses rather than
+    silently overwriting.
+    """
+    target = encounter_state.ACTION_TARGET[action]
+    now = datetime.now(UTC)
+    state = get_state()
+
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        row = await encounters_repository.get_encounter(conn, encounter_id=encounter_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        current = row["status"]
+        problem = encounter_state.transition_error(current, action)
+        if problem is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=problem)
+
+        live_sessions = 0
+        if target in encounter_state.TERMINAL_STATUSES:
+            live_sessions = await encounters_repository.count_live_sessions(
+                conn,
+                encounter_id=encounter_id,
+                stale_after_seconds=settings.encounter_live_session_window_seconds,
+            )
+            if live_sessions and not body.force:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        f"{live_sessions} dictation session(s) on this encounter are "
+                        "still live — stop the recording first, or retry with "
+                        "force=true to end the visit anyway"
+                    ),
+                )
+
+        updated = await encounters_repository.update_lifecycle(
+            conn,
+            encounter_id=encounter_id,
+            expected_status=current,
+            new_status=target,
+            now=now,
+        )
+        if updated is None:
+            # Lost the CAS — somebody else moved the row between our read
+            # and our write.
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="encounter changed concurrently; re-read and retry",
+            )
+
+        # The visit is over: this, not the moment it was created, is when the
+        # patient was actually seen.
+        if target == encounter_state.COMPLETED:
+            await patients_repository.bump_last_visit(
+                conn, patient_id=updated["patient_id"], when=now
+            )
+
+    payload: dict[str, object] = {
+        "encounter_id": str(encounter_id),
+        "from": current,
+        "to": target,
+    }
+    if body.reason:
+        payload["reason"] = body.reason
+    if live_sessions and body.force:
+        payload["forced_over_live_sessions"] = live_sessions
+    await audit_helper.emit(
+        state,
+        claims,
+        _ACTION_AUDIT_KIND[action],
+        target_kind="patient",
+        target_id=updated["patient_id"],
+        payload=payload,
+    )
+    return _to_out(updated)
+
+
+def _lifecycle_route(action: EncounterAction, summary: str) -> None:
+    """Register ``POST /encounters/{id}/<action>``.
+
+    Five near-identical handlers would be five places to forget a guard, so
+    they are generated from one body. Explicit verbs (rather than a generic
+    PATCH) keep the audit kind and the permission check tied to the clinical
+    action being taken.
+    """
+
+    @router.post(
+        f"/encounters/{{encounter_id}}/{action}",
+        response_model=EncounterOut,
+        summary=summary,
+        name=f"{action}_encounter",
+        operation_id=f"{action}_encounter",
+    )
+    async def _handler(  # noqa: D401 — body documented on _apply_transition
+        encounter_id: UUID,
+        claims: Annotated[Claims, Depends(requires("patient.write", "patient"))],
+        body: EncounterTransition | None = None,
+    ) -> EncounterOut:
+        return await _apply_transition(
+            encounter_id=encounter_id,
+            action=action,
+            body=body or EncounterTransition(),
+            claims=claims,
+        )
+
+
+_lifecycle_route("start", "Begin a scheduled visit (→ in_progress).")
+_lifecycle_route("pause", "Step out of an in-progress visit (→ paused).")
+_lifecycle_route("resume", "Return to a paused visit (→ in_progress).")
+_lifecycle_route("complete", "End the visit (→ completed); stamps the patient's last visit.")
+_lifecycle_route("cancel", "Abandon the visit (→ cancelled).")
+
+
 @router.get(
     "/schedule",
-    response_model=list[EncounterOut],
+    response_model=list[QueueEncounterOut],
     summary="Scheduled visits for a day (defaults to today, UTC).",
 )
 async def list_schedule(
     claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
-    date: Annotated[str | None, Query(pattern=r"^\d{4}-\d{2}-\d{2}$")] = None,
-) -> list[EncounterOut]:
-    day = datetime.fromisoformat(date).date() if date else datetime.now(UTC).date()
+    day_iso: Annotated[str | None, Query(alias="date", pattern=r"^\d{4}-\d{2}-\d{2}$")] = None,
+) -> list[QueueEncounterOut]:
+    day = datetime.fromisoformat(day_iso).date() if day_iso else datetime.now(UTC).date()
     day_start = datetime.combine(day, time.min, tzinfo=UTC)
     day_end = day_start + timedelta(days=1)
     state = get_state()
@@ -159,4 +383,4 @@ async def list_schedule(
         rows = await encounters_repository.list_schedule(
             conn, day_start=day_start, day_end=day_end
         )
-    return [_to_out(r) for r in rows]
+    return [_to_queue_out(r) for r in rows]

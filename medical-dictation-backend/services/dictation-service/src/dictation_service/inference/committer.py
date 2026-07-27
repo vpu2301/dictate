@@ -2,8 +2,9 @@
 
 A word graduates from PARTIAL to FINAL when:
 
-1. Its window-relative end time has slid out of the active window
-   (i.e., it's older than one full window's worth of audio); AND
+1. It has slid out of the REVISABLE part of the stream — i.e. it ends
+   before the region the next window will re-transcribe, so no future
+   alignment pass can change it (``commit_horizon_ms``); AND
 2. A VAD-detected silence boundary lies between this word and the next
    non-silence sample in the buffer (so we don't cut mid-utterance); AND
 3. The window's ``no_speech_prob`` ≤ threshold (drops Whisper's
@@ -11,6 +12,17 @@ A word graduates from PARTIAL to FINAL when:
 
 Once committed, the word is immutable. The session loop appends it to
 ``transcript_jsonb`` and stops sending it as a partial.
+
+Rule 1 fix (sprint 14, ADR-0013 amendment): the horizon used to be one
+FULL window (4 s), but ``StreamingWindower.integrate`` only ever offers
+candidates drawn from the current 4 s window, so ``now_ms - w.end_ms``
+could never reach 4000 and **no word was ever committed** — a session
+emitted partials forever and finalized an empty transcript. The
+horizon is the OVERLAP (2 s): everything older is outside the next
+window's re-transcription range and therefore stable. The old unit
+tests missed it because they fed the committer word ages (8.5 s) that
+the windower cannot produce; the regression test now drives the real
+windower.
 """
 
 from __future__ import annotations
@@ -41,32 +53,43 @@ class Committer:
     """
 
     no_speech_threshold: float = settings.no_speech_prob_drop_threshold
+    max_provisional_ms: int = settings.commit_max_provisional_ms
 
     def evaluate(
         self,
         *,
         candidates: list[WordTiming],
         now_ms: int,
-        window_seconds: float,
+        commit_horizon_ms: int,
         no_speech_prob: float,
         last_silence_boundary_ms: int | None,
     ) -> list[CommitDecision]:
         decisions: list[CommitDecision] = []
-        full_window_ms = int(window_seconds * 1000)
         for w in candidates:
+            age_ms = now_ms - w.end_ms
             # Rule 3 — hallucination guard. Drop trailing tokens when
             # the segment-level no-speech probability is high.
             if no_speech_prob > self.no_speech_threshold:
                 decisions.append(CommitDecision(word=w, commit=False, reason="high_no_speech_prob"))
                 continue
-            # Rule 1 — word must be older than a full window.
-            if (now_ms - w.end_ms) < full_window_ms:
+            # Rule 1 — word must be past the revision horizon.
+            if age_ms < commit_horizon_ms:
                 decisions.append(CommitDecision(word=w, commit=False, reason="too_recent"))
                 continue
             # Rule 2 — silence boundary lies between this word and
             # whatever follows. If we don't have one, we keep it
-            # provisional rather than commit mid-utterance.
+            # provisional rather than commit mid-utterance...
             if last_silence_boundary_ms is None or last_silence_boundary_ms < w.end_ms:
+                # ...but not forever. Continuous speech with no qualifying
+                # pause (a fast dictation, an animated consultation) must
+                # not stall the transcript: past `max_provisional_ms` the
+                # word is far outside the revision horizon anyway, so
+                # holding it back only risks losing it at finalize.
+                # Without this backstop a pause-free session persists an
+                # EMPTY transcript (sprint-14 finding, ADR-0013 amendment).
+                if age_ms >= self.max_provisional_ms:
+                    decisions.append(CommitDecision(word=w, commit=True, reason="stale_commit"))
+                    continue
                 decisions.append(CommitDecision(word=w, commit=False, reason="no_silence_boundary"))
                 continue
             decisions.append(CommitDecision(word=w, commit=True, reason="ok"))

@@ -1,0 +1,231 @@
+# promtool unit tests for the sprint-14 conversation-capacity alerts.
+#
+# Run:  make check-alert-rules
+#
+# These prove the alerts FIRE on the failure they claim to watch — a rule
+# that is syntactically valid but never fires is worse than no rule, because
+# a green dashboard then reads as "no problem" rather than "not measured".
+#
+# Lives under rules/tests/ deliberately: Prometheus loads /rules/*.yml, and
+# a test file sitting alongside the rules would be parsed as a rule file.
+
+rule_files:
+  - ../sprint-14-alerts.yml
+
+evaluation_interval: 30s
+
+tests:
+  # ── Device memory: THE sprint-14 alert ────────────────────────────
+  - interval: 30s
+    name: device memory spike above 90% pages
+    input_series:
+      # 10 min healthy at 50%, then a spike to 95% — a second resident
+      # model plus session growth walking the device toward OOM.
+      - series: 'mdx_dictation_device_memory_utilization_ratio{worker_id="dictation-1",kind="vram"}'
+        values: "0.50+0x20 0.95+0x40"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: DictationDeviceMemoryHigh
+        exp_alerts: []
+      - eval_time: 12m   # spiked at 10m, `for: 5m` not yet elapsed
+        alertname: DictationDeviceMemoryHigh
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: DictationDeviceMemoryHigh
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: capacity
+              worker_id: dictation-1
+              kind: vram
+            exp_annotations:
+              summary: "Worker dictation-1 vram at 95%"
+              description: |
+                Inference-device memory above 90%. Two models are resident
+                (Whisper + ECAPA/Silero, ADR-0034). An OOM here kills live
+                consultations, not just the next request.
+                Runbook: docs/runbooks/dictation.md § device-memory-pressure.
+
+  - interval: 30s
+    name: device memory above 97% is critical within a minute
+    input_series:
+      - series: 'mdx_dictation_device_memory_utilization_ratio{worker_id="dictation-1",kind="vram"}'
+        values: "0.50+0x10 0.99+0x20"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: DictationDeviceMemoryCritical
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: capacity
+              worker_id: dictation-1
+              kind: vram
+            exp_annotations:
+              summary: "Worker dictation-1 vram CRITICAL (99%)"
+              description: "OOM imminent. Drain conversation sessions from this worker now."
+
+  - interval: 30s
+    name: a CPU worker's rss pressure alerts too
+    input_series:
+      - series: 'mdx_dictation_device_memory_utilization_ratio{worker_id="dictation-cpu-1",kind="rss"}'
+        values: "0.93+0x40"
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: DictationDeviceMemoryHigh
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: capacity
+              worker_id: dictation-cpu-1
+              kind: rss
+            exp_annotations:
+              summary: "Worker dictation-cpu-1 rss at 93%"
+              description: |
+                Inference-device memory above 90%. Two models are resident
+                (Whisper + ECAPA/Silero, ADR-0034). An OOM here kills live
+                consultations, not just the next request.
+                Runbook: docs/runbooks/dictation.md § device-memory-pressure.
+
+  # ── Weighted saturation ───────────────────────────────────────────
+  - interval: 30s
+    name: two conversation sessions saturate the worker on WEIGHT not headcount
+    input_series:
+      # 2 conversation sessions = weight 4 of 4. Headcount would say "2",
+      # which is exactly the blind spot the weighted gauge fixes.
+      - series: 'mdx_dictation_capacity_weight_used{worker_id="dictation-1"}'
+        values: "2+0x10 4+0x40"
+      - series: 'mdx_dictation_capacity_weight_max{worker_id="dictation-1"}'
+        values: "4+0x60"
+      - series: 'mdx_dictation_active_sessions{worker_id="dictation-1",mode="conversation"}'
+        values: "1+0x10 2+0x40"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: DictationWorkerWeightSaturated
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: DictationWorkerWeightSaturated
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              team: capacity
+              worker_id: dictation-1
+            exp_annotations:
+              summary: "Worker dictation-1 at full weighted capacity"
+              description: |
+                Every slot is admitted; new sessions are getting gpu_full.
+                Sprint 16 wires HPA on this metric. Today: scale manually.
+      # The old headcount rule would NOT have fired here — 2 sessions < 4.
+      - eval_time: 12m
+        alertname: DictationWorkerHighSessionCount
+        exp_alerts: []
+
+  # ── Conversation readiness ────────────────────────────────────────
+  - interval: 30s
+    name: a warm-whisper cold-diarizer worker is reported as dictation-only
+    input_series:
+      - series: 'mdx_dictation_conversation_ready{worker_id="dictation-2"}'
+        values: "0+0x60"
+      - series: 'mdx_dictation_model_loaded{worker_id="dictation-2",model="whisper"}'
+        values: "1+0x60"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: DictationConversationCapacityUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              team: dictation
+              worker_id: dictation-2
+            exp_annotations:
+              summary: "Worker dictation-2 serves dictation but NOT conversation"
+              description: |
+                The diarizer is not warm — a failed model load or a failed
+                startup checksum (fail-closed, docs/models/PINS.md). Check the
+                worker's diarization.warmup_failed / model_verified log lines
+                and /readyz `diarizer_error`.
+
+  - interval: 30s
+    name: a healthy worker raises no readiness alert
+    input_series:
+      - series: 'mdx_dictation_conversation_ready{worker_id="dictation-3"}'
+        values: "1+0x60"
+      - series: 'mdx_dictation_model_loaded{worker_id="dictation-3",model="whisper"}'
+        values: "1+0x60"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: DictationConversationCapacityUnavailable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: DictationConversationFleetUnavailable
+        exp_alerts: []
+
+  # ── Diarization honesty (the live DER proxy) ──────────────────────
+  - interval: 30s
+    name: a sustained UNKNOWN speaker rate above 25% warns
+    input_series:
+      # 40% of committed words land UNKNOWN — worse than the rapid-turn
+      # stress case in ADR-0034 (0.38), far worse than the 0.03 baseline.
+      - series: 'mdx_dictation_conversation_words_total{outcome="unknown"}'
+        values: "0+40x120"
+      - series: 'mdx_dictation_conversation_words_total{outcome="labeled"}'
+        values: "0+60x120"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: DictationUnknownSpeakerRateHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              team: dictation
+            exp_annotations:
+              summary: "UNKNOWN speaker rate 40% over 30m"
+              description: |
+                Corpus baseline is 0.03 (ADR-0034); the rapid-turn stress case
+                reaches 0.38. Sustained >25% in production means real audio is
+                harder than the eval corpus — clinicians are getting unlabeled
+                words. Review with the clinical lead; consider re-baselining DER
+                on real consultation audio (todo.md).
+
+  - interval: 30s
+    name: the ADR-0034 baseline UNKNOWN rate does not alert
+    input_series:
+      - series: 'mdx_dictation_conversation_words_total{outcome="unknown"}'
+        values: "0+3x120"
+      - series: 'mdx_dictation_conversation_words_total{outcome="labeled"}'
+        values: "0+97x120"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: DictationUnknownSpeakerRateHigh
+        exp_alerts: []
+
+  # ── Latency under co-tenancy ──────────────────────────────────────
+  - interval: 30s
+    name: dictation latency breaching while sharing a worker is attributed to dictation
+    input_series:
+      # Dictation partials all land in the >1500ms bucket; conversation is fine.
+      - series: 'mdx_dictation_partial_latency_ms_bucket{le="1000",mode="dictation"}'
+        values: "0+0x60"
+      - series: 'mdx_dictation_partial_latency_ms_bucket{le="2000",mode="dictation"}'
+        values: "0+10x60"
+      - series: 'mdx_dictation_partial_latency_ms_bucket{le="+Inf",mode="dictation"}'
+        values: "0+10x60"
+      - series: 'mdx_dictation_partial_latency_ms_bucket{le="1000",mode="conversation"}'
+        values: "0+10x60"
+      - series: 'mdx_dictation_partial_latency_ms_bucket{le="2000",mode="conversation"}'
+        values: "0+10x60"
+      - series: 'mdx_dictation_partial_latency_ms_bucket{le="+Inf",mode="conversation"}'
+        values: "0+10x60"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: DictationPartialLatencyHighByMode
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              team: dictation
+              mode: dictation
+            exp_annotations:
+              summary: "Partial latency p95 > 1500 ms in dictation mode"
+              description: |
+                Sprint-04 target is 1100 ms and it must hold for mode="dictation"
+                even while conversation sessions share the worker. If only
+                mode="conversation" is breaching, the diarizer is the suspect;
+                if BOTH are, the worker is oversubscribed — revisit
+                MDX_CONVERSATION_SESSION_WEIGHT (ADR-0035).

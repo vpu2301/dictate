@@ -23,7 +23,14 @@ SAMPLES_PER_FRAME: int = SAMPLE_RATE_HZ * FRAME_MS // 1000
 @dataclass(frozen=True, slots=True)
 class VadConfig:
     energy_threshold: float = 0.005  # normalised RMS
-    min_silence_frames: int = 25  # 500 ms
+    # 240 ms. Was 500 ms (sprint 04) — measured against real speech in
+    # sprint 14 that was unreachable: inter-utterance pauses in natural
+    # clinical dictation and in doctor↔patient turn-taking run
+    # ~200-450 ms, so a 500 ms contiguous-silence requirement returned
+    # None for every window and (with committer rule 2) NO word ever
+    # committed. 240 ms matches the standard inter-pause threshold and
+    # Silero's own turn-splitting default. See ADR-0013 amendment.
+    min_silence_frames: int = 12  # 240 ms
     smooth_frames: int = 3
 
 

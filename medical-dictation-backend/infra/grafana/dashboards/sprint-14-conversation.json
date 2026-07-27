@@ -1,0 +1,595 @@
+{
+ "title": "Sprint 14 — Conversation Mode & Speaker Diarization",
+ "uid": "sprint-14-conversation",
+ "tags": [
+  "capacity",
+  "conversation",
+  "deployment",
+  "diarization",
+  "quality",
+  "sprint-14"
+ ],
+ "timezone": "browser",
+ "refresh": "30s",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "schemaVersion": 39,
+ "version": 2,
+ "description": "Diarization honesty + capacity for conversation mode (ADR-0034). True DER cannot be computed in production (no ground truth), so the honesty signals are the proxy: a diarizer that has started GUESSING shows up as a falling UNKNOWN rate paired with a rising manual-override rate. Read the two together — neither means anything alone. Sprint-14 deployment adds the dual-model capacity row: weighted capacity, per-mode latency, combined window cost, and device memory.",
+ "panels": [
+  {
+   "id": 100,
+   "type": "row",
+   "title": "Diarization honesty — the DER proxy (review weekly with the clinical lead)",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "panels": []
+  },
+  {
+   "id": 101,
+   "type": "timeseries",
+   "title": "UNKNOWN speaker rate — THE honesty signal",
+   "description": "unknown / (labeled + unknown + pending) over committed words. Some UNKNOWN is CORRECT and expected — overlapping speech and turn-straddling segments must abstain rather than guess (ADR-0034). A rate near ZERO is the alarming case: it means the clusterer is confidently labeling audio it cannot actually resolve. A rate climbing above ~35% means separation is failing (mic placement, a third voice, near-identical voices). Counted on COMMITTED words only — partials are re-emitted every tick.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 0,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "(sum(increase(mdx_dictation_conversation_words_total{outcome=\"unknown\"}[$__range])) or vector(0)) / clamp_min(sum(increase(mdx_dictation_conversation_words_total[$__range])), 1)",
+     "legendFormat": "UNKNOWN rate",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "max": 1,
+     "min": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 0.02
+       },
+       {
+        "color": "orange",
+        "value": 0.35
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 102,
+   "type": "timeseries",
+   "title": "Manual override rate per session",
+   "description": "Manual SetSpeakerMapping events / conversation sessions started. Every override is a clinician telling us the inference was wrong (or that it abstained and they assigned it). Rising ⇒ the doctor/patient heuristic is mis-mapping; check whether ASR quality dropped, since the clinician-register vocabulary signal degrades with WER and the inference then abstains by design.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 12,
+    "y": 1
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "(sum(increase(mdx_dictation_speaker_mapping_updates_total{source=\"manual\"}[$__range])) or vector(0)) / clamp_min(sum(increase(mdx_dictation_conversation_sessions_total[$__range])), 1)",
+     "legendFormat": "manual overrides / session",
+     "refId": "A"
+    },
+    {
+     "expr": "sum(rate(mdx_dictation_speaker_mapping_updates_total{source=\"inferred\"}[5m]))",
+     "legendFormat": "inferred hypothesis changes/s",
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "min": 0
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 103,
+   "type": "timeseries",
+   "title": "Speaker-label outcomes (volume context)",
+   "description": "Committed conversation words by outcome. 'pending' = diarization had not resolved the speaker when the word committed (labels legitimately trail text by up to one window). Sustained high 'pending' means the clusterer never bootstrapped — usually a single-voice session mistakenly started in conversation mode.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 0,
+    "y": 10
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum by (outcome) (rate(mdx_dictation_conversation_words_total[5m]))",
+     "legendFormat": "{{outcome}}",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 104,
+   "type": "timeseries",
+   "title": "Diarization cost per window (p50/p95)",
+   "description": "VAD + ECAPA embedding + clustering, per 4 s window. Must stay a small fraction of the window budget so the ADR-0013 partial p95 ≤ 1100 ms target holds with both models resident. CPU reference (Apple M5, ADR-0034): p95 ≈ 57 ms ≈ 10% of pipeline. Re-baseline on the A10G rig.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 12,
+    "y": 10
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_dictation_diarization_window_ms_bucket[5m])))",
+     "legendFormat": "p95",
+     "refId": "A"
+    },
+    {
+     "expr": "histogram_quantile(0.50, sum by (le) (rate(mdx_dictation_diarization_window_ms_bucket[5m])))",
+     "legendFormat": "p50",
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "min": 0
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 200,
+   "type": "row",
+   "title": "Capacity & consent",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 19
+   },
+   "panels": []
+  },
+  {
+   "id": 201,
+   "type": "timeseries",
+   "title": "Sessions by mode",
+   "description": "A conversation session costs MDX_CONVERSATION_SESSION_WEIGHT (default 2) capacity slots because it holds two models resident, so 4 dictation OR 2 conversation OR a weighted mix per worker.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 0,
+    "y": 20
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum by (mode) (rate(mdx_dictation_conversation_sessions_total[5m]))",
+     "legendFormat": "{{mode}} starts/s",
+     "refId": "A"
+    },
+    {
+     "expr": "sum(mdx_dictation_active_sessions)",
+     "legendFormat": "active sessions",
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "min": 0
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 202,
+   "type": "timeseries",
+   "title": "Conversation starts refused (consent gate)",
+   "description": "Rate of gpu_full rejections vs consent refusals. A steady consent_refused rate is a WORKFLOW signal, not an outage: clinicians are trying to start conversation mode for encounters whose patient has not granted a 'recording' consent. Sustained gpu_full means the weighted cap needs re-tuning against measured GPU headroom (todo.md, S14).",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 12,
+    "y": 20
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(mdx_dictation_session_drops_total{reason=\"consent_refused\"}[5m]))",
+     "legendFormat": "consent refused",
+     "refId": "A"
+    },
+    {
+     "expr": "sum(rate(mdx_dictation_session_drops_total{reason=\"gpu_full\"}[5m]))",
+     "legendFormat": "capacity full",
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "min": 0
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 130,
+   "type": "row",
+   "collapsed": false,
+   "title": "Dual-model capacity — does dictation survive co-tenancy? (sprint-14 deployment)",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 29
+   },
+   "panels": []
+  },
+  {
+   "id": 131,
+   "type": "timeseries",
+   "title": "Live sessions by mode",
+   "description": "Headcount per worker, split by mode. Read WITH the weighted-capacity panel: two conversation sessions are only 2 sessions but consume the ENTIRE weight budget of 4. Headcount alone makes a full worker look half-idle.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 0,
+    "y": 30
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum by (mode) (mdx_dictation_active_sessions)",
+     "legendFormat": "{{mode}}",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 132,
+   "type": "timeseries",
+   "title": "Weighted capacity used / budget",
+   "description": "THE saturation signal. A conversation session costs MDX_CONVERSATION_SESSION_WEIGHT (default 2) because it runs two models; dictation costs 1. When used == max the worker refuses new sessions with gpu_full. Alert: DictationWorkerWeightSaturated.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 12,
+    "y": 30
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max by (worker_id) (mdx_dictation_capacity_weight_used)",
+     "legendFormat": "{{worker_id}} used",
+     "refId": "A"
+    },
+    {
+     "expr": "max by (worker_id) (mdx_dictation_capacity_weight_max)",
+     "legendFormat": "{{worker_id}} budget",
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 133,
+   "type": "timeseries",
+   "title": "Partial latency p95 BY MODE — the co-tenancy claim",
+   "description": "Sprint-04's target is p95 <= 1100 ms and it must hold for mode=dictation even while conversation sessions share the worker. If only conversation breaches, suspect the diarizer; if both breach, the worker is oversubscribed — revisit the session weight (ADR-0035). NOTE: sprint 04 declared this metric but never emitted it; it first carries data as of sprint 14.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 0,
+    "y": 39
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum by (le, mode) (rate(mdx_dictation_partial_latency_ms_bucket[5m])))",
+     "legendFormat": "p95 {{mode}}",
+     "refId": "A"
+    },
+    {
+     "expr": "histogram_quantile(0.50, sum by (le, mode) (rate(mdx_dictation_partial_latency_ms_bucket[5m])))",
+     "legendFormat": "p50 {{mode}}",
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1100
+       },
+       {
+        "color": "red",
+        "value": 1500
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 134,
+   "type": "timeseries",
+   "title": "Combined conversation window: inference + diarization",
+   "description": "The SUM is what has to fit the tick budget — watching Whisper and the diarizer separately hides the case where each is individually fine but their sum is not. Compare against the diarization-only panel above to see which half moved.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 12,
+    "y": 39
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_dictation_conversation_window_total_ms_bucket[5m])))",
+     "legendFormat": "combined p95",
+     "refId": "A"
+    },
+    {
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_dictation_window_inference_ms_bucket{mode=\"conversation\"}[5m])))",
+     "legendFormat": "whisper p95",
+     "refId": "B"
+    },
+    {
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_dictation_diarization_window_ms_bucket[5m])))",
+     "legendFormat": "diarization p95",
+     "refId": "C"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 135,
+   "type": "timeseries",
+   "title": "Inference-device memory utilisation",
+   "description": "Two models are resident (Whisper + ECAPA/Silero, ADR-0034). kind=vram on CUDA workers (whole-device, so a co-tenant process filling the card shows up here); kind=rss on CPU workers — NOT the same thing, never blend them. Alerts at 0.90 (page) and 0.97 (critical).",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 0,
+    "y": 48
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max by (worker_id, kind) (mdx_dictation_device_memory_utilization_ratio)",
+     "legendFormat": "{{worker_id}} {{kind}}",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "max": 1,
+     "min": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.9
+       },
+       {
+        "color": "red",
+        "value": 0.97
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 136,
+   "type": "timeseries",
+   "title": "Conversation readiness + model residency",
+   "description": "conversation_ready is 0 when the diarizer is cold — the worker still serves dictation (readyz stays 200) so nothing else would notice conversation capacity vanishing. A worker advertising conversation capacity with a cold diarizer would pay weight loading inside its first window.",
+   "gridPos": {
+    "h": 9,
+    "w": 12,
+    "x": 12,
+    "y": 48
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "max by (worker_id) (mdx_dictation_conversation_ready)",
+     "legendFormat": "{{worker_id}} conversation ready",
+     "refId": "A"
+    },
+    {
+     "expr": "max by (worker_id, model) (mdx_dictation_model_loaded)",
+     "legendFormat": "{{worker_id}} {{model}} loaded",
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     },
+     "max": 1,
+     "min": 0
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 137,
+   "type": "timeseries",
+   "title": "Sessions refused: gpu_full",
+   "description": "Clinicians being turned away. Sustained refusals mean the fleet is undersized for the current conversation/dictation mix — conversation sessions consume the budget twice as fast.",
+   "gridPos": {
+    "h": 7,
+    "w": 24,
+    "x": 0,
+    "y": 57
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(mdx_dictation_session_drops_total{reason=\"gpu_full\"}[5m]))",
+     "legendFormat": "gpu_full/s",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8
+     }
+    },
+    "overrides": []
+   }
+  }
+ ]
+}

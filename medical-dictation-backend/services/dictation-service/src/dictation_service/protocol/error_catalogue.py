@@ -27,6 +27,10 @@ class ErrorCode(StrEnum):
     # terminal: the client must fix the encounter reference, not retry.
     ENCOUNTER_INVALID = "encounter_invalid"
     ENCOUNTER_CLOSED = "encounter_closed"
+    # S14 — conversation mode requires an encounter with a granted
+    # 'recording' consent for its patient. Terminal: obtain consent
+    # (core-service POST /v1/patients/{id}/consents), then start again.
+    CONSENT_REQUIRED = "consent_required"
 
     # 5xx-ish (server side)
     WORKER_FAILED = "worker_failed"

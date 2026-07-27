@@ -35,6 +35,7 @@ from storage import EncryptedObjectStore
 from storage.object_store import ObjectHeader, header_metadata_for_row
 
 from .. import audit_kinds
+from ..config import settings
 from ..domain import repository
 from ..session.manager import SessionContext
 from ..session.state import SessionState
@@ -52,6 +53,10 @@ class FinalizeResult:
     # caller that wants it (the sprint-12 completion notification) has no
     # way to recompute it.
     duration_ms: int
+    # Sprint-14: the persisted transcript (post-NLP), returned so the
+    # conversation draft path can build report sections without
+    # re-reading the row it just wrote.
+    transcript: list[dict[str, Any]] | None = None
 
 
 async def finalize_session(
@@ -63,6 +68,7 @@ async def finalize_session(
     envelope: Envelope,
     reason: str = "normal",
     purge_audio: bool = False,
+    nlp_client: Any | None = None,
 ) -> FinalizeResult:
     """Idempotently finalize a session.
 
@@ -166,8 +172,42 @@ async def finalize_session(
             severity=Severity.WARN,
         )
 
+    # End of session: nothing will revise the still-provisional words and no
+    # further audio will produce the silence boundary they are waiting on, so
+    # commit them now or lose them. Purely a promotion of already-decoded
+    # words — no inference here, so this cannot slow finalize down.
+    _flush_provisional_tail(ctx)
+
     # Persist the transcript + timing metrics.
     transcript_jsonb = _transcript_to_jsonb(ctx)
+
+    # Sprint-14: run the NLP pipeline over the committed segments before
+    # persistence — filling the slot sprint-05 reserved. Conversation
+    # sessions disable the voice-commands stage: a patient saying «новий
+    # абзац» stays verbatim text, never an editing operation. Any NLP
+    # failure degrades to the raw transcript (never blocks finalize).
+    if nlp_client is not None and transcript_jsonb:
+        enriched = await _enrich_with_nlp(ctx, transcript_jsonb, nlp_client)
+        if enriched is not None:
+            transcript_jsonb = enriched
+        else:
+            await audit_writer.write_event(
+                tenant_id=ctx.tenant_id,
+                kind=audit_kinds.NLP_TIMEOUT,
+                actor_sub=ctx.user_id,
+                target_kind="dictation_session",
+                target_id=str(ctx.session_id),
+                payload={"segments": len(transcript_jsonb), "mode": ctx.mode},
+                severity=Severity.WARN,
+            )
+
+    # Real VAD-derived speech time for conversation sessions (the
+    # sprint-04 approximation marker); dictation keeps the approximation
+    # until it, too, runs a full-session VAD pass.
+    total_speech_ms = duration_ms
+    if ctx.mode == "conversation" and ctx.diarization is not None:
+        total_speech_ms = sum(s.end_ms - s.start_ms for s in ctx.diarization.segments)
+
     async with tenant_connection(app_pool, ctx.tenant_id) as conn:
         await repository.write_finalized(
             conn,
@@ -175,7 +215,7 @@ async def finalize_session(
             audio_file_id=audio_file_id,
             transcript_jsonb=transcript_jsonb,
             total_audio_ms=duration_ms,
-            total_speech_ms=duration_ms,  # approximation; real VAD-speech in sprint 14
+            total_speech_ms=total_speech_ms,
             avg_partial_latency_ms=_avg(ctx.partial_latencies_ms),
             avg_final_latency_ms=_avg(ctx.final_latencies_ms),
             rtf=None,
@@ -225,6 +265,7 @@ async def finalize_session(
         truncated=truncated,
         transcript_segments=len(transcript_jsonb),
         duration_ms=duration_ms,
+        transcript=transcript_jsonb,
     )
 
 
@@ -273,35 +314,152 @@ def _pcm_to_wav(pcm: np.ndarray) -> bytes:
     return buf.getvalue()
 
 
+def _flush_provisional_tail(ctx: SessionContext) -> None:
+    """Promote the windower's remaining provisional words into the transcript.
+
+    Best-effort: a session that never reached the window loop (immediate
+    failure, resume that never re-armed) has no windower, and a flush that
+    somehow raises must not cost the clinician the transcript that IS
+    committed.
+    """
+    windower = getattr(ctx, "windower", None)
+    if windower is None:
+        return
+    try:
+        tail = windower.flush_provisional()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "finalize.provisional_flush_failed",
+            extra={"session_id": str(ctx.session_id), "error_class": type(exc).__name__},
+        )
+        return
+    if not tail:
+        return
+    ctx.finalized_segments.extend(tail)
+    logger.info(
+        "finalize.provisional_flushed",
+        extra={
+            "session_id": str(ctx.session_id),
+            "segments": len(tail),
+            "words": sum(len(s.words or []) for s in tail),
+        },
+    )
+
+
 def _transcript_to_jsonb(ctx: SessionContext) -> list[dict[str, Any]]:
     """Project finalized_segments → JSON-safe list of segment dicts.
 
-    The shape matches sprint-03's TranscriptionOutput.segments so the
-    NLP postprocessor (sprint 05) can consume both batch and streaming
-    transcripts uniformly.
+    Dictation mode keeps the EXACT pre-sprint-14 shape (sprint-03's
+    TranscriptionOutput.segments + the sprint-05 voice_command slot) —
+    byte-compatible with every existing consumer.
+
+    Conversation mode (sprint 14) ADDS per-segment ``id`` (minted UUIDs
+    → report drafts' transcript_segment_ids), segment- and word-level
+    ``speaker``/``speaker_confidence`` proposals, and ``speaker_role``
+    (the doctor/patient mapping at finalize — the direct feed for
+    sprint-12 note synthesis). Labels remain proposals: UNKNOWN and
+    null survive into persistence rather than being papered over.
     """
+    conversation = ctx.mode == "conversation" and ctx.diarization is not None
+    mapping: dict[str, str] = {}
+    if conversation and ctx.mapping_inference is not None:
+        current = ctx.mapping_inference.current
+        if current is not None:
+            mapping = {k: v for k, v in current.mapping.items() if v is not None}
+
     out: list[dict[str, Any]] = []
     for seg in ctx.finalized_segments:
-        out.append(
-            {
-                "text": seg.text,
-                "start_ms": seg.start_ms,
-                "end_ms": seg.end_ms,
-                "avg_confidence": float(seg.avg_confidence),
-                "words": [
-                    {
-                        "text": w.text,
-                        "start_ms": w.start_ms,
-                        "end_ms": w.end_ms,
-                        "probability": float(w.probability),
-                    }
-                    for w in (seg.words or [])
-                ],
-                # sprint-05 will populate this from NLP; sprint-04 reserves the slot.
-                "voice_command": None,
-            }
-        )
+        doc: dict[str, Any] = {
+            "text": seg.text,
+            "start_ms": seg.start_ms,
+            "end_ms": seg.end_ms,
+            "avg_confidence": float(seg.avg_confidence),
+            "words": [
+                {
+                    "text": w.text,
+                    "start_ms": w.start_ms,
+                    "end_ms": w.end_ms,
+                    "probability": float(w.probability),
+                }
+                for w in (seg.words or [])
+            ],
+            # populated by the finalize-time NLP pass; null when NLP is
+            # unavailable (graceful degradation) or nothing matched.
+            "voice_command": None,
+        }
+        if conversation:
+            assert ctx.diarization is not None
+            doc["id"] = str(uuid4())
+            speaker, conf = ctx.diarization.attribute(int(seg.start_ms), int(seg.end_ms))
+            doc["speaker"] = speaker
+            doc["speaker_confidence"] = conf
+            doc["speaker_role"] = mapping.get(speaker) if speaker else None
+            for w, w_doc in zip(seg.words or [], doc["words"], strict=True):
+                w_speaker, w_conf = ctx.diarization.attribute(int(w.start_ms), int(w.end_ms))
+                w_doc["speaker"] = w_speaker
+                w_doc["speaker_confidence"] = w_conf
+        out.append(doc)
     return out
+
+
+async def _enrich_with_nlp(
+    ctx: SessionContext,
+    transcript: list[dict[str, Any]],
+    nlp_client: Any,
+) -> list[dict[str, Any]] | None:
+    """One batch NLP call over all committed segments. Returns the
+    enriched list, or None on failure (caller audits + keeps raw).
+
+    Conversation passes ``stages_disabled=["voice_commands"]`` — the
+    server-side guarantee that patient speech can never fire an editing
+    operation. Dictation gets the full pipeline: enriched text plus the
+    voice_command slot ({"voice_commands": [...], "operations": [...]}).
+    """
+    payload = [
+        {
+            "text": seg["text"],
+            "words": [
+                {
+                    "text": w["text"],
+                    "start_s": w["start_ms"] / 1000.0,
+                    "end_s": w["end_ms"] / 1000.0,
+                    "probability": w["probability"],
+                }
+                for w in seg["words"]
+            ],
+        }
+        for seg in transcript
+    ]
+    stages_disabled = ["voice_commands"] if ctx.mode == "conversation" else None
+    resp = await nlp_client.process_segments_batch(
+        segments=payload,
+        language=ctx.language,
+        stages_disabled=stages_disabled,
+        bearer=ctx.bearer,
+        timeout=settings.finalize_nlp_timeout_seconds,
+    )
+    if resp is None or len(resp.get("segments", [])) != len(transcript):
+        return None
+    enriched: list[dict[str, Any]] = []
+    for seg, nlp_seg in zip(transcript, resp["segments"], strict=True):
+        doc = dict(seg)
+        text = str(nlp_seg.get("text", "")).strip()
+        if text:
+            doc["text"] = text
+        commands = list(nlp_seg.get("voice_commands", []))
+        operations = list(nlp_seg.get("operations", []))
+        if ctx.mode == "conversation" and operations:
+            # Defence in depth: the server disabled the stage; anything
+            # arriving anyway is dropped, loudly.
+            logger.error(
+                "nlp.operations_in_conversation_mode_dropped",
+                extra={"session_id": str(ctx.session_id), "count": len(operations)},
+            )
+            commands, operations = [], []
+        if commands or operations:
+            doc["voice_command"] = {"voice_commands": commands, "operations": operations}
+        enriched.append(doc)
+    return enriched
 
 
 def _header_to_json(header: ObjectHeader) -> dict[str, str | int]:

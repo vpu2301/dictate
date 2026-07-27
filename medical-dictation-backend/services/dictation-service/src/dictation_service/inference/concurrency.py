@@ -37,6 +37,7 @@ class _Job:
     prev_text: str | None
     future: asyncio.Future[object]
     deadline_at: float
+    submitted_at: float
 
 
 class InferenceQueue:
@@ -84,7 +85,8 @@ class InferenceQueue:
     ) -> object:
         """Enqueue a window for inference; return the WindowResult."""
         audio_seconds = pcm.shape[0] / 16_000.0
-        deadline = time.monotonic() + max(2.0, audio_seconds * self._deadline_multiplier)
+        submitted_at = time.monotonic()
+        deadline = submitted_at + max(2.0, audio_seconds * self._deadline_multiplier)
         fut: asyncio.Future[object] = asyncio.get_running_loop().create_future()
         await self._queue.put(
             _Job(
@@ -94,6 +96,7 @@ class InferenceQueue:
                 prev_text=prev_text,
                 future=fut,
                 deadline_at=deadline,
+                submitted_at=submitted_at,
             )
         )
         return await fut
@@ -116,13 +119,26 @@ class InferenceQueue:
                     prompt=job.prompt,
                     prev_text=job.prev_text,
                 )
-                if t0 > job.deadline_at:
+                # Compare the COMPLETION time, not the start time. The
+                # original `t0 > deadline_at` only caught jobs that waited
+                # too long in the queue — a job that started on time and
+                # then ran 6 s never registered a miss, which is precisely
+                # the oversubscription signature conversation mode can
+                # produce (sprint-14 deployment).
+                done_at = time.monotonic()
+                if done_at > job.deadline_at:
                     self._consecutive_deadline_misses += 1
                     logger.warning(
                         "inference.deadline_missed",
                         extra={
                             "worker_id": self._worker_id,
                             "consecutive": self._consecutive_deadline_misses,
+                            # Split the overrun so the cause is readable:
+                            # queue wait = oversubscription, run time = the
+                            # model or the device.
+                            "overrun_ms": round((done_at - job.deadline_at) * 1000, 1),
+                            "queue_wait_ms": round((t0 - job.submitted_at) * 1000, 1),
+                            "run_ms": round((done_at - t0) * 1000, 1),
                         },
                     )
                 else:

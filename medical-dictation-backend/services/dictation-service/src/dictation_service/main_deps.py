@@ -15,7 +15,11 @@ from db import create_pool
 from storage import EncryptedObjectStore, S3Client
 
 from .config import settings
+from .diarization.engine import DiarizationEngine
 from .inference import InferenceQueue
+from .integrations.nlp_client import NlpClient, NlpClientConfig
+from .integrations.report_client import ReportClient, ReportClientConfig
+from .integrations.template_client import TemplateClient, TemplateClientConfig
 from .session.manager import SessionManager
 
 
@@ -33,6 +37,17 @@ class ServiceState:
     engine: WhisperEngine
     inference_queue: InferenceQueue
     session_manager: SessionManager
+    # Sprint 14: conversation mode. The diarization engine is warmed at
+    # startup when MDX_DIAR_WARM_AT_STARTUP (the default) — readiness gates
+    # conversation capacity on it. Dictation-only deployments set
+    # MDX_CONVERSATION_ENABLED=false and never touch torch.
+    diarization_engine: DiarizationEngine
+    nlp_client: NlpClient
+    report_client: ReportClient
+    # Sprint-06 client, actually wired in sprint 14 (was dead code: no
+    # instance and no bearer existed before the upgrade began retaining
+    # the clinician's token).
+    template_client: TemplateClient
 
 
 async def build_state() -> ServiceState:
@@ -89,6 +104,41 @@ async def build_state() -> ServiceState:
 
     session_manager = SessionManager(max_sessions=settings.per_worker_max_sessions)
 
+    diarization_engine = DiarizationEngine(
+        model_dir=settings.diar_model_dir,
+        device=settings.diar_device,
+        enabled=settings.conversation_enabled,
+        pins={
+            "embedding_model.ckpt": settings.diar_model_sha256,
+            "mean_var_norm_emb.ckpt": settings.diar_meanvar_sha256,
+        },
+        model_repo=settings.diar_model_repo,
+        model_revision=settings.diar_model_revision,
+    )
+    # BOTH models warm before the worker is ready. Whisper is warmed
+    # eagerly above (engine.load()); the diarizer used to load lazily on
+    # the first conversation session, which meant that session paid weight
+    # loading inside its first window. Warmup failure is non-fatal — the
+    # worker still serves dictation — but /readyz then advertises no
+    # conversation capacity (sprint-14 deployment).
+    if settings.diar_warm_at_startup:
+        await diarization_engine.warm_up()
+    nlp_client = NlpClient(
+        config=NlpClientConfig(
+            base_url=settings.nlp_base_url,
+            timeout_seconds=settings.finalize_nlp_timeout_seconds,
+        )
+    )
+    report_client = ReportClient(
+        config=ReportClientConfig(
+            base_url=settings.report_base_url,
+            timeout_seconds=settings.report_draft_timeout_seconds,
+        )
+    )
+    template_client = TemplateClient(
+        config=TemplateClientConfig(base_url=settings.report_base_url)
+    )
+
     return ServiceState(
         jwks_cache=jwks_cache,
         app_pool=app_pool,
@@ -102,6 +152,10 @@ async def build_state() -> ServiceState:
         engine=engine,
         inference_queue=inference_queue,
         session_manager=session_manager,
+        diarization_engine=diarization_engine,
+        nlp_client=nlp_client,
+        report_client=report_client,
+        template_client=template_client,
     )
 
 
@@ -112,3 +166,6 @@ async def teardown_state(state: ServiceState) -> None:
     await state.audit_writer_pool.close()
     await state.crypto_pool.close()
     await state.s3.aclose()
+    await state.nlp_client.aclose()
+    await state.report_client.aclose()
+    await state.template_client.aclose()

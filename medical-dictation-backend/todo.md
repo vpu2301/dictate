@@ -1,5 +1,131 @@
 # Outstanding human / business actions
 
+## 🔴 REDEPLOY REQUIRED — streaming transcripts were empty in every session
+
+Found 2026-07-26 by driving conversation mode end-to-end against the
+deployed compose stack (the first time the WS path ran with real audio
+from outside the test suite). **Fixed in source; the running images are
+stale.** Rebuild before any further live testing:
+
+```
+docker compose build dictation-service core-service && docker compose up -d
+```
+
+Two latent defects, both invisible to the existing suites:
+
+1. **`_emit_tick` could not serialize a single partial.** The handler
+   passed `asr_models.WordTiming` objects into the wire models'
+   `words: list[TokenTiming]` field — field-identical but a different
+   class, and pydantic v2 does not coerce one `BaseModel` into another.
+   The `ValidationError` escaped into `_window_loop`, a bare
+   `create_task` with no error path, so the window loop **died on the
+   first partial of every session in both protocol versions**. The
+   session kept accepting audio, kept looking healthy to the clinician,
+   stored its audio, and finalized an **empty transcript** — silently.
+   Fixed with `_wire_words()`; the window loop is now guarded per tick
+   and fails the session loudly after 3 consecutive failures rather
+   than transcribing nothing.
+2. **`GET /dictate/sessions/{id}` 500'd on every read.**
+   `transcript_jsonb` comes off asyncpg as a JSON *string* (no codec is
+   registered — the same reason finalize writes it with `json.dumps`),
+   and the response model rejected it. The conversation review swallows
+   that error by design, which is why it never surfaced.
+
+Also added: `kind='scribe'` rows on `GET /patients/{id}/timeline`, so a
+finished conversation is reachable from the patient card at all (it
+previously left only an opaque `kind='recording'` audio row).
+
+**Standing gap this exposed** — nothing exercises the WS wire with real
+audio in CI. The unit suites drive the windower and the codec
+separately, and the chaos/load suites use synthetic Opus that never
+reaches a commit decision, so a defect *between* them ships green.
+Owner: tech lead. Consider a nightly job running
+`scripts/eval/run_conversation_e2e.py` **over the socket** rather than
+in-process.
+
+## 🔴 PRE-EXISTING BREAKAGE found during S14 — S13 template regression
+
+- [ ] **`required: true → false` on the diagnosis/assessment sections of
+      all 20 shipped templates** (owner: clinical content lead + tech
+      lead). Commit `991fc20` (S13) flipped the flag in
+      `infra/seeds/templates/*.json` while converting those sections to
+      `field_type: structured_diagnosis`. By the schema's own doctrine
+      (`classify_edit`, ADR-0016) a flipped `required` is a
+      **STRUCTURAL** template change, and clinically it means the
+      diagnosis section is now optional in every template.
+      `libs/template_models/tests/unit/test_schema.py::test_all_seed_templates_validate_and_dump_byte_identical`
+      has been failing on the branch ever since — the gate worked; the
+      change shipped anyway. **`make test` / `make ci` are red for this
+      reason alone**, independent of S14.
+      Decide: (a) intentional → re-freeze the fixtures with a recorded
+      ADR-0016 amendment, or (b) accidental → restore `required: true`
+      in the seeds. S14 deliberately did NOT regenerate the frozen
+      dumps, because doing so would erase the only evidence.
+
+## Conversation mode & diarization (S14)
+
+- [ ] **A10G rig DER gate** (owner: SRE/DevOps + tech lead). The
+      diarization numbers in ADR-0034 are CPU (Apple M5) plumbing
+      numbers, per the ADR-0019 WER precedent. Before conversation mode
+      ships to staging, run `make der-eval` on the A10G rig with both
+      models resident and record: DER, per-window latency alongside 4
+      Whisper sessions, VRAM headroom. The same missing rig already
+      blocks the sprint-07 WER gate (docs/sprint-07/SPRINT-TODO.md).
+- [ ] **🔴 A10G rig CAPACITY gate — blocks conversation mode reaching
+      patients** (owner: SRE/DevOps + tech lead). `make capacity-probe`
+      on the rig with both models resident. ADR-0035 records what the
+      CPU laptop could and could not establish:
+      **could** — diarization costs 33–47 ms/window and +166 MB RSS
+      (+46 % over Whisper), neither growing with concurrency;
+      **could not** — whether dictation partial p95 ≤ 1100 ms survives
+      co-tenancy. That is NOT EVALUABLE on CPU/`tiny` and the probe
+      refuses to print a verdict for it. A paired trial also produced a
+      **6× unreproducible spread** in the Whisper path under co-tenancy
+      (p50 2870 ms then 499 ms for identical configs) that could not be
+      separated from host contention — the rig must settle whether that
+      is real interference (→ split the fleet) or laptop noise.
+      Record: VRAM with Whisper alone vs both models; combined
+      per-window latency at 1 and 2 conversation sessions; dictation
+      partial p95 with 2 conversation sessions live.
+- [ ] **Conversation session weight is deliberately conservative, not
+      measured on the target device** (owner: tech lead).
+      `MDX_CONVERSATION_SESSION_WEIGHT=2` (4 dictation OR 2 conversation
+      per worker). CPU evidence says a conversation session costs ~1.5×
+      a dictation session on memory and ~1.1× on compute, i.e. weight 2
+      under-books the worker — intentionally, because refused sessions
+      are recoverable and degraded live transcription is not (ADR-0035).
+      Re-tune on the rig; **lower it only on rig evidence.**
+- [ ] **Three sprint-04 metrics are still declared-but-never-emitted**
+      (owner: tech lead). The sprint-14 deployment pass found that
+      `metrics.py` declared instruments no code ever wrote, so the
+      sprint-04 dashboard and its latency alerts had been querying empty
+      series since sprint 04. Now emitted: `active_sessions`,
+      `model_loaded`, `partial_latency_ms`, `final_latency_ms`,
+      `window_inference_ms`, `rtf`, `reconnects_total`,
+      `ws_upgrade_rejections_total`. **Still dormant:**
+      `opus_decode_us`, `bandwidth_bps`, `audio_decode_errors_total` —
+      all three live on the per-frame audio path (decoder/buffer), none
+      is referenced by an alert, so they were left out of this sprint's
+      scope rather than half-wired. Either emit them or delete the
+      declarations; a declared-but-empty metric reads as "healthy".
+- [ ] **Whisper weights are not startup-verified** (owner: tech lead).
+      Sprint 14 added a fail-closed startup checksum assertion for the
+      ECAPA weights (`diarization/integrity.py`); `MD_ASR_MODEL_SHA256`
+      is still logged as provenance only. Extend the same assertion to
+      the ASR weights in asr-worker/dictation-service.
+- [ ] **pyannote gated weights — decision recorded, revisit only with
+      process** (owner: tech lead + security lead). pyannote 3.x was
+      desk-rejected (ADR-0034): HF-gated weights with no gated-model
+      process in the platform, and network-resolving pipeline config vs
+      the offline bake. If SOTA DER is ever needed, first define the
+      gated-weights acceptance/custody process, then re-open with an ADR.
+- [ ] **Real two-speaker eval audio** (owner: clinical content lead +
+      DPO). `eval/conversations/v1` is synthetic TTS with generator
+      ground truth. Real consented consultation recordings (or acted
+      scripts) with hand-labeled turns are needed before the DER bar is
+      a clinical claim; the PII sweep + consent path for that corpus is
+      DPO territory.
+
 ## Structured anamnesis (S13)
 
 - [ ] **May a tenant finalize with auto-promoted ICD-10 proposals?** —

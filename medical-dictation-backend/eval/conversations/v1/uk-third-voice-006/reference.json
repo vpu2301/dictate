@@ -1,0 +1,57 @@
+{
+  "dialogue_id": "uk-third-voice-006",
+  "language": "uk",
+  "sample_rate": 16000,
+  "duration_ms": 21155,
+  "num_speakers": 3,
+  "roles": {
+    "A": "doctor",
+    "B": "patient",
+    "C": "other"
+  },
+  "notes": "third voice present — pilot cap is 2 speakers, extra voice must land UNKNOWN, not crash",
+  "turns": [
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Проходьте. Що привело вас сьогодні?",
+      "start_ms": 400,
+      "end_ms": 3097
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Батько скаржиться на запаморочення, я його привела.",
+      "start_ms": 3547,
+      "end_ms": 6942
+    },
+    {
+      "speaker": "C",
+      "role": "other",
+      "text": "Та нормально все зі мною, просто голова крутиться коли встаю.",
+      "start_ms": 7392,
+      "end_ms": 11015
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Чи падали ви при цих запамороченнях?",
+      "start_ms": 11465,
+      "end_ms": 14090
+    },
+    {
+      "speaker": "C",
+      "role": "other",
+      "text": "Один раз, тиждень тому, але не сильно.",
+      "start_ms": 14540,
+      "end_ms": 17286
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Він ще й їсти став менше, схуд за місяць.",
+      "start_ms": 17736,
+      "end_ms": 20705
+    }
+  ]
+}

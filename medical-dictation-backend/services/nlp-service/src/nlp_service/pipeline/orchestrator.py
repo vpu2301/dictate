@@ -106,6 +106,19 @@ class Orchestrator:
         )
 
         for stage in self._stages:
+            if stage.name in ctx.stages_disabled:
+                current = StageOutput(
+                    text=current.text,
+                    words=current.words,
+                    confidence_spans=current.confidence_spans,
+                    voice_commands=current.voice_commands,
+                    operations=current.operations,
+                    warnings=current.warnings,
+                    metadata={**current.metadata, f"{stage.name}.skipped_disabled": True},
+                    numeric_artifacts=current.numeric_artifacts,
+                    date_artifacts=current.date_artifacts,
+                )
+                continue
             if ctx.is_partial and not stage.runs_on_partials:
                 current = StageOutput(
                     text=current.text,
@@ -192,7 +205,7 @@ def idempotence_key(ctx: ProcessingContext, initial: StageInput) -> str:
     """Stable hash over (input, ctx). Pipeline_version + snapshot
     fingerprint are part of the hash so a bump invalidates the cache."""
     doc: dict[str, Any] = {
-        "v": "nlp-cache-v3",  # v3: + typed template sections (sprint 13)
+        "v": "nlp-cache-v4",  # v4: + stages_disabled (sprint 14)
         "pipeline_version": ctx.pipeline_version,
         "tenant_id": str(ctx.tenant_id),
         "language": ctx.language,
@@ -203,6 +216,9 @@ def idempotence_key(ctx: ProcessingContext, initial: StageInput) -> str:
         # application — without this field batch and streaming would share
         # a cache entry.
         "apply_operations_inline": ctx.apply_operations_inline,
+        # Sprint 14: a request with a stage disabled must never share a
+        # cache entry with one running the full pipeline.
+        "stages_disabled": sorted(ctx.stages_disabled),
         "snapshot_fingerprint": ctx.abbreviation_snapshot.fingerprint,
         "decimal_separator": ctx.decimal_separator,
         "bp_separator": ctx.bp_separator,

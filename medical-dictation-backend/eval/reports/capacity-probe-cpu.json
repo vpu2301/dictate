@@ -1,0 +1,383 @@
+{
+  "host": "Darwin arm64 / py3.12.7",
+  "cuda": false,
+  "asr_model": "tiny",
+  "asr_device": "cpu",
+  "asr_compute_type": "int8",
+  "diar_model_dir": "/Users/volodymyrpugachov/.cache/mdx-models/ecapa-voxceleb",
+  "scenarios": [
+    {
+      "sessions": [
+        {
+          "name": "conv-0-en-consult-008",
+          "mode": "conversation",
+          "windows": 45
+        }
+      ],
+      "windows_total": 45,
+      "all": {
+        "whisper_ms_p50": 406.4,
+        "whisper_ms_p95": 6159.5,
+        "diar_ms_p50": 30.4,
+        "diar_ms_p95": 69.9,
+        "combined_ms_p50": 436.6,
+        "combined_ms_p95": 6185.7,
+        "combined_ms_max": 8393.2,
+        "partial_age_ms_p50": 11717.0,
+        "partial_age_ms_p95": 16280.0,
+        "partial_samples": 36
+      },
+      "conversation": {
+        "whisper_ms_p50": 406.4,
+        "whisper_ms_p95": 6159.5,
+        "diar_ms_p50": 30.4,
+        "diar_ms_p95": 69.9,
+        "combined_ms_p50": 436.6,
+        "combined_ms_p95": 6185.7,
+        "combined_ms_max": 8393.2,
+        "partial_age_ms_p50": 11717.0,
+        "partial_age_ms_p95": 16280.0,
+        "partial_samples": 36
+      },
+      "scenario": "1c",
+      "conversation_sessions": 1,
+      "dictation_sessions": 0,
+      "capacity_weight": 2,
+      "wall_seconds": 111.4,
+      "audio_seconds_per_session": 90.0,
+      "memory_before": {
+        "rss_mb": 741.1,
+        "vram_mb": null,
+        "loadavg": [
+          6.83,
+          4.66,
+          3.11
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 724.9,
+        "vram_mb": null,
+        "loadavg": [
+          5.61,
+          5.02,
+          3.45
+        ]
+      }
+    },
+    {
+      "sessions": [
+        {
+          "name": "conv-0-en-consult-008",
+          "mode": "conversation",
+          "windows": 45
+        },
+        {
+          "name": "conv-1-uk-anamnesis-007",
+          "mode": "conversation",
+          "windows": 46
+        }
+      ],
+      "windows_total": 91,
+      "all": {
+        "whisper_ms_p50": 474.1,
+        "whisper_ms_p95": 4166.6,
+        "diar_ms_p50": 33.0,
+        "diar_ms_p95": 39.1,
+        "combined_ms_p50": 508.8,
+        "combined_ms_p95": 4206.0,
+        "combined_ms_max": 6059.0,
+        "partial_age_ms_p50": 5642.0,
+        "partial_age_ms_p95": 11441.0,
+        "partial_samples": 91
+      },
+      "conversation": {
+        "whisper_ms_p50": 474.1,
+        "whisper_ms_p95": 4166.6,
+        "diar_ms_p50": 33.0,
+        "diar_ms_p95": 39.1,
+        "combined_ms_p50": 508.8,
+        "combined_ms_p95": 4206.0,
+        "combined_ms_max": 6059.0,
+        "partial_age_ms_p50": 5642.0,
+        "partial_age_ms_p95": 11441.0,
+        "partial_samples": 91
+      },
+      "scenario": "2c",
+      "conversation_sessions": 2,
+      "dictation_sessions": 0,
+      "capacity_weight": 4,
+      "wall_seconds": 94.4,
+      "audio_seconds_per_session": 90.0,
+      "memory_before": {
+        "rss_mb": 727.5,
+        "vram_mb": null,
+        "loadavg": [
+          5.61,
+          5.02,
+          3.45
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 735.8,
+        "vram_mb": null,
+        "loadavg": [
+          5.4,
+          5.04,
+          3.61
+        ]
+      }
+    },
+    {
+      "sessions": [
+        {
+          "name": "conv-0-en-consult-008",
+          "mode": "conversation",
+          "windows": 48
+        },
+        {
+          "name": "conv-1-uk-anamnesis-007",
+          "mode": "conversation",
+          "windows": 48
+        },
+        {
+          "name": "conv-2-uk-cardio-002",
+          "mode": "conversation",
+          "windows": 49
+        }
+      ],
+      "windows_total": 145,
+      "all": {
+        "whisper_ms_p50": 440.9,
+        "whisper_ms_p95": 2881.2,
+        "diar_ms_p50": 30.3,
+        "diar_ms_p95": 39.8,
+        "combined_ms_p50": 472.8,
+        "combined_ms_p95": 2920.9,
+        "combined_ms_max": 4755.9,
+        "partial_age_ms_p50": 947.0,
+        "partial_age_ms_p95": 3724.0,
+        "partial_samples": 145
+      },
+      "conversation": {
+        "whisper_ms_p50": 440.9,
+        "whisper_ms_p95": 2881.2,
+        "diar_ms_p50": 30.3,
+        "diar_ms_p95": 39.8,
+        "combined_ms_p50": 472.8,
+        "combined_ms_p95": 2920.9,
+        "combined_ms_max": 4755.9,
+        "partial_age_ms_p50": 947.0,
+        "partial_age_ms_p95": 3724.0,
+        "partial_samples": 145
+      },
+      "scenario": "3c",
+      "conversation_sessions": 3,
+      "dictation_sessions": 0,
+      "capacity_weight": 6,
+      "wall_seconds": 91.5,
+      "audio_seconds_per_session": 90.0,
+      "memory_before": {
+        "rss_mb": 737.6,
+        "vram_mb": null,
+        "loadavg": [
+          5.4,
+          5.04,
+          3.61
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 716.5,
+        "vram_mb": null,
+        "loadavg": [
+          5.59,
+          5.16,
+          3.8
+        ]
+      }
+    },
+    {
+      "sessions": [
+        {
+          "name": "dict-0-en-consult-008",
+          "mode": "dictation",
+          "windows": 45
+        },
+        {
+          "name": "dict-1-uk-anamnesis-007",
+          "mode": "dictation",
+          "windows": 45
+        },
+        {
+          "name": "dict-2-uk-cardio-002",
+          "mode": "dictation",
+          "windows": 45
+        },
+        {
+          "name": "dict-3-uk-command-004",
+          "mode": "dictation",
+          "windows": 45
+        }
+      ],
+      "windows_total": 180,
+      "all": {
+        "whisper_ms_p50": 1338.7,
+        "whisper_ms_p95": 9131.9,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 1339.0,
+        "combined_ms_p95": 9132.3,
+        "combined_ms_max": 11504.6,
+        "partial_age_ms_p50": 12502.0,
+        "partial_age_ms_p95": 28853.0,
+        "partial_samples": 178
+      },
+      "dictation": {
+        "whisper_ms_p50": 1338.7,
+        "whisper_ms_p95": 9131.9,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 1339.0,
+        "combined_ms_p95": 9132.3,
+        "combined_ms_max": 11504.6,
+        "partial_age_ms_p50": 12502.0,
+        "partial_age_ms_p95": 28853.0,
+        "partial_samples": 178
+      },
+      "scenario": "4d",
+      "conversation_sessions": 0,
+      "dictation_sessions": 4,
+      "capacity_weight": 4,
+      "wall_seconds": 159.5,
+      "audio_seconds_per_session": 90.0,
+      "memory_before": {
+        "rss_mb": 717.8,
+        "vram_mb": null,
+        "loadavg": [
+          5.59,
+          5.16,
+          3.8
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 849.7,
+        "vram_mb": null,
+        "loadavg": [
+          6.74,
+          5.84,
+          4.31
+        ]
+      }
+    },
+    {
+      "sessions": [
+        {
+          "name": "conv-0-en-consult-008",
+          "mode": "conversation",
+          "windows": 46
+        },
+        {
+          "name": "conv-1-uk-anamnesis-007",
+          "mode": "conversation",
+          "windows": 45
+        },
+        {
+          "name": "dict-2-uk-cardio-002",
+          "mode": "dictation",
+          "windows": 46
+        }
+      ],
+      "windows_total": 137,
+      "all": {
+        "whisper_ms_p50": 886.8,
+        "whisper_ms_p95": 5479.1,
+        "diar_ms_p50": 35.9,
+        "diar_ms_p95": 47.7,
+        "combined_ms_p50": 923.0,
+        "combined_ms_p95": 5520.8,
+        "combined_ms_max": 6722.9,
+        "partial_age_ms_p50": 5181.0,
+        "partial_age_ms_p95": 19954.0,
+        "partial_samples": 135
+      },
+      "conversation": {
+        "whisper_ms_p50": 886.8,
+        "whisper_ms_p95": 5559.8,
+        "diar_ms_p50": 41.3,
+        "diar_ms_p95": 49.8,
+        "combined_ms_p50": 930.2,
+        "combined_ms_p95": 5616.4,
+        "combined_ms_max": 6048.0,
+        "partial_age_ms_p50": 5181.0,
+        "partial_age_ms_p95": 19954.0,
+        "partial_samples": 89
+      },
+      "dictation": {
+        "whisper_ms_p50": 845.8,
+        "whisper_ms_p95": 5452.4,
+        "diar_ms_p50": 0.0,
+        "diar_ms_p95": 0.0,
+        "combined_ms_p50": 846.2,
+        "combined_ms_p95": 5452.6,
+        "combined_ms_max": 6722.9,
+        "partial_age_ms_p50": 5046.0,
+        "partial_age_ms_p95": 20010.0,
+        "partial_samples": 46
+      },
+      "scenario": "2c1d",
+      "conversation_sessions": 2,
+      "dictation_sessions": 1,
+      "capacity_weight": 5,
+      "wall_seconds": 119.0,
+      "audio_seconds_per_session": 90.0,
+      "memory_before": {
+        "rss_mb": 849.7,
+        "vram_mb": null,
+        "loadavg": [
+          6.74,
+          5.84,
+          4.31
+        ]
+      },
+      "memory_after": {
+        "rss_mb": 739.9,
+        "vram_mb": null,
+        "loadavg": [
+          6.43,
+          5.96,
+          4.55
+        ]
+      }
+    }
+  ],
+  "residency": {
+    "no_models": {
+      "rss_mb": 203.5,
+      "vram_mb": null,
+      "loadavg": [
+        6.38,
+        4.53,
+        3.05
+      ]
+    },
+    "whisper_only": {
+      "rss_mb": 565.8,
+      "vram_mb": null,
+      "loadavg": [
+        6.38,
+        4.53,
+        3.05
+      ]
+    },
+    "both_models": {
+      "rss_mb": 730.0,
+      "vram_mb": null,
+      "loadavg": [
+        6.83,
+        4.66,
+        3.11
+      ]
+    },
+    "diarizer_delta_mb": 164.2,
+    "diarizer_warmup_ms": 2034.0
+  }
+}

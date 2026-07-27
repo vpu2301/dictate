@@ -60,6 +60,12 @@ typos at import.
 | `template.deprecated`             | info     | report-service DELETE /templates/{id} | Sprint 06 — soft-delete; status='deprecated'                 |
 | `template.viewed_full`            | info     | report-service GET /templates/{id} | Sprint 06 — full schema_jsonb fetched                          |
 | `dictation.section_switched`      | info     | dictation-service WS handler     | Sprint 06 — section navigation; prompt swap for next window      |
+| `dictation.nlp_timeout`           | warn     | dictation-service finalize       | Sprint 05 contract, wired in S14 — NLP pipeline unavailable at finalize; the raw transcript is persisted unchanged |
+| `conversation.speaker_mapping.inferred` | info | dictation-service WS handler   | Sprint 14 — doctor/patient mapping hypothesis emitted or changed. Payload: mapping, confidence, rationale |
+| `conversation.speaker_mapping.manual_set` | info | dictation-service WS handler | Sprint 14 — clinician's manual assignment; inference frozen from here on. Payload: mapping |
+| `conversation.consent_refused`    | warn     | dictation-service WS handler     | Sprint 14 — conversation start refused: no encounter, or no granted `recording` consent for its patient |
+| `conversation.draft.created`      | info     | dictation-service finalize       | Sprint 14 — report draft created from a conversation session via report-service POST /v1/reports. Payload: session_id, code, version_id, segments |
+| `conversation.draft.create_failed`| warn     | dictation-service finalize       | Sprint 14 — draft creation skipped/failed; the transcript is already persisted. Payload: reason |
 | `template.created`                | info     | report-service POST /templates   | M1 — plain create of a tenant template (vs clone). Payload: code, specialty |
 | `report.created`                  | info     | report-service POST /v1/reports (+ /from-transcript) | Sprint 08 — draft report created. Payload: code, version_id |
 | `report.draft.updated`            | info     | report-service PUT /v1/reports/{id}/draft | Sprint 08 — autosave, AGGREGATED per dictation session (not per keystroke). Payload: version_number, dictation_session_id |
@@ -87,6 +93,11 @@ typos at import.
 | `patient.updated`                 | info     | core-service PUT /patients/{id}  | Sprint 11 — patient demographics edited. Payload: fields (changed column names) |
 | `patient.viewed`                  | info     | core-service GET /patients/{id}  | Sprint 11 — full patient record fetched (PHI access). |
 | `encounter.created`              | info     | core-service POST /patients/{id}/encounters | Sprint 11 — encounter recorded. Payload: encounter_id, kind |
+| `encounter.started`               | info     | core-service POST /encounters/{id}/start | Migration 0058 — scheduled visit went live. Payload: encounter_id, from, to |
+| `encounter.paused`                | info     | core-service POST /encounters/{id}/pause | Migration 0058 — visit paused (clinician stepped out). Payload: encounter_id, from, to, reason? |
+| `encounter.resumed`               | info     | core-service POST /encounters/{id}/resume | Migration 0058 — paused visit resumed. Payload: encounter_id, from, to |
+| `encounter.completed`             | info     | core-service POST /encounters/{id}/complete | Migration 0058 — visit ended; stamps patients.last_visit_at. Payload: encounter_id, from, to, reason?, forced_over_live_sessions? |
+| `encounter.cancelled`             | info     | core-service POST /encounters/{id}/cancel | Migration 0058 — visit abandoned. Payload: encounter_id, from, to, reason?, forced_over_live_sessions? |
 | `note.created`                    | info     | core-service POST /notes         | Sprint 11 — clinical note created. Payload: patient_id, structure |
 | `note.updated`                    | info     | core-service PATCH /notes/{id}   | Sprint 11 — draft note edited. |
 | `note.signed`                     | info     | core-service POST /notes/{id}/sign | Sprint 11 — note signed (becomes immutable). |

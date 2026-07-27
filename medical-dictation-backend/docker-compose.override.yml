@@ -25,6 +25,22 @@
 # NOTE: building asr-worker + dictation-service downloads the pinned
 # faster-whisper-tiny weights from Hugging Face at BUILD time (offline
 # at runtime). The first `docker compose build` therefore needs network.
+#
+# MEMORY FLOOR — 12 GiB of Docker engine memory, and this is a hard
+# requirement, not a recommendation. Measured resident on this stack:
+#   asr-worker          2.7 GiB  (whisper large-v3, int8, CPU)
+#   dictation-service   3.0 GiB  (whisper large-v3 + ECAPA diarizer)
+#   everything else     ~2.0 GiB (keycloak, nlp, postgres, kafka, obs)
+# Two large-v3 instances is what moving streaming off tiny cost us (see
+# the dictation-service block below); on Docker Desktop's 8 GiB default
+# the loser is dictation-service, which OOMs while loading the diarizer
+# and is restarted by `restart: unless-stopped` — a silent crash-loop
+# whose only symptom at the SPA is a WebSocket that will not open
+# (conversation mode reports `connect_failed`). Diagnose with
+#   docker events --filter container=medical-dictation-dictation-service-1
+# and look for `oom` / `die exit=137`, then raise Docker Desktop →
+# Settings → Resources → Memory. `docker info --format '{{.MemTotal}}'`
+# reports what the engine actually has.
 # ══════════════════════════════════════════════════════════════════
 name: medical-dictation
 
@@ -233,6 +249,19 @@ services:
         condition: service_completed_successfully
 
   # ── dictation-service — real-time streaming ASR over WebSocket ────
+  # Runs large-v3, for the same reason asr-worker does: tiny does not
+  # merely transcribe Ukrainian badly, it invents words that do not exist
+  # in the language. Measured on eval/conversations/v1/uk-consult-001,
+  # tiny/int8 returned "Добро губня, лікарию, в житті жди ні бомсь" where
+  # large-v3/int8 returned "Доброго дня, лікарю, вже тиждень болі" — which
+  # is exactly the "builds words that make no sense" report from the
+  # conversation/scribe surface. Batch ASR was moved off tiny earlier;
+  # streaming was left behind, so scribe was the one surface still on it.
+  #
+  # Weights come from the host's HF cache (the same pinned revision as
+  # PINS.md and asr-worker, the model.bin blob name IS the pinned sha256)
+  # mounted read-only, so the baked tiny image stays untouched and nothing
+  # downloads at runtime.
   dictation-service:
     build:
       context: .
@@ -241,8 +270,36 @@ services:
     environment:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
       MD_ASR_DEVICE: cpu
-      MD_ASR_MODEL: /opt/models/whisper-tiny
+      MD_ASR_MODEL: /opt/models/whisper-large-v3/snapshots/edaa852ec7e145841d8ffdb056a99866b5f0a478
       MD_ASR_COMPUTE_TYPE: int8
+      MD_ASR_MODEL_REPO: Systran/faster-whisper-large-v3
+      MD_ASR_MODEL_REVISION: edaa852ec7e145841d8ffdb056a99866b5f0a478
+      MD_ASR_MODEL_SHA256: 69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1
+      # Whisper's encoder always pads its input to 30 s, so a window costs
+      # roughly the same whether it holds 3.5 s of audio or 30 s. Measured
+      # (large-v3/int8, this CPU): 3.5 s window = 14.2 s compute = 0.25x
+      # realtime, i.e. hopelessly behind; 30 s window = ~23.5 s compute.
+      # With a 28 s hop that sustains 1.18x realtime over a 193 s
+      # conversation, so the transcript keeps up and stays complete.
+      #
+      # The trade is partial latency: a word can take up to the hop to
+      # appear. That is the honest cost of accurate Ukrainian on CPU and it
+      # is acceptable for scribe (the note is written after the visit).
+      # The GPU overlay (infra/compose/gpu.yml) keeps the low-latency
+      # sprint-04 defaults — do NOT copy these values onto a GPU worker.
+      MDX_WINDOW_SECONDS: "30.0"
+      MDX_WINDOW_MIN_FOR_PARTIAL_SECONDS: "28.0"
+      # Greedy decoding, and this one decides whether the worker keeps up.
+      # Measured on a 28 s window of uk-consult-001: beam 5 = 39.4 s
+      # (0.71x realtime — permanently falling behind), beam 1 = 26.2 s
+      # (1.07x) for BYTE-IDENTICAL text. The beam buys nothing on this
+      # audio and costs 50% more compute. asr-worker keeps beam 5: batch
+      # has no realtime constraint.
+      MD_ASR_BEAM_SIZE: "1"
+      # Overlap stays at the 2 s default: it is the commit horizon, so
+      # widening it would delay every commit and enlarge the tail that
+      # finalize has to flush.
+      MDX_WINDOW_OVERLAP_SECONDS: "2.0"
       MDX_WORKER_ID: dictation-dev-1
       DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
       REDIS_URL: redis://redis:6379/0
@@ -254,6 +311,7 @@ services:
       MDX_WS_ALLOWED_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173","http://localhost:4173","http://127.0.0.1:4173","http://localhost:3000","https://vpu2301.github.io"]'
     volumes:
       - ./infra/dev/master.key:/etc/mdx/master.key:ro
+      - ${HOME}/.cache/huggingface/hub/models--Systran--faster-whisper-large-v3:/opt/models/whisper-large-v3:ro
     tmpfs:
       # Owned by the nonroot service user (uid/gid 65532) so it can create
       # per-session 0700 dirs; RAM-backed so decrypted PCM never hits disk.

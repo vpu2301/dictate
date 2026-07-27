@@ -74,15 +74,61 @@ class StreamingWindower:
     finalized_words: list[WordTiming] = field(default_factory=list)
     last_overlap_words: list[WordTiming] = field(default_factory=list)
     committer: Committer = field(default_factory=Committer)
+    # Words decoded but still inside the revision horizon at the last tick.
+    # Retained so end-of-session can commit them (see `flush_provisional`).
+    pending_words: list[WordTiming] = field(default_factory=list)
 
-    def next_slice(self, buffer_total_ms: int) -> WindowSlice | None:
-        """Decide if there's enough fresh audio to run a new window."""
+    def next_slice(self, buffer_total_ms: int, *, force: bool = False) -> WindowSlice | None:
+        """Decide if there's enough fresh audio to run a new window.
+
+        ``force`` waives the ``min_partial_s`` gate so a short remainder
+        still gets a window. Only end-of-session should use it: mid-session
+        it would spend a full window's inference on a sliver of audio.
+
+        Without a forced final window the trailing audio shorter than one
+        hop is never handed to the model at all — an unconditional loss of
+        up to ``min_partial_s`` from the end of every session, and the
+        reason a throughput-tuned wide hop cannot be adopted on its own.
+        """
         fresh_ms = buffer_total_ms - self.cursor_ms
-        if fresh_ms < int(self.min_partial_s * 1000):
+        if fresh_ms <= 0:
+            return None
+        if not force and fresh_ms < int(self.min_partial_s * 1000):
             return None
         start_ms = max(0, self.cursor_ms - int(self.overlap_s * 1000))
         end_ms = min(buffer_total_ms, start_ms + int(self.window_s * 1000))
+        if end_ms <= start_ms:
+            return None
         return WindowSlice(start_ms=start_ms, end_ms=end_ms, pcm=np.zeros(0, dtype=np.float32))
+
+    def flush_provisional(self) -> list[Segment]:
+        """Commit whatever is still provisional. Call once, at end of session.
+
+        The commit rules deliberately hold a word back until it is past the
+        revision horizon AND has a silence boundary after it. That is right
+        mid-session, but at end-of-session there is no next window to revise
+        anything and no further audio to produce a boundary — so the words
+        still held are simply dropped, and `finalize` persists a transcript
+        that stops short of what was actually said.
+
+        The loss is one commit-horizon's worth of speech (the trailing
+        ``overlap_s``) on EVERY session, which is also why it went unnoticed:
+        at the 2 s default it looks like a clipped last word rather than a
+        bug. It scales with the overlap, so any deployment that widens the
+        window to buy throughput would lose proportionally more.
+
+        Idempotent: a second call returns nothing.
+        """
+        if not self.pending_words:
+            return []
+        already_final = {(w.start_ms, w.text) for w in self.finalized_words}
+        flushed = [w for w in self.pending_words if (w.start_ms, w.text) not in already_final]
+        self.pending_words = []
+        if not flushed:
+            return []
+        flushed.sort(key=lambda w: w.start_ms)
+        self.finalized_words.extend(flushed)
+        return words_to_final_segments(flushed)
 
     def build_prompt_for_next_window(self) -> str | None:
         return build_prompt(
@@ -138,13 +184,18 @@ class StreamingWindower:
         decisions: list[CommitDecision] = self.committer.evaluate(
             candidates=candidates,
             now_ms=window_end_ms,
-            window_seconds=self.window_s,
+            # The next window re-transcribes the trailing `overlap_s`;
+            # anything older than that cannot be revised again, so it is
+            # commit-eligible. Passing the full window here meant no
+            # candidate ever qualified (see committer docstring).
+            commit_horizon_ms=int(self.overlap_s * 1000),
             no_speech_prob=window_no_speech_prob,
             last_silence_boundary_ms=silence_boundary_ms,
         )
 
         new_finals_words = [d.word for d in decisions if d.commit]
         provisional_words = [d.word for d in decisions if not d.commit]
+        self.pending_words = provisional_words
         # Append finalized to running list; never duplicate.
         already_final = {(w.start_ms, w.text) for w in self.finalized_words}
         for w in new_finals_words:

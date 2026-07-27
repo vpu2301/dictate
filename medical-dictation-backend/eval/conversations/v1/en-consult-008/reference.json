@@ -1,0 +1,63 @@
+{
+  "dialogue_id": "en-consult-008",
+  "language": "en",
+  "sample_rate": 16000,
+  "duration_ms": 28714,
+  "num_speakers": 2,
+  "roles": {
+    "A": "doctor",
+    "B": "patient"
+  },
+  "notes": "English coverage; doctor opens",
+  "turns": [
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Good morning, please have a seat. What brings you in today?",
+      "start_ms": 400,
+      "end_ms": 3640
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "I've had this dull pain in my lower back for about two weeks now.",
+      "start_ms": 4090,
+      "end_ms": 7530
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Does the pain radiate down either leg, or stay in one place?",
+      "start_ms": 7980,
+      "end_ms": 11427
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "It shoots down my right leg sometimes, especially when I bend over.",
+      "start_ms": 11877,
+      "end_ms": 16265
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "Any numbness or tingling in the foot? Any trouble with bladder control?",
+      "start_ms": 16715,
+      "end_ms": 20478
+    },
+    {
+      "speaker": "B",
+      "role": "patient",
+      "text": "Some tingling in the toes, but nothing else.",
+      "start_ms": 20928,
+      "end_ms": 23725
+    },
+    {
+      "speaker": "A",
+      "role": "doctor",
+      "text": "I'll order an MRI of the lumbar spine and prescribe an anti-inflammatory.",
+      "start_ms": 24175,
+      "end_ms": 28264
+    }
+  ]
+}

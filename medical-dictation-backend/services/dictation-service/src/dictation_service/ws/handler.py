@@ -29,7 +29,7 @@ from fastapi import WebSocketDisconnect
 from audit import Severity
 from db import tenant_connection
 
-from .. import audit_kinds
+from .. import audit_kinds, metrics
 from ..audio import (
     GapPolicy,
     OpusDecodeError,
@@ -40,25 +40,36 @@ from ..audio import (
 )
 from ..audio.gap import GapDecision
 from ..config import settings
-from ..domain import encounters, repository
+from ..diarization.engine import DiarizationUnavailableError
+from ..diarization.mapping import SpeakerMappingInference
+from ..domain import consents, encounters, repository
 from ..inference import StreamingWindower
 from ..notifications import emit_dictation_completed
 from ..protocol import (
+    PROTOCOL_VERSION_V1,
+    PROTOCOL_VERSION_V2,
     AudioFrame,
     BadMessageError,
     EndSession,
     Error,
     ErrorCode,
     Final,
+    FinalV2,
     Partial,
+    PartialV2,
     Pause,
     RefreshToken,
     Resume,
     RetransmitRange,
     SessionStarted,
+    SessionStartedV2,
     SessionTerminated,
+    SetSpeakerMapping,
+    SpeakerMappingUpdated,
     StartSession,
+    StartSessionV2,
     SwitchSection,
+    TokenTiming,
     WarningMessage,
     decode_binary,
     decode_text,
@@ -131,15 +142,17 @@ async def _wait_for_start(
         await _send_and_close(
             websocket,
             Error(code=ErrorCode.BAD_MESSAGE, detail="no start_session received"),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
     try:
-        msg = decode_text(text)
+        msg = decode_text(text, upgrade.protocol_version)
     except BadMessageError as exc:
         await _send_and_close(
             websocket,
             Error(code=exc.code, detail=exc.detail, recoverable=is_recoverable(exc.code)),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
@@ -147,6 +160,7 @@ async def _wait_for_start(
         await _send_and_close(
             websocket,
             Error(code=ErrorCode.BAD_MESSAGE, detail="expected start_session first"),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
@@ -164,7 +178,14 @@ async def _new_session(
     state: Any,
     start: StartSession,
 ) -> SessionContext | None:
-    if state.session_manager.total_count >= settings.per_worker_max_sessions:
+    # Sprint 14: mode exists only on the v2 wire; v1 is always dictation.
+    mode = start.mode if isinstance(start, StartSessionV2) else "dictation"
+    weight = settings.conversation_session_weight if mode == "conversation" else 1
+
+    # Mode-aware capacity: a conversation session runs two models, so it
+    # costs `conversation_session_weight` slots (ADR-0034 §capacity).
+    if not state.session_manager.fits(weight):
+        metrics.session_drops.add(1, {"reason": "gpu_full"})
         await _send_and_close(
             websocket,
             Error(
@@ -173,17 +194,33 @@ async def _new_session(
                 recoverable=True,
             ),
             ws_code=1013,  # try again later
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
-    # Per-tenant active cap + encounter linkage (one tenant-scoped trip).
+    # Conversation records the PATIENT: hard-require an encounter (the
+    # consent lives on the encounter's patient). Same error code as a
+    # missing consent — the fix for both is the consent flow.
+    if mode == "conversation" and start.encounter_id is None:
+        await _refuse_consent(
+            websocket, state, upgrade, detail="conversation mode requires encounter_id"
+        )
+        return None
+
+    # Per-tenant active cap + encounter linkage + recording consent
+    # (one tenant-scoped trip).
     encounter_status: str | None = None
+    recording_consent: dict[str, Any] | None = None
     async with tenant_connection(state.app_pool, upgrade.claims.tid) as conn:
         active = await repository.count_active_for_tenant(conn, tenant_id=upgrade.claims.tid)
         if start.encounter_id is not None:
             encounter_status = await encounters.fetch_encounter_status(
                 conn, encounter_id=start.encounter_id
             )
+            if mode == "conversation":
+                recording_consent = await consents.fetch_recording_consent(
+                    conn, encounter_id=start.encounter_id
+                )
     if active >= settings.per_tenant_max_active_sessions:
         await _send_and_close(
             websocket,
@@ -192,26 +229,55 @@ async def _new_session(
                 detail="tenant active-session cap reached",
                 recoverable=True,
             ),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
     # S11 step 02: a named encounter must exist in-tenant (RLS makes a
     # foreign encounter look nonexistent) and not be cancelled — rejected
-    # here, before a single audio frame is accepted.
+    # here, before a single audio frame is accepted. Conversation mode
+    # additionally needs the visit to still be open (0058).
     if start.encounter_id is not None:
-        gate = encounters.encounter_gate(encounter_status)
+        gate = encounters.encounter_gate(encounter_status, mode=mode)
         if gate is not None:
+            if gate is ErrorCode.ENCOUNTER_INVALID:
+                detail = "encounter not found in this tenant"
+            elif encounter_status == "cancelled":
+                detail = "encounter is cancelled; dictation is not allowed"
+            else:
+                detail = (
+                    f"visit is already {encounter_status}; "
+                    "start a new visit to record a conversation"
+                )
             await _send_and_close(
                 websocket,
-                Error(
-                    code=gate,
-                    detail=(
-                        "encounter not found in this tenant"
-                        if gate is ErrorCode.ENCOUNTER_INVALID
-                        else "encounter is cancelled; dictation is not allowed"
-                    ),
-                    recoverable=False,
-                ),
+                Error(code=gate, detail=detail, recoverable=False),
+                protocol_version=upgrade.protocol_version,
+            )
+            return None
+
+    # S14: conversation requires a granted 'recording' consent for the
+    # encounter's patient — refused before a single audio frame.
+    if mode == "conversation":
+        if consents.consent_gate(recording_consent) is not None:
+            await _refuse_consent(
+                websocket,
+                state,
+                upgrade,
+                encounter_id=start.encounter_id,
+                detail="no granted 'recording' consent for the encounter's patient",
+            )
+            return None
+        # Diarizer must actually be loadable — fail loud at start, never
+        # mid-consultation with silently unlabeled audio.
+        try:
+            await state.diarization_engine.ensure_loaded()
+        except DiarizationUnavailableError as exc:
+            await _send_and_close(
+                websocket,
+                Error(code=ErrorCode.WORKER_FAILED, detail=str(exc), recoverable=True),
+                ws_code=1013,
+                protocol_version=upgrade.protocol_version,
             )
             return None
 
@@ -225,6 +291,7 @@ async def _new_session(
                 detail="prompt_id not found",
                 recoverable=False,
             ),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
@@ -241,20 +308,27 @@ async def _new_session(
         template_id=start.template_id,
         claims=upgrade.claims,
         token_exp_ts=upgrade.claims.exp,
+        mode=mode,
+        protocol_version=upgrade.protocol_version,
+        bearer=upgrade.bearer,
+        capacity_weight=weight,
+        patient_id=(recording_consent or {}).get("patient_id"),
     )
     ctx.ws = websocket
     ctx.state = SessionState.ACTIVE
     ctx.started_at = time.monotonic()
     ctx.buffer = SessionAudioBuffer(session_id=session_id)
     ctx.decoder = OpusDecoder()
+    if mode == "conversation":
+        ctx.diarization = state.diarization_engine.new_stream()
+        ctx.mapping_inference = SpeakerMappingInference(language=ctx.language)
 
-    # Sprint-06: load template for section-aware dictation.
-    # template_client uses a service-account bearer obtained from
-    # Keycloak via the mdx-dictation client (sprint 04 §A); if neither
-    # the client nor the bearer is available, the branch silently
-    # skips and the session runs without section-swap support.
+    # Sprint-06: load template for section-aware dictation. Sprint-14
+    # wires it for real: the client is built in main_deps and the call
+    # forwards the CLINICIAN's own bearer (the repo's cross-service
+    # pattern) — the old service-account plumbing never existed.
     template_client = getattr(state, "template_client", None)
-    s2s_bearer = getattr(state, "s2s_bearer", None)
+    s2s_bearer = upgrade.bearer
     if start.template_id is not None and template_client is not None and s2s_bearer:
         try:
             tpl = await template_client.fetch(template_id=start.template_id, bearer=s2s_bearer)
@@ -282,6 +356,7 @@ async def _new_session(
             websocket,
             Error(code=ErrorCode.GPU_FULL, recoverable=True),
             ws_code=1013,
+            protocol_version=upgrade.protocol_version,
         )
         return None
     except DuplicateSessionError:
@@ -289,6 +364,7 @@ async def _new_session(
         await _send_and_close(
             websocket,
             Error(code=ErrorCode.SESSION_NOT_FOUND, recoverable=False),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
@@ -304,6 +380,7 @@ async def _new_session(
             encounter_id=ctx.encounter_id,
             template_id=ctx.template_id,
             worker_id=settings.worker_id,
+            mode=ctx.mode,
         )
 
     await state.audit_writer.write_event(
@@ -317,24 +394,55 @@ async def _new_session(
             "target_kind": ctx.target_kind,
             "prompt_id": str(ctx.prompt_id),
             "encounter_id": str(ctx.encounter_id) if ctx.encounter_id else None,
+            "mode": ctx.mode,
+            "protocol_version": ctx.protocol_version,
         },
         severity=Severity.INFO,
     )
 
-    await websocket.send_text(
-        encode_server(
-            SessionStarted(
-                session_id=session_id,
-                resumed=False,
-                last_committed_seq=0,
-                committed_audio_until_ms=0,
-                server_time_ms=int(time.time() * 1000),
-                model=state.engine.model_name,
-                language=ctx.language,
-            )
-        )
-    )
+    metrics.conversation_sessions.add(1, {"mode": ctx.mode})
+
+    started_kwargs: dict[str, Any] = {
+        "session_id": session_id,
+        "resumed": False,
+        "last_committed_seq": 0,
+        "committed_audio_until_ms": 0,
+        "server_time_ms": int(time.time() * 1000),
+        "model": state.engine.model_name,
+        "language": ctx.language,
+    }
+    if ctx.protocol_version == PROTOCOL_VERSION_V2:
+        started = SessionStartedV2(**started_kwargs, mode=ctx.mode)  # type: ignore[arg-type]
+    else:
+        started = SessionStarted(**started_kwargs)  # type: ignore[assignment]
+    await websocket.send_text(encode_server(started, ctx.protocol_version))
     return ctx
+
+
+async def _refuse_consent(
+    websocket: Any,
+    state: Any,
+    upgrade: UpgradeContext,
+    *,
+    encounter_id: UUID | None = None,
+    detail: str = "",
+) -> None:
+    """Audit + refuse a conversation start without a recording consent."""
+    metrics.session_drops.add(1, {"reason": "consent_refused"})
+    await state.audit_writer.write_event(
+        tenant_id=upgrade.claims.tid,
+        kind=audit_kinds.CONSENT_REFUSED,
+        actor_sub=upgrade.claims.sub,
+        target_kind="encounter",
+        target_id=str(encounter_id) if encounter_id else "none",
+        payload={"detail": detail},
+        severity=Severity.WARN,
+    )
+    await _send_and_close(
+        websocket,
+        Error(code=ErrorCode.CONSENT_REQUIRED, detail=detail, recoverable=False),
+        protocol_version=upgrade.protocol_version,
+    )
 
 
 # ── Resume ────────────────────────────────────────────────────────────
@@ -367,6 +475,7 @@ async def _resume_session(
                 detail="session not found",
                 recoverable=False,
             ),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
@@ -384,13 +493,33 @@ async def _resume_session(
                 detail="worker restarted; recover via local buffer",
                 recoverable=False,
             ),
+            protocol_version=upgrade.protocol_version,
+        )
+        return None
+
+    # S14: a session is exactly one wire version for its lifetime. A
+    # reconnect on a different subprotocol gets the uniform refusal
+    # (a v1 tab must not receive v2 frames from a v2-born session).
+    if ctx.protocol_version != upgrade.protocol_version:
+        await _send_and_close(
+            websocket,
+            Error(
+                code=ErrorCode.SESSION_NOT_FOUND,
+                detail="session not found",
+                recoverable=False,
+            ),
+            protocol_version=upgrade.protocol_version,
         )
         return None
 
     ctx.ws = websocket
     ctx.network_drop_count += 1
     ctx.state = SessionState.ACTIVE
+    ctx.bearer = upgrade.bearer  # reconnects may carry a fresher token
     ctx.touch()
+    # Sprint 04 declared this instrument but never emitted it, so
+    # DictationReconnectRateHigh could not fire (sprint-14 deployment pass).
+    metrics.reconnects.add(1, {"worker_id": settings.worker_id, "mode": ctx.mode})
 
     await state.audit_writer.write_event(
         tenant_id=ctx.tenant_id,
@@ -402,19 +531,20 @@ async def _resume_session(
         severity=Severity.INFO,
     )
 
-    await websocket.send_text(
-        encode_server(
-            SessionStarted(
-                session_id=sid,
-                resumed=True,
-                last_committed_seq=ctx.received_seqs_hwm + 1,
-                committed_audio_until_ms=ctx.buffer.total_ms if ctx.buffer else 0,
-                server_time_ms=int(time.time() * 1000),
-                model=state.engine.model_name,
-                language=ctx.language,
-            )
-        )
-    )
+    resumed_kwargs: dict[str, Any] = {
+        "session_id": sid,
+        "resumed": True,
+        "last_committed_seq": ctx.received_seqs_hwm + 1,
+        "committed_audio_until_ms": ctx.buffer.total_ms if ctx.buffer else 0,
+        "server_time_ms": int(time.time() * 1000),
+        "model": state.engine.model_name,
+        "language": ctx.language,
+    }
+    if ctx.protocol_version == PROTOCOL_VERSION_V2:
+        resumed = SessionStartedV2(**resumed_kwargs, mode=ctx.mode)  # type: ignore[arg-type]
+    else:
+        resumed = SessionStarted(**resumed_kwargs)  # type: ignore[assignment]
+    await websocket.send_text(encode_server(resumed, ctx.protocol_version))
     return ctx
 
 
@@ -426,6 +556,8 @@ async def _run_loop(ctx: SessionContext, websocket: Any, state: Any) -> None:
         base_prompt=ctx.prompt_text,
         language=ctx.language,
     )
+    # Reachable from the finalize paths, which do not take the windower.
+    ctx.windower = windower
     stop = asyncio.Event()
 
     async def _on_idle(_ctx: SessionContext) -> None:
@@ -480,7 +612,7 @@ async def _on_text(
 ) -> bool:
     """Process one text frame. Return False if the loop should exit."""
     try:
-        msg = decode_text(text)
+        msg = decode_text(text, ctx.protocol_version)
     except BadMessageError as exc:
         await websocket.send_text(
             encode_server(
@@ -503,8 +635,7 @@ async def _on_text(
                 encode_server(Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True))
             )
             return True
-        ctx.state = SessionState.PAUSED
-        ctx.paused_at = time.monotonic()
+        await apply_pause(ctx, state)
         return True
 
     if isinstance(msg, Resume):
@@ -513,8 +644,7 @@ async def _on_text(
                 encode_server(Error(code=ErrorCode.PAUSE_STATE_MISMATCH, recoverable=True))
             )
             return True
-        ctx.state = SessionState.ACTIVE
-        ctx.paused_at = None
+        await apply_resume(ctx, state)
         return True
 
     if isinstance(msg, RetransmitRange):
@@ -535,6 +665,52 @@ async def _on_text(
             )
         # Either way we accept and dedup as frames arrive; nothing else
         # to do here.
+        return True
+
+    if isinstance(msg, SetSpeakerMapping):
+        # Sprint-14: the clinician's manual doctor/patient assignment —
+        # authoritative from this moment; inference stops permanently.
+        if ctx.mode != "conversation" or ctx.mapping_inference is None:
+            await websocket.send_text(
+                encode_server(
+                    Error(
+                        code=ErrorCode.BAD_MESSAGE,
+                        detail="set_speaker_mapping is only valid in conversation mode",
+                        recoverable=True,
+                    ),
+                    ctx.protocol_version,
+                )
+            )
+            return True
+        ctx.mapping_inference.freeze(dict(msg.mapping))
+        ctx.mapping_manual = True
+        ctx.speaker_mapping_manual_sets += 1
+        metrics.speaker_mapping_updates.add(1, {"source": "manual"})
+        await state.audit_writer.write_event(
+            tenant_id=ctx.tenant_id,
+            kind=audit_kinds.SPEAKER_MAPPING_MANUAL_SET,
+            actor_sub=ctx.user_id,
+            target_kind="dictation_session",
+            target_id=str(ctx.session_id),
+            payload={"mapping": dict(msg.mapping)},
+            severity=Severity.INFO,
+        )
+        # NB: no ctx.out_seq bump — SpeakerMappingUpdated carries no
+        # `seq`, and incrementing here would punch a gap in the
+        # partial/final sequence the client tracks.
+        with suppress(Exception):
+            await websocket.send_text(
+                encode_server(
+                    SpeakerMappingUpdated(
+                        session_id=ctx.session_id,
+                        mapping=dict(msg.mapping),
+                        confidence=1.0,
+                        rationale="manual override",
+                        manual=True,
+                    ),
+                    ctx.protocol_version,
+                )
+            )
         return True
 
     if isinstance(msg, SwitchSection):
@@ -624,6 +800,7 @@ async def _on_text(
             return True
         ctx.claims = new_claims
         ctx.token_exp_ts = new_claims.exp
+        ctx.bearer = msg.token  # finalize-time draft creation uses the freshest token
         return True
 
     if isinstance(msg, StartSession):
@@ -717,6 +894,10 @@ async def _on_binary(ctx: SessionContext, websocket: Any, state: Any, data: byte
 
 # ── Background tasks ─────────────────────────────────────────────────
 
+# How many ticks in a row may fail before the session is failed outright
+# rather than left "recording" with a transcriber that produces nothing.
+_MAX_CONSECUTIVE_TICK_FAILURES = 3
+
 
 async def _window_loop(
     ctx: SessionContext,
@@ -724,8 +905,20 @@ async def _window_loop(
     state: Any,
     stop: asyncio.Event,
 ) -> None:
-    """Tick the windower every N ms; emit partials + finals."""
+    """Tick the windower every N ms; emit partials + finals.
+
+    This loop IS the transcript: if it stops, the session keeps accepting
+    audio, keeps looking healthy to the clinician, and finalizes empty.
+    It ran as a bare ``create_task`` with no error path, so a single
+    unhandled exception in one tick killed the transcript for the rest of
+    the session and left nothing in the log (that is exactly how the
+    ``TokenTiming`` serialization defect above stayed invisible). Every
+    tick is now guarded: one bad tick is logged and skipped, the loop
+    survives, and a genuinely broken session fails the session rather
+    than silently transcribing nothing.
+    """
     interval = settings.window_tick_interval_ms / 1000.0
+    consecutive_failures = 0
     while not stop.is_set() and ctx.ws is not None:
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval)
@@ -734,42 +927,187 @@ async def _window_loop(
             pass
         if ctx.state != SessionState.ACTIVE or ctx.buffer is None:
             continue
-        slice_ = windower.next_slice(buffer_total_ms=ctx.buffer.total_ms)
-        if slice_ is None:
-            continue
         try:
-            pcm = decode_pcm_view(ctx.buffer, slice_.start_ms, slice_.end_ms)
+            await _window_tick(ctx, windower, state)
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "windower.buffer_read_failed",
-                extra={"session_id": str(ctx.session_id), "error": str(exc)},
+            consecutive_failures += 1
+            logger.exception(
+                "windower.tick_failed",
+                extra={
+                    "session_id": str(ctx.session_id),
+                    "mode": ctx.mode,
+                    "error_class": type(exc).__name__,
+                    "consecutive": consecutive_failures,
+                },
             )
-            continue
-        prompt = windower.build_prompt_for_next_window()
-        t0 = time.monotonic()
-        try:
-            window_result = await state.inference_queue.submit(
-                pcm,
-                language=ctx.language,
-                prompt=ctx.prompt_text,
-                prev_text=prompt,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "windower.inference_failed",
-                extra={"session_id": str(ctx.session_id), "error": str(exc)},
-            )
-            continue
-        infer_seconds = time.monotonic() - t0
-        tick = windower.integrate(
-            window_segments=getattr(window_result, "segments", []),
-            window_no_speech_prob=getattr(window_result, "no_speech_prob", 1.0),
-            window_start_ms=slice_.start_ms,
-            window_end_ms=slice_.end_ms,
-            infer_seconds=infer_seconds,
-            pcm_for_vad=pcm,
+            if consecutive_failures >= _MAX_CONSECUTIVE_TICK_FAILURES:
+                # Never let a session go on "recording" with a dead
+                # transcriber — tell the clinician instead.
+                await _on_failed(
+                    ctx,
+                    state,
+                    kind="worker_failed",
+                    detail=f"window loop failed {consecutive_failures}x: {type(exc).__name__}",
+                )
+                return
+        else:
+            consecutive_failures = 0
+
+
+async def _drain_final_window(ctx: SessionContext, state: Any) -> None:
+    """Transcribe the audio tail that is shorter than one hop.
+
+    ``next_slice`` only yields a window once a full hop of fresh audio has
+    arrived, so whatever is shorter than that when the session ends never
+    reaches the model. Run one forced window to pick it up.
+
+    Best-effort: the transcript that IS committed must never be lost to a
+    failure in here, so every error is swallowed and finalize continues.
+    """
+    windower = ctx.windower
+    if windower is None or ctx.buffer is None:
+        return
+    try:
+        await _window_tick(ctx, windower, state, force=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "windower.final_drain_failed",
+            extra={"session_id": str(ctx.session_id), "error_class": type(exc).__name__},
         )
-        await _emit_tick(ctx, tick)
+
+
+async def _window_tick(
+    ctx: SessionContext,
+    windower: StreamingWindower,
+    state: Any,
+    *,
+    force: bool = False,
+) -> None:
+    """One windower tick: slice → inference (+ diarization) → emit."""
+    if ctx.buffer is None:
+        return
+    async with ctx.window_lock:
+        await _window_tick_locked(ctx, windower, state, force=force)
+
+
+async def _window_tick_locked(
+    ctx: SessionContext,
+    windower: StreamingWindower,
+    state: Any,
+    *,
+    force: bool = False,
+) -> None:
+    if ctx.buffer is None:
+        return
+    slice_ = windower.next_slice(buffer_total_ms=ctx.buffer.total_ms, force=force)
+    if slice_ is None:
+        return
+    try:
+        pcm = decode_pcm_view(ctx.buffer, slice_.start_ms, slice_.end_ms)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "windower.buffer_read_failed",
+            extra={"session_id": str(ctx.session_id), "error": str(exc)},
+        )
+        return
+    prompt = windower.build_prompt_for_next_window()
+    t_window = time.monotonic()
+    t0 = t_window
+    try:
+        window_result = await state.inference_queue.submit(
+            pcm,
+            language=ctx.language,
+            # `prompt` already carries the specialty prompt: the windower
+            # composes base + finalized-tail and budgets the pair to
+            # `prompt_max_tokens`. Also passing ctx.prompt_text as `prompt`
+            # made the engine's `_combine_prompts` concatenate the specialty
+            # prompt to itself, so every window's initial_prompt opened with
+            # it twice. A repeated initial_prompt is a documented Whisper
+            # repetition/hallucination trigger, and the duplicate also ate
+            # the token budget meant for real decoded context.
+            prompt=None,
+            prev_text=prompt,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "windower.inference_failed",
+            extra={"session_id": str(ctx.session_id), "error": str(exc)},
+        )
+        return
+    infer_seconds = time.monotonic() - t0
+    # Sprint-04 declared these instruments but never emitted them, so the
+    # streaming dashboard and its latency alerts had no data (found in the
+    # sprint-14 deployment pass). Conversation mode makes them mandatory:
+    # the co-tenancy claim is exactly "dictation latency survives".
+    mode_attrs = {"worker_id": settings.worker_id, "mode": ctx.mode}
+    metrics.window_inference_ms.record(infer_seconds * 1000.0, mode_attrs)
+    window_audio_seconds = max(0, slice_.end_ms - slice_.start_ms) / 1000.0
+    if infer_seconds > 0:
+        metrics.rtf.record(window_audio_seconds / infer_seconds, mode_attrs)
+    tick = windower.integrate(
+        window_segments=getattr(window_result, "segments", []),
+        window_no_speech_prob=getattr(window_result, "no_speech_prob", 1.0),
+        window_start_ms=slice_.start_ms,
+        window_end_ms=slice_.end_ms,
+        infer_seconds=infer_seconds,
+        pcm_for_vad=pcm,
+    )
+
+    # Sprint-14: diarize the same window (conversation sessions).
+    # Runs in a thread so the tick loop never blocks the event loop;
+    # measured ≤ ~60 ms/window on CPU (ADR-0034). Failure degrades to
+    # unlabeled words — text delivery always wins over labels.
+    if ctx.mode == "conversation" and ctx.diarization is not None:
+        try:
+            await asyncio.to_thread(
+                ctx.diarization.process_window,
+                pcm,
+                window_start_ms=slice_.start_ms,
+            )
+            metrics.diarization_window_ms.record(
+                ctx.diarization.last_window_seconds * 1000.0,
+                {"worker_id": settings.worker_id},
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "diarization.window_failed",
+                extra={"session_id": str(ctx.session_id), "error_class": type(exc).__name__},
+            )
+        # Inference AND diarization for this window — the sum is what has
+        # to fit the tick budget, and it is what the fleet decision
+        # (single mixed pool vs a dedicated conversation pool) is judged on.
+        metrics.conversation_window_total_ms.record(
+            (time.monotonic() - t_window) * 1000.0,
+            {"worker_id": settings.worker_id},
+        )
+
+    await _emit_tick(ctx, tick)
+    if ctx.mode == "conversation":
+        await _maybe_emit_mapping_update(ctx, state)
+
+
+def _wire_words(words: Any) -> list[TokenTiming]:
+    """Project inference ``WordTiming``s onto the wire's ``TokenTiming``.
+
+    The two models are field-identical but are DIFFERENT classes
+    (``asr_models.WordTiming`` is the inference contract, ``TokenTiming``
+    the protocol one), and pydantic v2 does not coerce one BaseModel
+    instance into another. Passing the raw list raised ``ValidationError``
+    inside ``_emit_tick`` — which killed the whole window loop on the
+    first partial, so every streaming session emitted nothing and
+    finalized an empty transcript (sprint-04 latent; found S14).
+    """
+    return [
+        TokenTiming(
+            text=w.text,
+            start_ms=w.start_ms,
+            end_ms=w.end_ms,
+            probability=w.probability,
+        )
+        for w in words
+    ]
 
 
 async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
@@ -784,55 +1122,179 @@ async def _emit_tick(ctx: SessionContext, tick: Any) -> None:
                         session_id=ctx.session_id,
                         code="low_confidence",
                         detail=f"boundary={tick.boundary_uncertainty:.2f}",
-                    )
+                    ),
+                    ctx.protocol_version,
                 )
             )
+    v2 = ctx.protocol_version == PROTOCOL_VERSION_V2
+    hint = _current_mapping_hint(ctx)
     if tick.new_partial is not None:
         ctx.out_seq += 1
         partial_age_ms = max(0, ctx.buffer.total_ms - tick.new_partial.end_ms) if ctx.buffer else 0
         ctx.partial_latencies_ms.append(partial_age_ms)
-        with suppress(Exception):
-            await ctx.ws.send_text(
-                encode_server(
-                    Partial(
-                        session_id=ctx.session_id,
-                        seq=ctx.out_seq,
-                        text=tick.new_partial.text,
-                        start_ms=tick.new_partial.start_ms,
-                        end_ms=tick.new_partial.end_ms,
-                        words=list(tick.new_partial.words),
-                        avg_confidence=tick.new_partial.avg_confidence,
-                    )
-                )
+        # Split by mode: "dictation p95 survives co-tenancy" is only checkable
+        # if dictation latency is separable from conversation latency on the
+        # same worker (sprint-14 deployment).
+        metrics.partial_latency_ms.record(
+            partial_age_ms, {"worker_id": settings.worker_id, "mode": ctx.mode}
+        )
+        partial_kwargs: dict[str, Any] = {
+            "session_id": ctx.session_id,
+            "seq": ctx.out_seq,
+            "text": tick.new_partial.text,
+            "start_ms": tick.new_partial.start_ms,
+            "end_ms": tick.new_partial.end_ms,
+            "words": _wire_words(tick.new_partial.words),
+            "avg_confidence": tick.new_partial.avg_confidence,
+        }
+        if v2:
+            # Partials are re-emitted every tick until they commit, so
+            # their labels are NOT counted — only committed words are
+            # (see metrics.conversation_words).
+            speaker, speaker_conf = _attribute_segment(ctx, tick.new_partial, count=False)
+            message: Any = PartialV2(
+                **partial_kwargs,
+                speaker=speaker,
+                speaker_confidence=speaker_conf,
+                speaker_mapping_hint=hint,
             )
+        else:
+            message = Partial(**partial_kwargs)
+        with suppress(Exception):
+            await ctx.ws.send_text(encode_server(message, ctx.protocol_version))
     for seg in tick.new_finals:
         ctx.out_seq += 1
         final_age_ms = max(0, ctx.buffer.total_ms - seg.end_ms) if ctx.buffer else 0
         ctx.final_latencies_ms.append(final_age_ms)
+        metrics.final_latency_ms.record(
+            final_age_ms, {"worker_id": settings.worker_id, "mode": ctx.mode}
+        )
         ctx.finalized_segments.append(seg)
-        with suppress(Exception):
-            await ctx.ws.send_text(
-                encode_server(
-                    Final(
-                        session_id=ctx.session_id,
-                        seq=ctx.out_seq,
-                        text=seg.text,
-                        start_ms=seg.start_ms,
-                        end_ms=seg.end_ms,
-                        words=list(seg.words),
-                        avg_confidence=seg.avg_confidence,
-                        voice_command=None,
-                    )
-                )
+        final_kwargs: dict[str, Any] = {
+            "session_id": ctx.session_id,
+            "seq": ctx.out_seq,
+            "text": seg.text,
+            "start_ms": seg.start_ms,
+            "end_ms": seg.end_ms,
+            "words": _wire_words(seg.words),
+            "avg_confidence": seg.avg_confidence,
+            "voice_command": None,
+        }
+        if v2:
+            speaker, speaker_conf = _attribute_segment(ctx, seg, count=True)
+            _feed_mapping_inference(ctx, seg)
+            final_message: Any = FinalV2(
+                **final_kwargs,
+                speaker=speaker,
+                speaker_confidence=speaker_conf,
+                speaker_mapping_hint=hint,
             )
+        else:
+            final_message = Final(**final_kwargs)
+        with suppress(Exception):
+            await ctx.ws.send_text(encode_server(final_message, ctx.protocol_version))
+
+
+def _attribute_segment(
+    ctx: SessionContext, seg: Any, *, count: bool
+) -> tuple[str | None, float | None]:
+    """Segment-level speaker proposal from the diarization timeline.
+    None while labels trail the text (pre-bootstrap or past the
+    diarized frontier) — the wire contract allows late labels.
+
+    ``count`` gates the honesty metrics: only committed (final) words
+    are counted, since a partial is re-emitted on every tick.
+    """
+    if ctx.diarization is None:
+        return None, None
+    speaker, conf = ctx.diarization.attribute(int(seg.start_ms), int(seg.end_ms))
+    if count:
+        n_words = len(getattr(seg, "words", []) or [])
+        outcome = "unknown" if speaker == "UNKNOWN" else ("labeled" if speaker else "pending")
+        if outcome == "unknown":
+            ctx.unknown_speaker_words += n_words
+        elif outcome == "labeled":
+            ctx.labeled_speaker_words += n_words
+        else:
+            ctx.pending_speaker_words += n_words
+        metrics.conversation_words.add(
+            n_words, {"outcome": outcome, "tenant_id": str(ctx.tenant_id)}
+        )
+    return speaker, conf
+
+
+def _feed_mapping_inference(ctx: SessionContext, seg: Any) -> None:
+    """Committed words feed the doctor/patient inference (word-level
+    attribution — a segment straddling a turn boundary must not vote
+    all its words for one side)."""
+    if ctx.mapping_inference is None or ctx.diarization is None or ctx.mapping_manual:
+        return
+    ctx.mapping_inference.observe_segments(ctx.diarization.segments)
+    for w in getattr(seg, "words", []) or []:
+        speaker, _conf = ctx.diarization.attribute(int(w.start_ms), int(w.end_ms))
+        ctx.mapping_inference.observe_word(w.text, speaker)
+
+
+def _current_mapping_hint(ctx: SessionContext) -> dict[str, Any] | None:
+    if ctx.mapping_inference is None:
+        return None
+    current = ctx.mapping_inference.current
+    return dict(current.mapping) if current is not None else None
+
+
+async def _maybe_emit_mapping_update(ctx: SessionContext, state: Any) -> None:
+    """Emit SpeakerMappingUpdated when the hypothesis changes (never
+    after a manual set — freeze() makes evaluate() return None)."""
+    if ctx.mapping_inference is None or ctx.mapping_manual or ctx.ws is None:
+        return
+    hypothesis = ctx.mapping_inference.evaluate()
+    if hypothesis is None:
+        return
+    ctx.speaker_mapping_updates += 1
+    metrics.speaker_mapping_updates.add(1, {"source": "inferred"})
+    await state.audit_writer.write_event(
+        tenant_id=ctx.tenant_id,
+        kind=audit_kinds.SPEAKER_MAPPING_INFERRED,
+        actor_sub=ctx.user_id,
+        target_kind="dictation_session",
+        target_id=str(ctx.session_id),
+        payload={
+            "mapping": dict(hypothesis.mapping),
+            "confidence": hypothesis.confidence,
+            "rationale": hypothesis.rationale,
+        },
+        severity=Severity.INFO,
+    )
+    with suppress(Exception):
+        await ctx.ws.send_text(
+            encode_server(
+                SpeakerMappingUpdated(
+                    session_id=ctx.session_id,
+                    mapping=dict(hypothesis.mapping),
+                    confidence=hypothesis.confidence,
+                    rationale=hypothesis.rationale,
+                    manual=False,
+                ),
+                ctx.protocol_version,
+            )
+        )
 
 
 # ── Closure paths ────────────────────────────────────────────────────
 
 
-async def _send_and_close(websocket: Any, error: Error, *, ws_code: int = 1008) -> None:
+async def _send_and_close(
+    websocket: Any,
+    error: Error,
+    *,
+    ws_code: int = 1008,
+    protocol_version: int = PROTOCOL_VERSION_V1,
+) -> None:
+    # `Error` has an identical schema in both unions today, but encode
+    # at the session's negotiated version anyway: every other send site
+    # does, and a future v2-only Error field must not silently vanish.
     with suppress(Exception):
-        await websocket.send_text(encode_server(error))
+        await websocket.send_text(encode_server(error, protocol_version))
     with suppress(Exception):
         await websocket.close(code=ws_code)
 
@@ -844,6 +1306,11 @@ def _exceeds_hard_cap(ctx: SessionContext) -> bool:
 
 
 async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> None:
+    # Single funnel for every completion path (normal, cap_reached,
+    # force_finalize), so the tail is picked up once regardless of which
+    # one got here. Must precede finalize_session, which only serialises
+    # what is already committed.
+    await _drain_final_window(ctx, state)
     try:
         result = await finalize_session(
             ctx=ctx,
@@ -853,11 +1320,20 @@ async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> N
             envelope=state.envelope,
             reason=reason,
             purge_audio=settings.demo_audio_purge_on_finalize,
+            nlp_client=getattr(state, "nlp_client", None),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("finalize.failed", exc_info=exc)
         await _on_failed(ctx, state, kind="internal", detail=f"finalize: {exc}")
         return
+
+    # Sprint-14: conversation sessions land a report draft through the
+    # EXISTING POST /v1/reports (sprint-08 hand-off; no parallel write
+    # path). Completion paths only — failure/abandon never draft.
+    if ctx.mode == "conversation":
+        from ..session.draft import create_conversation_draft  # local import — avoid cycle
+
+        await create_conversation_draft(ctx, state, finalize_result=result)
 
     # Emitted here rather than inside finalize_session: every reason that
     # reaches THIS function is a session that completed (normal,
@@ -886,6 +1362,36 @@ async def _finalize_normal(ctx: SessionContext, state: Any, *, reason: str) -> N
         with suppress(Exception):
             await ctx.ws.close(code=1000)
     await state.session_manager.unregister(ctx.session_id)
+
+
+async def apply_pause(ctx: SessionContext, state: Any) -> None:
+    """active → paused, persisted.
+
+    The pause used to live only in ``ctx.state``, which made it invisible to
+    every other process: ``GET /dictate/sessions`` still reported the session
+    as active, and so did the per-tenant capacity count. Anything that has to
+    reason about "is this session still going" reads the DB, so the DB has to
+    know. Shared with the HTTP pause endpoint, which is the only way back for
+    a client whose socket is gone.
+    """
+    assert_transition(ctx.state, SessionState.PAUSED)
+    ctx.state = SessionState.PAUSED
+    ctx.paused_at = time.monotonic()
+    async with tenant_connection(state.app_pool, ctx.tenant_id) as conn:
+        await repository.update_status(
+            conn, session_id=ctx.session_id, new_status=SessionState.PAUSED
+        )
+
+
+async def apply_resume(ctx: SessionContext, state: Any) -> None:
+    """paused → active, persisted. Mirror of :func:`apply_pause`."""
+    assert_transition(ctx.state, SessionState.ACTIVE)
+    ctx.state = SessionState.ACTIVE
+    ctx.paused_at = None
+    async with tenant_connection(state.app_pool, ctx.tenant_id) as conn:
+        await repository.update_status(
+            conn, session_id=ctx.session_id, new_status=SessionState.ACTIVE
+        )
 
 
 async def _on_client_disconnect(ctx: SessionContext, state: Any) -> None:

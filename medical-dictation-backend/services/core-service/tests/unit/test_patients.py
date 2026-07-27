@@ -237,9 +237,13 @@ def test_timeline_returns_patient_reports(
     async def _recordings(conn, *, patient_id, limit=200):  # noqa: ANN001
         return []
 
+    async def _conversations(conn, *, patient_id, limit=200):  # noqa: ANN001
+        return []
+
     monkeypatch.setattr(patients_repository, "get_patient", _get)
     monkeypatch.setattr(timeline_repository, "list_patient_reports", _reports)
     monkeypatch.setattr(timeline_repository, "list_patient_recordings", _recordings)
+    monkeypatch.setattr(timeline_repository, "list_patient_conversations", _conversations)
 
     resp = client.get(f"/patients/{PATIENT_ID}/timeline")
     assert resp.status_code == 200
@@ -285,9 +289,13 @@ def test_timeline_includes_recordings_metadata_only(
             }
         ]
 
+    async def _conversations(conn, *, patient_id, limit=200):  # noqa: ANN001
+        return []
+
     monkeypatch.setattr(patients_repository, "get_patient", _get)
     monkeypatch.setattr(timeline_repository, "list_patient_reports", _reports)
     monkeypatch.setattr(timeline_repository, "list_patient_recordings", _recordings)
+    monkeypatch.setattr(timeline_repository, "list_patient_conversations", _conversations)
 
     items = client.get(f"/patients/{PATIENT_ID}/timeline").json()["items"]
     # Newest first: the recording (Jun 3) precedes the report (Jun 2).
@@ -297,6 +305,57 @@ def test_timeline_includes_recordings_metadata_only(
     assert rec["duration_s"] == 12.5
     # Metadata only — no media/storage reference in the payload.
     assert not any("uri" in k or "url" in k for k in rec)
+
+
+def test_timeline_includes_conversation_sessions(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S14: a finished conversation must be reachable from the patient card.
+
+    Before this, a conversation-mode consultation left only an opaque
+    ``kind='recording'`` audio row — the transcript was persisted and
+    there was no way to get to it from the record it belongs to.
+    """
+    from core_service.domain import patients_repository, timeline_repository
+
+    encounter_id = UUID(int=99)
+    session_id = UUID(int=11)
+
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
+    async def _empty(conn, *, patient_id, limit=200):  # noqa: ANN001
+        return []
+
+    async def _conversations(conn, *, patient_id, limit=200):  # noqa: ANN001
+        return [
+            {
+                "id": session_id,
+                "encounter_id": encounter_id,
+                "status": "finalized",
+                "language": "uk",
+                "total_audio_ms": 29_460,
+                "segments": 11,
+                "finalized_at": datetime(2026, 6, 5, tzinfo=UTC),
+                "created_at": datetime(2026, 6, 5, tzinfo=UTC),
+            }
+        ]
+
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
+    monkeypatch.setattr(timeline_repository, "list_patient_reports", _empty)
+    monkeypatch.setattr(timeline_repository, "list_patient_recordings", _empty)
+    monkeypatch.setattr(timeline_repository, "list_patient_conversations", _conversations)
+
+    items = client.get(f"/patients/{PATIENT_ID}/timeline").json()["items"]
+    assert [i["kind"] for i in items] == ["scribe"]
+    conv = items[0]
+    assert conv["id"] == str(session_id)
+    assert conv["encounter_id"] == str(encounter_id)
+    assert conv["duration_s"] == 29.46
+    # A segment COUNT, never the transcript itself — the text stays on
+    # dictation-service behind its own authz + audit.
+    assert conv["segments"] == 11
+    assert not any("transcript" in k or "text" in k for k in conv)
 
 
 def test_timeline_404_when_patient_missing(

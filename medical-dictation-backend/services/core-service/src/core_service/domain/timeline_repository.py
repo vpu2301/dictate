@@ -8,8 +8,11 @@ HTTP round-trip. This is reads-only and tenant-isolated by the same
 ``app.tenant_id`` RLS predicate report-service relies on — no write path and
 no schema ownership is taken.
 
-Scribe sessions (``kind='scribe'``) will be added here once that table lands;
-today the timeline surfaces dictated reports only.
+The same applies to ``dictation_sessions`` (owned by dictation-service):
+``kind='scribe'`` rows are the conversation-mode consultations. Without
+them a finished conversation left the patient card with nothing but an
+opaque ``kind='recording'`` audio row — the transcript existed and was
+unreachable from the record it belongs to.
 """
 
 from __future__ import annotations
@@ -30,6 +33,39 @@ async def list_patient_reports(
             FROM reports
             WHERE patient_id = $1
             ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+            LIMIT $2
+            """,
+            patient_id,
+            limit,
+        )
+    )
+
+
+async def list_patient_conversations(
+    conn: asyncpg.Connection, *, patient_id: UUID, limit: int = 200
+) -> list[asyncpg.Record]:
+    """Conversation-mode consultations for the patient (``kind='scribe'``).
+
+    Reached the same way recordings are: session → encounter → patient.
+    Only ``mode='conversation'`` sessions are surfaced — a plain dictation
+    session is a step on the way to a report, and the report is what the
+    timeline already shows as ``kind='dictate'``.
+
+    ``segments`` is the transcript LENGTH, not the transcript: the
+    timeline is an index, and the PHI stays behind the dictation-service
+    session read with its own authz + audit.
+    """
+    return list(
+        await conn.fetch(
+            """
+            SELECT d.id, d.encounter_id, d.status, d.language,
+                   d.total_audio_ms, d.finalized_at, d.created_at,
+                   jsonb_array_length(d.transcript_jsonb) AS segments
+            FROM dictation_sessions d
+            JOIN encounters e ON e.id = d.encounter_id
+            WHERE e.patient_id = $1
+              AND d.mode = 'conversation'
+            ORDER BY d.created_at DESC, d.id DESC
             LIMIT $2
             """,
             patient_id,

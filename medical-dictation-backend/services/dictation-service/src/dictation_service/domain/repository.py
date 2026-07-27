@@ -27,13 +27,14 @@ async def insert_session(
     encounter_id: UUID | None,
     template_id: UUID | None,
     worker_id: str,
+    mode: str = "dictation",
 ) -> None:
     await conn.execute(
         """
         INSERT INTO dictation_sessions
             (id, tenant_id, user_id, language, prompt_id, target_kind,
-             encounter_id, template_id, worker_id, status, started_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',now())
+             encounter_id, template_id, worker_id, status, started_at, mode)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',now(),$10)
         """,
         session_id,
         tenant_id,
@@ -44,6 +45,7 @@ async def insert_session(
         encounter_id,
         template_id,
         worker_id,
+        mode,
     )
 
 
@@ -127,6 +129,58 @@ async def update_status(
         error_kind,
         error_detail,
     )
+
+
+async def list_stale_sessions(
+    conn: asyncpg.Connection, *, grace_seconds: float, limit: int
+) -> list[asyncpg.Record]:
+    """Non-terminal sessions untouched for ``grace_seconds``, oldest first.
+
+    Candidates only — the reaper still has to confirm the owning worker is
+    actually dead before collecting any of them. A long pause on a healthy
+    worker lands in this list and is correctly skipped.
+    """
+    return list(
+        await conn.fetch(
+            """
+            SELECT id, tenant_id, user_id, status, worker_id,
+                   encounter_id, last_active_at
+            FROM dictation_sessions
+            WHERE status IN ('creating', 'active', 'paused', 'reconnecting')
+              AND last_active_at < now() - make_interval(secs => $1::double precision)
+            ORDER BY last_active_at ASC
+            LIMIT $2
+            """,
+            float(grace_seconds),
+            limit,
+        )
+    )
+
+
+async def abandon_if_still_stale(
+    conn: asyncpg.Connection, *, session_id: UUID, expected_status: str
+) -> bool:
+    """CAS the session to ``abandoned``; True if this call is what moved it.
+
+    The status predicate keeps the reaper from stomping a session that came
+    back to life between the candidate scan and the write — a resumed
+    session must not be collected by a sweep that started before it
+    reconnected.
+    """
+    result = await conn.execute(
+        """
+        UPDATE dictation_sessions
+           SET status = 'abandoned',
+               error_kind = COALESCE(error_kind, 'reaped'),
+               error_detail = COALESCE(error_detail,
+                   'worker heartbeat expired; session collected by the reaper')
+         WHERE id = $1 AND status = $2
+        """,
+        session_id,
+        expected_status,
+    )
+    # asyncpg returns the command tag, e.g. "UPDATE 1" / "UPDATE 0".
+    return str(result).endswith(" 1")
 
 
 async def touch_last_active(conn: asyncpg.Connection, *, session_id: UUID) -> None:

@@ -91,14 +91,19 @@ class PatientList(_Strict):
 
 class TimelineItem(_Strict):
     id: UUID
-    kind: str  # dictate | recording
+    kind: str  # dictate | recording | scribe
     title: str
     date: datetime
     status: str | None = None
     by: str | None = None
-    # kind == "recording" only (S11 step 02): metadata, never a media URL.
+    # kind == "recording" | "scribe" (S11 step 02 / S14): metadata only,
+    # never a media URL and never transcript text.
     encounter_id: UUID | None = None
     duration_s: float | None = None
+    # kind == "scribe" only: how many transcript segments the session
+    # holds, so the card can distinguish a real consultation from one
+    # that recorded nothing. The text itself stays on dictation-service.
+    segments: int | None = None
 
 
 class Timeline(_Strict):
@@ -421,20 +426,22 @@ async def update_patient(
 @router.get(
     "/{patient_id}/timeline",
     response_model=Timeline,
-    summary="Dictated reports (and, later, scribe sessions) for the patient.",
+    summary="Dictated reports, recordings and scribe sessions for the patient.",
 )
 async def patient_timeline(
     patient_id: UUID,
     claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
 ) -> Timeline:
-    """Reports and encounter-linked recordings for this patient, newest first.
+    """Reports, encounter-linked recordings and conversations, newest first.
 
     The SPA merges this with encounters / notes / consents (each fetched from
     its own endpoint) to build the on-screen feed, and reads ``kind='dictate'``
     rows here to populate the Reports tab — so this endpoint deliberately
     skips the core-owned records to avoid double-counting. ``kind='recording'``
     rows (S11 step 02) carry metadata only — never a media URL; audio access
-    stays on the ASR surface with its own authz + audit.
+    stays on the ASR surface with its own authz + audit. ``kind='scribe'``
+    rows (S14) are conversation-mode consultations, and carry a segment
+    COUNT rather than transcript text for the same reason.
     """
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -444,6 +451,9 @@ async def patient_timeline(
             conn, patient_id=patient_id
         )
         recordings = await timeline_repository.list_patient_recordings(
+            conn, patient_id=patient_id
+        )
+        conversations = await timeline_repository.list_patient_conversations(
             conn, patient_id=patient_id
         )
 
@@ -467,6 +477,18 @@ async def patient_timeline(
             duration_s=(a["duration_ms"] / 1000.0) if a["duration_ms"] is not None else None,
         )
         for a in recordings
+    ] + [
+        TimelineItem(
+            id=c["id"],
+            kind="scribe",
+            title="Conversation",
+            date=c["finalized_at"] or c["created_at"],
+            status=c["status"],
+            encounter_id=c["encounter_id"],
+            duration_s=(c["total_audio_ms"] / 1000.0) if c["total_audio_ms"] else None,
+            segments=c["segments"],
+        )
+        for c in conversations
     ]
     items.sort(key=lambda i: i.date, reverse=True)
     return Timeline(items=items)

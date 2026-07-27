@@ -1,0 +1,53 @@
+# ############################################################################
+# ECAPA-TDNN speaker embeddings for conversation-mode diarization (sprint 14,
+# ADR-0034). Derived from speechbrain/spkrec-ecapa-voxceleb@0f99f2d0 with two
+# deliberate changes, so the model loads FULLY OFFLINE from the baked dir:
+#   1. `pretrained_path` points at the local dir (`.`), never the HF repo id —
+#      upstream's yaml re-resolves artifacts over the network, which violates
+#      the HF_HUB_OFFLINE=1 bake contract (docs/models/PINS.md).
+#   2. The 7205-way VoxCeleb classifier head + label encoder are dropped:
+#      diarization needs only the 192-dim embedding trunk. Fewer artifacts to
+#      pin, ~5.7 MB less to bake.
+# The weight artifacts themselves are UNMODIFIED upstream files, pinned +
+# checksum-verified by scripts/models/prepare_ecapa.py (fail-closed).
+# ############################################################################
+
+# Feature parameters
+n_mels: 80
+
+# Pretrain folder: the directory this file lives in.
+pretrained_path: .
+
+# Model params
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+    input_size: !ref <n_mels>
+    channels: [1024, 1024, 1024, 1024, 3072]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    attention_channels: 128
+    lin_neurons: 192
+
+mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: False
+
+modules:
+    compute_features: !ref <compute_features>
+    mean_var_norm: !ref <mean_var_norm>
+    embedding_model: !ref <embedding_model>
+    mean_var_norm_emb: !ref <mean_var_norm_emb>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        embedding_model: !ref <embedding_model>
+        mean_var_norm_emb: !ref <mean_var_norm_emb>
+    paths:
+        embedding_model: !ref <pretrained_path>/embedding_model.ckpt
+        mean_var_norm_emb: !ref <pretrained_path>/mean_var_norm_emb.ckpt
