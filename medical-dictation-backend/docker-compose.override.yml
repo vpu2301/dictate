@@ -165,7 +165,7 @@ services:
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_REALM: medical-dictation
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -191,7 +191,7 @@ services:
     volumes:
       - ./infra/dev/master.key:/etc/mdx/master.key:ro
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -317,7 +317,7 @@ services:
       # per-session 0700 dirs; RAM-backed so decrypted PCM never hits disk.
       - /run/dictation:size=2g,mode=0700,uid=65532,gid=65532
     ports:
-      - "8002:8000"
+      - "127.0.0.1:8002:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -344,7 +344,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       MDX_NLP_PUNCTUATION_DISABLED: "false"  # model is baked; needed for batch-transcript quality
     ports:
-      - "8005:8000"
+      - "127.0.0.1:8005:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -374,7 +374,7 @@ services:
       # every publish silently no-ops, since publish_event never raises.
       REDIS_URL: redis://redis:6379/0
     ports:
-      - "8006:8000"
+      - "127.0.0.1:8006:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -409,7 +409,7 @@ services:
       - ./infra/dev/master.key:/etc/mdx/master.key:ro
       - ./infra/seeds/consents:/etc/mdx/consents:ro
     ports:
-      - "8003:8000"
+      - "127.0.0.1:8003:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -433,7 +433,7 @@ services:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
       REDIS_URL: redis://redis:6379/0
     ports:
-      - "8007:8000"
+      - "127.0.0.1:8007:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -461,8 +461,8 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: "true"
       MP_SMTP_AUTH_ALLOW_INSECURE: "true"
     ports:
-      - "8025:8025"
-      - "1025:1025"
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 15s
@@ -487,7 +487,7 @@ services:
       # a pending-entries list.
       MDX_NOTIFICATION_CONSUMER_NAME: notification-1
     ports:
-      - "8004:8000"
+      - "127.0.0.1:8004:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
@@ -535,7 +535,7 @@ services:
     volumes:
       - ./infra/trust-store:/etc/mdx/trust-store:ro
     ports:
-      - "8008:8000"
+      - "127.0.0.1:8008:8000"
     healthcheck: *svc-healthcheck
     depends_on:
       postgres:
