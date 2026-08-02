@@ -195,8 +195,8 @@ async def insert_telemetry_batch(conn: asyncpg.Connection, rows: list[tuple]) ->
         """
         INSERT INTO autocomplete_telemetry
             (tenant_id, user_id, request_id, event_type,
-             phrase_id, snippet_id, prefix_scrubbed, context_jsonb)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+             phrase_id, snippet_id, prefix_scrubbed, context_jsonb, source)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
         """,
         rows,
     )
@@ -231,6 +231,7 @@ async def rollup_tenant_day(
         FROM autocomplete_telemetry
         WHERE tenant_id = $1
           AND phrase_id IS NOT NULL
+          AND source = 'autocomplete'  -- layer_c rows never carry phrase_id (422-guarded), belt+braces
           AND created_at >= $2::date
           AND created_at <  ($2::date + interval '1 day')
         GROUP BY phrase_id

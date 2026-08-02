@@ -55,14 +55,24 @@ async def build_fixture_patient_with_everything(
         pytest.skip("needs a seeded tenant with a user (`make seed`)")
     tenant_id, user = row["tid"], row["sub"]
 
+    # Contact details (0060) are populated so the erasure tombstone assertion
+    # is non-vacuous — the columns must be cleared, not merely already blank.
     patient_id = await su.fetchval(
-        "INSERT INTO patients (tenant_id, name_uk, created_by, ipn_hmac) "
-        "VALUES ($1, $2, $3, $4) RETURNING id",
+        "INSERT INTO patients (tenant_id, name_uk, created_by, ipn_hmac, "
+        "phone, email, address_street, address_house, address_zip, "
+        "address_city, address_country) "
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
         tenant_id, MARK, user, os.urandom(32),
+        "+380671234567", f"{MARK}@example.com",
+        f"вул. {MARK}", "1, кв. 2", "01001", "Київ", "Україна",
     )
+    # `status` defaults to 'completed', and 0058 added the
+    # encounters_ended_has_ts biconditional — a terminal row MUST carry
+    # ended_at. The fixture predates that migration; set it explicitly.
     encounter_id = await su.fetchval(
-        "INSERT INTO encounters (tenant_id, patient_id, created_by, reason) "
-        "VALUES ($1, $2, $3, $4) RETURNING id",
+        "INSERT INTO encounters (tenant_id, patient_id, created_by, reason, "
+        "ended_at) "
+        "VALUES ($1, $2, $3, $4, now()) RETURNING id",
         tenant_id, patient_id, user, MARK,
     )
     audio_id = await su.fetchval(

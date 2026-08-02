@@ -45,6 +45,9 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0033  | [Administrators are separated from PHI; break-glass is the door](0033-admin-phi-separation-and-break-glass.md) | Accepted |
 | 0034  | [Speaker-diarization backend — Silero VAD + ECAPA + online clustering](0034-diarization-backend-silero-ecapa.md) | Accepted |
 | 0035  | [Conversation capacity — single mixed worker pool with weighted caps](0035-conversation-fleet-single-mixed-pool.md) | Accepted |
+| 0036  | [Layer C inline completion — local Gemma behind a provider seam](0036-layer-c-inline-completion-local-gemma.md) | Accepted |
+| 0037  | [Audio replay — clip-on-demand over the GCM envelope, token-streamed](0037-audio-replay-clip-pipeline.md) | Accepted |
+| 0038  | [Search query expansion — synonym dictionary over `simple` FTS](0038-search-query-expansion.md) | Accepted |
 
 ## Template
 

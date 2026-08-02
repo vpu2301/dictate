@@ -39,6 +39,29 @@ class SearchFilters:
     encounter_date_from: date | None = None
     encounter_date_to: date | None = None
     icd10: list[str] | None = None
+    # Sprint 15 (ADR-0038): pre-assembled tsquery string from
+    # domain/query_expansion — when set (and q is set) the FTS tier uses
+    # to_tsquery('simple', ts_query) instead of plainto over q. The SAME
+    # bind arg feeds the predicate, ts_headline AND exact_total; unset →
+    # the pre-sprint-15 plainto path, byte-identical.
+    ts_query: str | None = None
+
+
+def _fts_clause(filters: SearchFilters, args: list[Any]) -> tuple[str, str] | None:
+    """Append the FTS bind arg; return (predicate, tsquery_expr) or None.
+
+    ONE place builds the tsquery expression so the match predicate,
+    the snippet highlighter and the exact count can never disagree.
+    """
+    if not filters.q:
+        return None
+    if filters.ts_query is not None:
+        args.append(filters.ts_query)
+        expr = f"to_tsquery('simple', ${len(args)})"
+    else:
+        args.append(filters.q)
+        expr = f"plainto_tsquery('simple', ${len(args)})"
+    return f"v.search_vector @@ {expr}", expr
 
 
 @dataclass(slots=True)
@@ -86,12 +109,12 @@ async def search_reports(
     """
     where: list[str] = []
     args: list[Any] = []
-    fts_arg_idx: int | None = None
+    tsquery_expr: str | None = None
 
-    if filters.q:
-        args.append(filters.q)
-        fts_arg_idx = len(args)
-        where.append(f"v.search_vector @@ plainto_tsquery('simple', ${fts_arg_idx})")
+    fts = _fts_clause(filters, args)
+    if fts is not None:
+        predicate, tsquery_expr = fts
+        where.append(predicate)
 
     if filters.patient_id is not None:
         args.append(filters.patient_id)
@@ -131,9 +154,9 @@ async def search_reports(
     args.append(limit + 1)
 
     snippet_expr = (
-        f"ts_headline('simple', v.rendered_text, plainto_tsquery('simple', ${fts_arg_idx}), "
+        f"ts_headline('simple', v.rendered_text, {tsquery_expr}, "
         f"'MaxFragments=2, MaxWords=15, MinWords=5, StartSel=<mark>, StopSel=</mark>')"
-        if fts_arg_idx is not None
+        if tsquery_expr is not None
         else "''"
     )
 
@@ -193,9 +216,9 @@ async def exact_total(conn: asyncpg.Connection, filters: SearchFilters) -> int:
     """Slow path; rate-limited at router layer."""
     where: list[str] = []
     args: list[Any] = []
-    if filters.q:
-        args.append(filters.q)
-        where.append(f"v.search_vector @@ plainto_tsquery('simple', ${len(args)})")
+    fts = _fts_clause(filters, args)
+    if fts is not None:
+        where.append(fts[0])
     if filters.statuses:
         args.append(filters.statuses)
         where.append(f"r.status = ANY(${len(args)}::report_status[])")

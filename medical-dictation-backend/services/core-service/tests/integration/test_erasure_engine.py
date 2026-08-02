@@ -209,6 +209,19 @@ async def test_battery_a_to_e(runtime) -> None:
         assert patient["name_uk"] == "ERASED" and patient["name_en"] == "ERASED"
         assert patient["ipn_hmac"] is None and patient["ipn_encrypted"] is None
         assert patient["dob"] is None and patient["mrn"] == "" and patient["tags"] == []
+        # Contact details (0060) are identity too — the tombstone clears the
+        # phone, the e-mail, and every address component.
+        assert patient["phone"] == "" and patient["email"] == ""
+        assert all(
+            patient[c] == ""
+            for c in (
+                "address_street",
+                "address_house",
+                "address_zip",
+                "address_city",
+                "address_country",
+            )
+        )
         print("(b) destruction: objects gone, rows gone, identity overwritten ✓")
 
         # ── (c) in-window signed report retained WITH its envelope ────

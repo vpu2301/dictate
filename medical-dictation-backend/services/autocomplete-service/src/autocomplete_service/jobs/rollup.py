@@ -40,6 +40,26 @@ def corpus_size_by_source() -> dict[str, int]:
     return dict(_corpus_size)
 
 
+# Sprint 15: Layer C acceptance rate — the feature's quality metric and the
+# kill-switch input (ADR-0036). Refreshed each roll-up from layer_c telemetry
+# rows; global (not per-tenant) to bound label cardinality. Read by the
+# observable gauges registered in main_deps.
+_layer_c_events: dict[str, int] = {}
+
+
+def layer_c_events_by_type() -> dict[str, int]:
+    return dict(_layer_c_events)
+
+
+def layer_c_acceptance_rate() -> float:
+    impressions = sum(
+        _layer_c_events.get(e, 0) for e in ("shown_only", "accepted", "rejected")
+    )
+    if impressions == 0:
+        return 0.0
+    return _layer_c_events.get("accepted", 0) / impressions
+
+
 async def rollup_all(
     *,
     app_pool: asyncpg.Pool,
@@ -89,6 +109,19 @@ async def rollup_all(
             "SELECT source::text, count(*) AS n FROM autocomplete_phrases "
             "WHERE enabled = TRUE GROUP BY source"
         )
+    # Layer C acceptance-rate refresh (sprint 15). The telemetry table has
+    # no RLS (ADR-0025 exception), so a bare pooled connection is correct
+    # here — same as the TelemetryBuffer's insert path.
+    async with app_pool.acquire() as conn:
+        lc_rows = await conn.fetch(
+            "SELECT event_type, count(*) AS n FROM autocomplete_telemetry "
+            "WHERE source = 'layer_c' "
+            "  AND created_at >= $1::date AND created_at < ($1::date + interval '1 day') "
+            "GROUP BY event_type",
+            day_obj,
+        )
+    _layer_c_events.clear()
+    _layer_c_events.update({r["event_type"]: int(r["n"]) for r in lc_rows})
     global _last_success_unix
     _corpus_size.clear()
     _corpus_size.update({r["source"]: int(r["n"]) for r in rows})

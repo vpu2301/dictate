@@ -1,0 +1,94 @@
+# promtool unit tests for the sprint-15 Layer C / replay alerts.
+# Run: make check-alert-rules
+
+rule_files:
+  - ../sprint-15-alerts.yml
+
+evaluation_interval: 30s
+
+tests:
+  # ── Inline p95 over budget fires after 10m ────────────────────────
+  - interval: 1m
+    name: layer c inline p95 breach
+    input_series:
+      # All observations land in the +Inf bucket beyond 500ms: p95 > 400.
+      - series: 'mdx_layer_c_inline_latency_ms_histogram_bucket{le="250"}'
+        values: "0+0x40"
+      - series: 'mdx_layer_c_inline_latency_ms_histogram_bucket{le="500"}'
+        values: "0+1x40"
+      - series: 'mdx_layer_c_inline_latency_ms_histogram_bucket{le="+Inf"}'
+        values: "0+10x40"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: LayerCInlineLatencyHigh
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: LayerCInlineLatencyHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              team: generation
+            exp_annotations:
+              summary: "Layer C inline p95 500 ms (budget 400)"
+              description: |
+                Served inline completions exceeded the p95 <= 400 ms budget for
+                10 minutes. Check the inference backend (llama-server) health
+                and the slot pool. Timeouts already degrade to silent 204s.
+                Runbook: docs/runbooks/generation.md#inline-latency-high
+
+  # ── Filter rate: fires at 25% of a real volume, silent when quiet ──
+  - interval: 1m
+    name: layer c filter rate
+    input_series:
+      - series: 'mdx_layer_c_completions_total{outcome="served"}'
+        values: "0+3x120"   # ~180/h
+      - series: 'mdx_layer_c_completions_total{outcome="filtered"}'
+        values: "0+1x120"   # ~60/h → 25% filtered
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: LayerCFilterRateHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              team: generation
+            exp_annotations:
+              summary: "Layer C safety filter firing on 25% of completions"
+              description: |
+                More than 10% of inline completions introduced clinical values
+                absent from the typed text and were dropped (audited as
+                layer_c.completion.filtered). Consider MDX_LAYER_C_ENABLED=false
+                while investigating the prompt/model.
+                Runbook: docs/runbooks/generation.md#filter-rate-high
+
+  - interval: 1m
+    name: layer c filter rate volume gate holds
+    input_series:
+      # 100% filtered but only ~6 events/h — under the >= 20 volume gate.
+      - series: 'mdx_layer_c_completions_total{outcome="filtered"}'
+        values: "0+0.1x120"
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: LayerCFilterRateHigh
+        exp_alerts: []
+
+  # ── Clip pipeline failures ─────────────────────────────────────────
+  - interval: 1m
+    name: audio clip pipeline failures
+    input_series:
+      - series: 'mdx_audio_clips_created_total{outcome="pipeline_error"}'
+        values: "0+1x30"    # 1/min: 15 in any 15m window
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: AudioClipFailuresHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              team: reports
+            exp_annotations:
+              summary: "Audio clip pipeline failing (15 in 15m)"
+              description: |
+                decrypt/slice/encode failures on POST /v1/audio-clips (ffmpeg
+                missing? corrupt WAV? see mdx_audio_clip_pipeline_latency_ms
+                for stalls). 410s are NOT counted here — those are honest
+                retention answers, not failures.
+                Runbook: docs/runbooks/reports.md#audio-clip-failures

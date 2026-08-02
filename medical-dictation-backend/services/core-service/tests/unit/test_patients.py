@@ -25,6 +25,13 @@ def _patient_row(**over: object) -> dict:
         "dob": date(1980, 1, 15),
         "sex": "M",
         "mrn": "MRN-1",
+        "phone": "+380671234567",
+        "email": "ivan@example.com",
+        "address_street": "вул. Шевченка",
+        "address_house": "12, кв. 5",
+        "address_zip": "01001",
+        "address_city": "Київ",
+        "address_country": "Україна",
         "summary_uk": "",
         "summary_en": "",
         "tags": ["diabetes"],
@@ -208,6 +215,340 @@ def test_update_patient(
     assert resp.json()["status"] == "inactive"
     assert seen["status"] == "inactive"
     assert seen["tags"] == ["htn"]
+
+
+# ── contact details (0060) ──────────────────────────────────────────
+
+
+ADDRESS = {
+    "street": "вул. Шевченка",
+    "house": "12, кв. 5",
+    "zip": "01001",
+    "city": "Київ",
+    "country": "Україна",
+}
+
+
+def test_create_captures_contact_details(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core_service.domain import patients_repository
+
+    captured: dict = {}
+
+    async def _create(conn, **kwargs):  # noqa: ANN001, ANN003
+        captured.update(kwargs)
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "create_patient", _create)
+
+    resp = client.post(
+        "/patients",
+        json={
+            "name": {"uk": "Іван Петренко", "en": "Ivan Petrenko"},
+            "sex": "M",
+            "phone": "  +380 (67) 123-45-67 ",
+            "email": "  Ivan@Example.COM ",
+            "address": {**ADDRESS, "street": " вул. Шевченка "},
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    # Trimmed on the way in; the phone loses its separators and the e-mail
+    # is case-folded.
+    assert captured["phone"] == "+380671234567"
+    assert captured["email"] == "ivan@example.com"
+    assert captured["address_street"] == "вул. Шевченка"
+    assert captured["address_house"] == "12, кв. 5"
+    assert captured["address_zip"] == "01001"
+    assert captured["address_city"] == "Київ"
+    assert captured["address_country"] == "Україна"
+
+    body = resp.json()
+    assert body["phone"] == "+380671234567"
+    assert body["email"] == "ivan@example.com"
+    assert body["address"] == ADDRESS
+
+
+def test_create_contact_details_are_optional(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core_service.domain import patients_repository
+
+    captured: dict = {}
+
+    async def _create(conn, **kwargs):  # noqa: ANN001, ANN003
+        captured.update(kwargs)
+        return _patient_row(
+            phone="",
+            email="",
+            address_street="",
+            address_house="",
+            address_zip="",
+            address_city="",
+            address_country="",
+        )
+
+    monkeypatch.setattr(patients_repository, "create_patient", _create)
+    resp = client.post("/patients", json={"name": {"uk": "X"}, "sex": "U"})
+    assert resp.status_code == 201
+    # "not captured" is the empty string, never NULL — matches the column default.
+    assert captured["phone"] == ""
+    assert captured["email"] == ""
+    assert captured["address_street"] == ""
+    assert captured["address_country"] == ""
+    assert resp.json()["email"] == ""
+    assert resp.json()["address"] == {
+        "street": "",
+        "house": "",
+        "zip": "",
+        "city": "",
+        "country": "",
+    }
+
+
+def test_create_accepts_a_partial_address(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A city with no street is a legitimate half-captured address."""
+    from core_service.domain import patients_repository
+
+    captured: dict = {}
+
+    async def _create(conn, **kwargs):  # noqa: ANN001, ANN003
+        captured.update(kwargs)
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "create_patient", _create)
+    resp = client.post(
+        "/patients",
+        json={"name": {"uk": "X"}, "sex": "U", "address": {"city": "Львів"}},
+    )
+    assert resp.status_code == 201
+    assert captured["address_city"] == "Львів"
+    assert captured["address_street"] == ""
+
+
+@pytest.mark.parametrize(
+    "bad", ["not-an-email", "no@domain", "@example.com", "user@", "a b@example.com"]
+)
+def test_create_rejects_malformed_email(client: TestClient, bad: str) -> None:
+    resp = client.post(
+        "/patients", json={"name": {"uk": "X"}, "sex": "U", "email": bad}
+    )
+    assert resp.status_code == 422
+    assert resp.json().get("code") == "email_invalid"
+
+
+@pytest.mark.parametrize(
+    ("raw", "stored"),
+    [
+        ("+380671234567", "+380671234567"),
+        ("+380 (67) 123-45-67", "+380671234567"),   # separators dropped
+        ("+38 067 123 45 67", "+380671234567"),
+        ("0671234567", "0671234567"),               # national form kept as typed
+        ("044 123-45-67", "0441234567"),
+        ("+48 22 123 45 67", "+48221234567"),       # a foreign number dials fine
+    ],
+)
+def test_phone_is_normalized_to_e164_shape(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, raw: str, stored: str
+) -> None:
+    from core_service.domain import patients_repository
+
+    captured: dict = {}
+
+    async def _create(conn, **kwargs):  # noqa: ANN001, ANN003
+        captured.update(kwargs)
+        return _patient_row(phone=stored)
+
+    monkeypatch.setattr(patients_repository, "create_patient", _create)
+    resp = client.post(
+        "/patients", json={"name": {"uk": "X"}, "sex": "U", "phone": raw}
+    )
+    assert resp.status_code == 201, resp.text
+    assert captured["phone"] == stored
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "not-a-phone",
+        "+380 67 ABC 45 67",
+        "12345",                 # under the 7-digit floor
+        "+1234567890123456",     # over the E.164 15-digit ceiling
+        "+",
+        "()-",
+        "+380-67-123-45-6x",
+    ],
+)
+def test_create_rejects_undiallable_phone(client: TestClient, bad: str) -> None:
+    resp = client.post(
+        "/patients", json={"name": {"uk": "X"}, "sex": "U", "phone": bad}
+    )
+    assert resp.status_code == 422
+    assert resp.json().get("code") == "phone_invalid"
+
+
+def test_create_audit_records_presence_not_contact_material(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Contact details are PII: the audit payload carries flags, never values."""
+    from core_service.domain import patients_repository
+
+    async def _create(conn, **kwargs):  # noqa: ANN001, ANN003
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "create_patient", _create)
+    resp = client.post(
+        "/patients",
+        json={
+            "name": {"uk": "X"},
+            "sex": "U",
+            "phone": "+380671234567",
+            "email": "ivan@example.com",
+        },
+    )
+    assert resp.status_code == 201
+    created = next(
+        c for c in client.audit_calls if c["kind"] == "patient.created"  # type: ignore[attr-defined]
+    )
+    payload = created["payload"]
+    assert payload["has_phone"] is True
+    assert payload["has_email"] is True
+    assert payload["has_address"] is False
+    assert "+380671234567" not in str(payload)
+    assert "ivan@example.com" not in str(payload)
+
+
+def test_audit_address_flag_is_true_for_a_partial_address(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core_service.domain import patients_repository
+
+    async def _create(conn, **kwargs):  # noqa: ANN001, ANN003
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "create_patient", _create)
+    resp = client.post(
+        "/patients",
+        json={"name": {"uk": "X"}, "sex": "U", "address": {"city": "Львів"}},
+    )
+    assert resp.status_code == 201
+    created = next(
+        c for c in client.audit_calls if c["kind"] == "patient.created"  # type: ignore[attr-defined]
+    )
+    assert created["payload"]["has_address"] is True
+    assert "Львів" not in str(created["payload"])
+
+
+def test_update_contact_details_and_clearing(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core_service.domain import patients_repository
+
+    seen: dict = {}
+
+    async def _update(conn, *, patient_id, fields):  # noqa: ANN001
+        seen.update(fields)
+        return _patient_row(phone="+380509998877", email="")
+
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "update_patient", _update)
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
+
+    resp = client.put(
+        f"/patients/{PATIENT_ID}",
+        # phone replaced; email and the whole address cleared; mrn untouched.
+        json={"phone": "+380 50 999 88 77", "email": "", "address": {}},
+    )
+    assert resp.status_code == 200
+    assert seen["phone"] == "+380509998877"
+    assert seen["email"] == ""
+    # An address object always writes all five columns — a blank component
+    # clears it, which is how the form removes a house number.
+    assert seen["address_street"] == ""
+    assert seen["address_house"] == ""
+    assert seen["address_zip"] == ""
+    assert seen["address_city"] == ""
+    assert seen["address_country"] == ""
+    assert "mrn" not in seen
+
+
+def test_update_omitting_contact_leaves_columns_alone(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core_service.domain import patients_repository
+
+    seen: dict = {}
+
+    async def _update(conn, *, patient_id, fields):  # noqa: ANN001
+        seen.update(fields)
+        return _patient_row()
+
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "update_patient", _update)
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
+
+    resp = client.put(f"/patients/{PATIENT_ID}", json={"tags": ["htn"]})
+    assert resp.status_code == 200
+    # None means "unchanged" — the columns must not appear in the SET list.
+    assert "phone" not in seen
+    assert "email" not in seen
+    assert not [k for k in seen if k.startswith("address_")]
+
+
+def test_update_rejects_malformed_email(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core_service.domain import patients_repository
+
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
+    resp = client.put(f"/patients/{PATIENT_ID}", json={"email": "bogus"})
+    assert resp.status_code == 422
+    assert resp.json().get("code") == "email_invalid"
+
+
+def test_update_rejects_undiallable_phone(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core_service.domain import patients_repository
+
+    async def _get(conn, *, patient_id):  # noqa: ANN001
+        return _patient_row()
+
+    monkeypatch.setattr(patients_repository, "get_patient", _get)
+    resp = client.put(f"/patients/{PATIENT_ID}", json={"phone": "call me"})
+    assert resp.status_code == 422
+    assert resp.json().get("code") == "phone_invalid"
+
+
+def test_contact_fields_are_length_capped(client: TestClient) -> None:
+    resp = client.post(
+        "/patients",
+        json={"name": {"uk": "X"}, "sex": "U", "phone": "0" * 33},
+    )
+    assert resp.status_code == 422
+    resp = client.post(
+        "/patients",
+        json={"name": {"uk": "X"}, "sex": "U", "address": {"city": "К" * 121}},
+    )
+    assert resp.status_code == 422
+
+
+def test_address_rejects_unknown_components(client: TestClient) -> None:
+    """The address model is extra="forbid" like every other request model."""
+    resp = client.post(
+        "/patients",
+        json={"name": {"uk": "X"}, "sex": "U", "address": {"region": "Київська"}},
+    )
+    assert resp.status_code == 422
 
 
 # ── timeline ────────────────────────────────────────────────────────

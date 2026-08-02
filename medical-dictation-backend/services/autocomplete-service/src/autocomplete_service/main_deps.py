@@ -125,6 +125,31 @@ async def build_state() -> ServiceState:
             for source, n in rollup_job.corpus_size_by_source().items()
         ]
 
+    # Sprint 15: Layer C acceptance rate (ADR-0036) — the ghost-text quality
+    # metric and kill-switch input. Global; refreshed by the nightly roll-up.
+    def _layer_c_acceptance_callback(_options: CallbackOptions) -> list[Observation]:
+        return [Observation(rollup_job.layer_c_acceptance_rate())]
+
+    _meter.create_observable_gauge(
+        "mdx_layer_c_acceptance_rate",
+        callbacks=[_layer_c_acceptance_callback],
+        description="Layer C completions accepted / impressions (last rolled-up day)",
+        unit="",
+    )
+
+    def _layer_c_events_callback(_options: CallbackOptions) -> list[Observation]:
+        return [
+            Observation(n, {"event": event})
+            for event, n in rollup_job.layer_c_events_by_type().items()
+        ]
+
+    _meter.create_observable_gauge(
+        "mdx_layer_c_telemetry_events",
+        callbacks=[_layer_c_events_callback],
+        description="Layer C telemetry rows by event type (last rolled-up day)",
+        unit="",
+    )
+
     _meter.create_observable_gauge(
         "mdx_autocomplete_corpus_size",
         callbacks=[_corpus_size_callback],

@@ -12,6 +12,14 @@
 #   * The passphrase lives in deploy/secrets/backup.passphrase
 #     (gitignored), generated on first run. Losing it makes every
 #     backup unreadable — escrow it like the master key.
+#   * SCOPE — the backup set is the Postgres dump ONLY. No object-
+#     storage bucket is ever mirrored into a backup. In particular
+#     mdx-audio-clips (S15 replay derivatives, ADR-0037) is EXCLUDED
+#     BY POLICY, not by omission: clips are regenerable from source
+#     audio, live 5 minutes (Redis registry; 1-day bucket ILM is the
+#     ciphertext backstop), and must never outlive their source in a
+#     backup. If bucket mirroring is ever added here, mdx-audio-clips
+#     stays out of the include-list.
 #
 # Usage (from the repo root, full stack running):
 #   deploy/scripts/backup.sh

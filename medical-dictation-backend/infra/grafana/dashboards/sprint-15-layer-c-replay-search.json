@@ -1,0 +1,140 @@
+{
+  "title": "Sprint 15 — Layer C, Audio Replay & Query Expansion",
+  "uid": "sprint-15-layer-c-replay-search",
+  "tags": ["sprint-15", "generation", "reports", "search"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "schemaVersion": 39,
+  "version": 1,
+  "description": "Layer C inline completion health (ADR-0036: p95 <= 400 ms budget — rig-gated in prod, dev hosts miss it by design; acceptance rate is the feature's quality metric and the kill-switch input; filter rate >10% sustained = investigate the model, consider MDX_LAYER_C_ENABLED=false). Audio replay (ADR-0037): clips/day is review volume, pipeline errors are trust failures — 410s are honest retention answers, not errors. Query expansion (ADR-0038): hit-rate shows how often the synonym dictionary broadens a search; search p95 split by has_q finally has real data (the sprint-08 instrument was never emitted until S15). Watch with the generation + reports owners.",
+  "panels": [
+    {
+      "type": "row",
+      "title": "Layer C — inline completion",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Inline completion latency p50/p95 (served, ms; budget 400)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(mdx_layer_c_inline_latency_ms_histogram_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_layer_c_inline_latency_ms_histogram_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Completions by outcome (req/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(mdx_layer_c_completions_total[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Acceptance rate (last rolled-up day)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 }, "overrides": [] },
+      "targets": [{ "expr": "mdx_layer_c_acceptance_rate", "legendFormat": "accepted / impressions" }]
+    },
+    {
+      "type": "stat",
+      "title": "Safety-filter rate (1h)",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "(sum(increase(mdx_layer_c_completions_total{outcome=\"filtered\"}[1h])) or vector(0)) / ((sum(increase(mdx_layer_c_completions_total{outcome=\"served\"}[1h])) or vector(0)) + (sum(increase(mdx_layer_c_completions_total{outcome=\"filtered\"}[1h])) or vector(0)) > 0)",
+          "legendFormat": "filtered share"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Layer C telemetry events by type (last rolled-up day)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 9 },
+      "targets": [
+        { "expr": "mdx_layer_c_telemetry_events", "legendFormat": "{{event}}" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Audio replay",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }
+    },
+    {
+      "type": "stat",
+      "title": "Clips created (24h)",
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(increase(mdx_audio_clips_created_total{outcome=\"created\"}[24h])) or vector(0)",
+          "legendFormat": "clips/day"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Clip outcomes (410 codes are honest answers, not errors)",
+      "gridPos": { "h": 7, "w": 9, "x": 6, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (increase(mdx_audio_clips_created_total[1h]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Clip pipeline latency p95 (fetch+decrypt+slice+encode, ms)",
+      "gridPos": { "h": 7, "w": 9, "x": 15, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(mdx_audio_clip_pipeline_latency_ms_histogram_bucket[15m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Query expansion & search",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Expansion hit-rate (share of q-searches broadened by synonyms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "(sum(increase(mdx_reports_search_expansion_total{hit=\"true\"}[1h])) or vector(0)) / (sum(increase(mdx_reports_search_expansion_total[1h])) > 0)",
+          "legendFormat": "hit rate"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Search latency p95 by has_q (S15 finally emits the S08 instrument)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, has_q) (rate(mdx_reports_search_latency_ms_histogram_bucket[5m])))",
+          "legendFormat": "p95 has_q={{has_q}}"
+        }
+      ]
+    }
+  ]
+}

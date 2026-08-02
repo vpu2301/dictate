@@ -123,6 +123,7 @@ Postgres (creates roles via `init.sql`) → **migrate** (27 SQL migrations) →
 | report-service | `http://localhost:8006` | |
 | autocomplete-service | `http://localhost:8007` | |
 | signing-service | `http://localhost:8008` | КЕП e-signature + public `/verify` |
+| generation-service | `http://localhost:8009` | Layer C inline completion (needs a llama-server/Ollama backend, ADR-0036) |
 | asr-worker | — | Redis-stream consumer (no HTTP port) |
 
 > **First build downloads models.** `asr-worker` and `dictation-service` bake
@@ -134,7 +135,7 @@ Postgres (creates roles via `init.sql`) → **migrate** (27 SQL migrations) →
 Health-check every service once up:
 
 ```bash
-for p in 8000 8001 8003 8005 8006 8007 8008; do
+for p in 8000 8001 8003 8005 8006 8007 8008 8009; do
   curl -s -o /dev/null -w "%{http_code}  :$p/healthz\n" http://localhost:$p/healthz
 done
 ```

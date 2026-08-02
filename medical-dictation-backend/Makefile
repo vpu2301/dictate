@@ -57,6 +57,11 @@ run-autocomplete-service: ## Run autocomplete-service on :8007 (needs dev-up + m
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 	uv run --project services/autocomplete-service uvicorn autocomplete_service.main:app --host 0.0.0.0 --port 8007
 
+.PHONY: run-generation-service
+run-generation-service: ## Run generation-service on :8009 (needs dev-up + a llama-server/Ollama backend, see ADR-0036)
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+	uv run --project services/generation-service uvicorn generation_service.main:app --host 0.0.0.0 --port 8009
+
 .PHONY: run-notification-service
 run-notification-service: ## Run notification-service on :8004 (needs dev-up + migrate-up + seed)
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
@@ -237,6 +242,10 @@ capacity-probe: ## Sprint-14 dual-model capacity probe (residency + per-window l
 check-autocomplete-corpus: ## CI gate — validate the autocomplete seed corpus (sprint 10)
 	uv run python scripts/validate-autocomplete-corpus.py
 
+.PHONY: check-synonym-corpus
+check-synonym-corpus: ## CI gate — validate the medical synonym seed corpus + migration sync (sprint 15)
+	uv run python scripts/ci/check_synonym_corpus.py
+
 seed-templates: ## Seed 16 system templates via upsert_system_template() (sprint 06)
 	uv run python scripts/seed/seed_templates.py
 
@@ -296,7 +305,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-alert-rules ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-synonym-corpus check-alert-rules ## Mirror CI gates locally
 
 ci-with-db: ci check-rls check-erasure-fanout openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

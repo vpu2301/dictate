@@ -108,3 +108,24 @@ None new in sprint-08. Sprint-09 will introduce signing-key material.
 This runbook is the operational contract for the reports surface. If
 a playbook step turns out wrong in practice, update this file in the
 same PR as the fix.
+
+## audio-clip-failures
+
+`AudioClipFailuresHigh` (sprint 15, ADR-0037): the decrypt→slice→encode
+pipeline on `POST /v1/audio-clips` is erroring (`outcome="pipeline_error"`,
+502s to callers). 410s are NOT failures — they are the honest retention
+answers (`no_audio_source` / `audio_not_retained` / `audio_erased` /
+`audio_partially_retained`).
+
+1. Is ffmpeg present in the report-service image? (`MDX_FFMPEG_PATH`,
+   Dockerfile installs it since S15.) A missing binary fails EVERY clip.
+2. `mdx_audio_clip_pipeline_latency_ms` p95 climbing toward the ffmpeg
+   timeout → the source objects are huge (long sessions) or the host is
+   CPU-starved; the whole-object GCM decrypt (~2 MB/min of audio) is
+   expected cost, not a leak.
+3. Corrupt source WAV (`unexpected WAV layout` in logs): the session was
+   written by a pre-S04 build or the object was truncated — check
+   `audio_files.sha256` against the object.
+4. MinIO lifecycle: clips live 5 min (Redis registry) with a 1-day
+   bucket ILM backstop on `mdx-audio-clips`; a full bucket is never the
+   explanation — check the ILM rule survived a `minio-init` re-run.

@@ -26,6 +26,7 @@ from .. import audit_helper, audit_kinds
 from ..config import settings
 from ..deps import get_state, requires
 from ..domain import encounter_state, encounters_repository, patients_repository
+from ._phi_access_guard import PatientAccess, patient_record_access
 
 router = APIRouter(tags=["encounters"])
 
@@ -150,8 +151,12 @@ def _parse_dt(value: str | None) -> datetime:
 )
 async def list_encounters(
     patient_id: UUID,
-    claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
+    # One patient's visit history is record content (S15 gate); the
+    # cross-tenant workflow lists (`/encounters/open`, `/schedule`) stay
+    # on the roster permission — they are the admin's operational view.
+    access: Annotated[PatientAccess, Depends(patient_record_access)],
 ) -> list[EncounterOut]:
+    claims = access.claims
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         rows = await encounters_repository.list_for_patient(conn, patient_id=patient_id)

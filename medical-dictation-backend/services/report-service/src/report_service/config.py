@@ -120,5 +120,42 @@ class Settings(BaseSettings):
     )
     synthesis_model: str = Field(default="claude-opus-4-8", alias="MDX_SYNTHESIS_MODEL")
 
+    # ── Sprint 15: audio replay (ADR-0037) ──────────────────────────────
+    # Clip creation decrypts session/batch audio, slices, re-encodes and
+    # serves it from an authenticated stream — report-service therefore
+    # gets the same S3+crypto wiring dictation-service has (same env
+    # names, so compose blocks are copy-paste).
+    db_crypto_writer_dsn: str = Field(
+        default="postgresql://crypto_writer:crypto_writer@localhost:5432/medical_dictation",
+        alias="DB_CRYPTO_WRITER_DSN",
+    )
+    master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
+    s3_endpoint: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT")
+    s3_region: str = Field(default="us-east-1", alias="S3_REGION")
+    s3_access_key: str = Field(default="minioadmin", alias="S3_ACCESS_KEY")
+    s3_secret_key: str = Field(default="minioadmin", alias="S3_SECRET_KEY")
+    s3_use_ssl: bool = Field(default=False, alias="S3_USE_SSL")
+    s3_audio_bucket: str = Field(default="mdx-audio", alias="S3_AUDIO_BUCKET")
+    s3_transcripts_bucket: str = Field(
+        default="mdx-transcripts", alias="S3_TRANSCRIPTS_BUCKET"
+    )
+    # Ephemeral clip derivatives: 1-day bucket ILM backstop; the REAL
+    # lifetime is the 5-minute Redis registry + token TTL below.
+    s3_clips_bucket: str = Field(default="mdx-audio-clips", alias="S3_CLIPS_BUCKET")
+    object_store_disabled: bool = Field(default=False, alias="MD_OBJECT_STORE_DISABLED")
+
+    # HMAC key for clip download tokens (DSAR download-token idiom,
+    # ADR-0028): hex-encoded, dev default is NOT a secret. Rotate freely —
+    # tokens live 5 minutes.
+    clip_token_hmac_key_hex: str = Field(
+        default="6d64782d6465762d636c69702d746f6b656e2d6b65792d3030303030303030",
+        alias="MDX_CLIP_TOKEN_HMAC_KEY_HEX",
+    )
+    clip_token_ttl_seconds: int = Field(default=300, alias="MDX_CLIP_TOKEN_TTL_SECONDS")
+    clip_max_span_ms: int = Field(default=60_000, alias="MDX_CLIP_MAX_SPAN_MS")
+    clip_pad_ms: int = Field(default=300, alias="MDX_CLIP_PAD_MS")
+    clips_per_user_per_hour: int = Field(default=30, alias="MDX_CLIPS_PER_USER_PER_HOUR")
+    ffmpeg_path: str = Field(default="ffmpeg", alias="MDX_FFMPEG_PATH")
+
 
 settings = Settings()

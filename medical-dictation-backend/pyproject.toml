@@ -105,6 +105,7 @@ root_packages = [
     "report_models",
     "notification_service",
     "notification_events",
+    "generation_service",
 ]
 
 [[tool.importlinter.contracts]]
@@ -113,6 +114,15 @@ type = "layers"
 layers = [
     "template_service.routers",
     "template_service.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "generation-service: routers → domain → adapters; reverse forbidden"
+type = "layers"
+layers = [
+    "generation_service.routers",
+    "generation_service.domain",
+    "generation_service.adapters",
 ]
 
 [[tool.importlinter.contracts]]

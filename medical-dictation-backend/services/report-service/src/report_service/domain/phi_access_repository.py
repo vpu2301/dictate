@@ -71,6 +71,7 @@ async def create_grant(
     *,
     tenant_id: UUID,
     requested_by: UUID,
+    resource_kind: str = "report",
     resource_id: UUID,
     patient_id: UUID | None,
     reason_code: str,
@@ -82,11 +83,12 @@ async def create_grant(
         INSERT INTO phi_access_requests
             (tenant_id, requested_by, resource_kind, resource_id,
              patient_id, reason_code, reason_note, expires_at)
-        VALUES ($1, $2, 'report', $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING {_COLUMNS}
         """,
         tenant_id,
         requested_by,
+        resource_kind,
         resource_id,
         patient_id,
         reason_code,
@@ -96,10 +98,17 @@ async def create_grant(
 
 
 async def find_live_grant(
-    conn: asyncpg.Connection, *, user_sub: UUID, resource_id: UUID
+    conn: asyncpg.Connection,
+    *,
+    user_sub: UUID,
+    resource_id: UUID,
+    resource_kind: str = "report",
 ) -> asyncpg.Record | None:
     """The authorization lookup: does this user hold an unexpired,
-    unrevoked grant on this report right now?
+    unrevoked grant on this resource right now?
+
+    ``resource_kind`` matters since 0061: a patient-kind grant must never
+    open a report that happens to share the UUID, and vice versa.
 
     Ordered by ``expires_at DESC`` so a re-request that widens the window
     wins over an older grant that is about to lapse — otherwise a user who
@@ -109,15 +118,17 @@ async def find_live_grant(
         f"""
         SELECT {_COLUMNS}
           FROM phi_access_requests
-         WHERE requested_by = $1
-           AND resource_id  = $2
-           AND status       = 'granted'
-           AND expires_at   > now()
+         WHERE requested_by  = $1
+           AND resource_id   = $2
+           AND resource_kind = $3
+           AND status        = 'granted'
+           AND expires_at    > now()
          ORDER BY expires_at DESC
          LIMIT 1
         """,
         user_sub,
         resource_id,
+        resource_kind,
     )
 
 
