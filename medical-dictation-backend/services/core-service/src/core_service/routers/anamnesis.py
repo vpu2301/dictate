@@ -10,12 +10,14 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from audit import Severity
 from auth import Claims
 from db import tenant_connection
 
 from .. import audit_helper, audit_kinds
 from ..deps import get_state, requires
 from ..domain import anamnesis_repository, patients_repository
+from ._phi_access_guard import PatientAccess, patient_record_access
 
 router = APIRouter(tags=["anamnesis"])
 
@@ -52,8 +54,11 @@ def _to_out(row: asyncpg.Record) -> AnamnesisOut:
 )
 async def get_anamnesis(
     patient_id: UUID,
-    claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
+    # Structured medical history IS the clinical record — behind the
+    # S15 patient gate, not the roster permission.
+    access: Annotated[PatientAccess, Depends(patient_record_access)],
 ) -> AnamnesisOut:
+    claims = access.claims
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         if await patients_repository.get_patient(conn, patient_id=patient_id) is None:
@@ -73,6 +78,7 @@ async def put_anamnesis(
     patient_id: UUID,
     body: AnamnesisBody,
     claims: Annotated[Claims, Depends(requires("patient.write", "patient"))],
+    access: Annotated[PatientAccess, Depends(patient_record_access)],
 ) -> AnamnesisOut:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -91,5 +97,7 @@ async def put_anamnesis(
         audit_kinds.ANAMNESIS_UPDATED,
         target_kind="patient",
         target_id=patient_id,
+        payload={"break_glass": access.is_break_glass},
+        severity=Severity.SEC if access.is_break_glass else Severity.INFO,
     )
     return _to_out(row)

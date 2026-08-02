@@ -45,6 +45,7 @@ KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
         "notification",
         "phrase",
         "phi_access_request",
+        "synonym",
     }
 )
 
@@ -135,14 +136,25 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("service", "report.read", "report"): True,
     # ── Sprint 11: patients (clinical/EHR core-service) ──────────────
     # Patient roster + the per-patient record (encounters, consents,
-    # anamnesis, privacy). Mirrors `report`: clinical authors (admin,
-    # clinician, nurse) read+write; auditors denied PHI; service tokens
-    # have no S2S surface here today.
+    # anamnesis, privacy). Two tiers since S15:
+    #
+    #   patient.read       — the roster LIST. For tenant_admin the rows
+    #                        come back REDACTED (name + id): enough to
+    #                        find the record to break glass on, nothing
+    #                        more. Clinical roles get full rows.
+    #   patient.read_full  — one patient's demographics + timeline.
+    #                        Clinical roles only; an admin reaches the
+    #                        same endpoints through a live per-patient
+    #                        break-glass grant (phi_access.request).
+    #
+    # Auditors denied PHI; service tokens have no S2S surface here today.
     ("tenant_admin", "patient.read", "patient"): True,
     ("tenant_admin", "patient.write", "patient"): True,
     ("clinician", "patient.read", "patient"): True,
+    ("clinician", "patient.read_full", "patient"): True,
     ("clinician", "patient.write", "patient"): True,
     ("nurse", "patient.read", "patient"): True,
+    ("nurse", "patient.read_full", "patient"): True,
     ("nurse", "patient.write", "patient"): True,
     # Erasure approval (S11 step 04): the SECOND person of the two-person
     # rule. tenant_admin only — requesting stays under patient.write, and
@@ -177,8 +189,12 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # blocks above deliberately drop tenant_admin from `asr.*`,
     # `dictation.*`, `report.read`/`report.write` and `note.*`: an
     # administrator has no standing clinical need for a patient's
-    # dictations, notes or reports, and the patient roster (`patient.*`,
-    # still granted) is the surface their job actually requires.
+    # dictations, notes or reports. Since S15 the patient record itself
+    # is behind the same wall: the admin keeps the REDACTED roster
+    # (`patient.read`, name + id) and registration (`patient.write`),
+    # but opening one patient's demographics or timeline requires
+    # `patient.read_full` — which admins do not hold — or a live
+    # per-patient break-glass grant.
     #
     # Note this is a matrix over ROLES, not people: a practising doctor
     # who also administers the tenant holds BOTH `tenant_admin` and
@@ -195,13 +211,14 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     #                 transcript, no result URL. Counts and timings only.
     #   phi_access.* — the break-glass path below.
     ("tenant_admin", "stats.read", "tenant"): True,
-    # ── Break-glass access to a single report ─────────────────────────
-    # An admin who genuinely needs one report (a complaint, a legal
-    # request, a billing dispute) requests it: a reason from a closed
-    # vocabulary plus a password re-entry mints a time-limited,
-    # single-report grant. Every step is audited at `sec` severity and
-    # the report's authors are notified. `phi_access.read` is the
-    # oversight surface — who broke glass, on what, and why.
+    # ── Break-glass access to a single report or patient ──────────────
+    # An admin who genuinely needs one report or one patient record (a
+    # complaint, a legal request, a billing dispute) requests it: a
+    # reason from a closed vocabulary plus a password re-entry mints a
+    # time-limited, single-resource grant. Every step is audited at
+    # `sec` severity and — for reports — the authors are notified.
+    # `phi_access.read` is the oversight surface — who broke glass, on
+    # what, and why.
     ("tenant_admin", "phi_access.request", "phi_access_request"): True,
     ("tenant_admin", "phi_access.read", "phi_access_request"): True,
     ("auditor", "phi_access.read", "phi_access_request"): True,
@@ -218,6 +235,22 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("nurse", "autocomplete.read", "phrase"): True,
     ("nurse", "autocomplete.write", "phrase"): True,
     ("service", "autocomplete.read", "phrase"): True,
+    # ── Sprint 15: medical synonyms (search query expansion, ADR-0038) ──
+    # The dictionary is search metadata, not PHI: reading it rides along
+    # with searching (clinical roles + service + admin); writing tenant
+    # entries is an admin curation act — tenant_admin holding write does
+    # NOT breach the PHI separation because synonym rows carry dictionary
+    # terms, never patient data.
+    ("clinician", "synonym.read", "synonym"): True,
+    ("nurse", "synonym.read", "synonym"): True,
+    ("service", "synonym.read", "synonym"): True,
+    ("tenant_admin", "synonym.read", "synonym"): True,
+    ("auditor", "synonym.read", "synonym"): False,
+    ("tenant_admin", "synonym.write", "synonym"): True,
+    ("clinician", "synonym.write", "synonym"): False,
+    ("nurse", "synonym.write", "synonym"): False,
+    ("auditor", "synonym.write", "synonym"): False,
+    ("service", "synonym.write", "synonym"): False,
 }
 
 

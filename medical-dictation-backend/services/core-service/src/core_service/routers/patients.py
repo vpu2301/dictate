@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
@@ -10,7 +11,8 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from auth import Claims
+from audit import Severity
+from auth import Claims, can_claims
 from crypto.ipn import (
     InvalidIpnError,
     normalize_ipn,
@@ -26,6 +28,7 @@ from ..config import settings
 from ..deps import get_state, requires
 from ..domain import patients_repository, timeline_repository
 from ..domain.common import decode_cursor, encode_cursor, parse_dob
+from ._phi_access_guard import PatientAccess, patient_record_access
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -42,11 +45,44 @@ class NameI18n(_Strict):
     en: str = ""
 
 
+# Contact fields carry a length ceiling plus a shape check on the two that
+# are machine-dialled/machine-sent, so a typo is caught at registration
+# rather than at the first call or the first send. The address components
+# stay free-form: street naming, house numbering and postal-code formats
+# differ per country, and a clinic must be able to record what the patient
+# actually gave.
+_PHONE_MAX = 32
+_EMAIL_MAX = 254  # RFC 5321 path limit
+_STREET_MAX = 200
+_HOUSE_MAX = 32
+_ZIP_MAX = 20
+_CITY_MAX = 120
+_COUNTRY_MAX = 120
+
+
+class Address(_Strict):
+    """Postal address, split at capture (0060).
+
+    Every component is optional — a record with only a city is a valid
+    partial address, and "not captured" is the empty string throughout.
+    """
+
+    street: str = Field(default="", max_length=_STREET_MAX)
+    # Building + apartment as written locally: "12", "12/3, кв. 7", "5B".
+    house: str = Field(default="", max_length=_HOUSE_MAX)
+    zip: str = Field(default="", max_length=_ZIP_MAX)
+    city: str = Field(default="", max_length=_CITY_MAX)
+    country: str = Field(default="", max_length=_COUNTRY_MAX)
+
+
 class PatientCreate(_Strict):
     name: NameI18n
     dob: str | None = None
     sex: Literal["M", "F", "U"] = "U"
     mrn: str = ""
+    phone: str = Field(default="", max_length=_PHONE_MAX)
+    email: str = Field(default="", max_length=_EMAIL_MAX)
+    address: Address = Field(default_factory=Address)
     summary: NameI18n | None = None
     tags: list[str] = Field(default_factory=list)
     # Raw ІПН (РНОКПП); accepted with spaces/dashes, validated by checksum.
@@ -59,6 +95,15 @@ class PatientUpdate(_Strict):
     dob: str | None = None
     sex: Literal["M", "F", "U"] | None = None
     mrn: str | None = None
+    # None = unchanged; "" clears the field.
+    phone: str | None = Field(default=None, max_length=_PHONE_MAX)
+    email: str | None = Field(default=None, max_length=_EMAIL_MAX)
+    # None = unchanged. An object REPLACES the whole address — every
+    # component present in the model is written, so a blank one clears that
+    # component. There is no per-component patch: the form always holds the
+    # full address, and a partial merge would make "clear the house number"
+    # unexpressible.
+    address: Address | None = None
     summary: NameI18n | None = None
     tags: list[str] | None = None
     # "erased" is accepted by the schema so the guard can answer with the
@@ -74,6 +119,9 @@ class PatientOut(_Strict):
     dob: date | None
     sex: str
     mrn: str
+    phone: str = ""
+    email: str = ""
+    address: Address = Field(default_factory=Address)
     summary: NameI18n
     tags: list[str]
     status: str
@@ -120,6 +168,15 @@ def _to_out(row: asyncpg.Record) -> PatientOut:
         dob=row["dob"],
         sex=row["sex"],
         mrn=row["mrn"],
+        phone=row["phone"],
+        email=row["email"],
+        address=Address(
+            street=row["address_street"],
+            house=row["address_house"],
+            zip=row["address_zip"],
+            city=row["address_city"],
+            country=row["address_country"],
+        ),
         summary=NameI18n(uk=row["summary_uk"], en=row["summary_en"]),
         tags=list(row["tags"]),
         status=row["status"],
@@ -127,6 +184,29 @@ def _to_out(row: asyncpg.Record) -> PatientOut:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         has_ipn=bool(row.get("has_ipn", False)),
+    )
+
+
+def _to_out_redacted(row: asyncpg.Record) -> PatientOut:
+    """The roster row an admin sees (S15): name + id, nothing clinical.
+
+    Enough to find the record to break glass on — dob, sex, MRN, contact
+    details, summary, tags and visit recency all stay behind the grant.
+    ``status`` survives so the erased-tombstone listing keeps working.
+    """
+    return PatientOut(
+        id=row["id"],
+        name=NameI18n(uk=row["name_uk"], en=row["name_en"]),
+        dob=None,
+        sex="U",
+        mrn="",
+        summary=NameI18n(),
+        tags=[],
+        status=row["status"],
+        last_visit=None,
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        has_ipn=False,
     )
 
 
@@ -140,6 +220,74 @@ def _http_error(status_code: int, detail: str, **extras: object) -> HTTPExceptio
     exc = HTTPException(status_code=status_code, detail=detail)
     exc.problem_extras = extras  # type: ignore[attr-defined]
     return exc
+
+
+def _clean_email(raw: str) -> str:
+    """Trim + lowercase an e-mail, rejecting an obviously malformed one.
+
+    Deliberately a shape check, not RFC 5322: the goal is to catch the
+    missing-@ / trailing-comma typo at registration. Anything stricter
+    rejects addresses that deliver fine, and the field is optional — an
+    empty string means "not captured".
+    """
+    email = raw.strip().lower()
+    if not email:
+        return ""
+    local, _, domain = email.partition("@")
+    if not local or not domain or "." not in domain or any(c.isspace() for c in email):
+        raise _http_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "email must look like name@example.com",
+            code="email_invalid",
+        )
+    return email
+
+
+# Everything a human writes between the digits of a phone number. Stripped
+# before validation and before storage, so "+380 (67) 123-45-67" and
+# "+380671234567" are one value — a `tel:` link, a dedupe, or an SMS gateway
+# can then use the column as-is.
+_PHONE_SEPARATORS = re.compile(r"[\s()\-–—./]+")
+# ASCII digits only — str.isdigit() would accept Arabic-Indic and superscript
+# digits, which no dialler understands. E.164 caps the number at 15.
+_PHONE_DIGITS = re.compile(r"^\d{7,15}$")
+
+
+def _clean_phone(raw: str) -> str:
+    """Normalize a telephone number, rejecting one that cannot be dialled.
+
+    Accepts an optional leading ``+`` followed by 7–15 digits written with
+    any human separators, and stores the compact form (``+380671234567``).
+    A name, a stray letter, or half a number is rejected 422
+    ``phone_invalid``. An empty string means "not captured".
+
+    E.164-shaped rather than country-specific on purpose: a clinic near the
+    border records Polish and Moldovan numbers too, and a per-country
+    pattern would reject numbers that dial fine.
+    """
+    phone = raw.strip()
+    if not phone:
+        return ""
+    plus = phone.startswith("+")
+    digits = _PHONE_SEPARATORS.sub("", phone[1:] if plus else phone)
+    if not _PHONE_DIGITS.match(digits):
+        raise _http_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "phone must be 7–15 digits, optionally prefixed with +",
+            code="phone_invalid",
+        )
+    return f"+{digits}" if plus else digits
+
+
+def _address_columns(address: Address) -> dict[str, str]:
+    """Address model → the five 0060 columns, each trimmed."""
+    return {
+        "address_street": address.street.strip(),
+        "address_house": address.house.strip(),
+        "address_zip": address.zip.strip(),
+        "address_city": address.city.strip(),
+        "address_country": address.country.strip(),
+    }
 
 
 async def _ipn_columns(
@@ -226,6 +374,9 @@ async def create_patient(
             detail="patient name is required (uk or en)",
         )
     summary = body.summary or NameI18n()
+    phone = _clean_phone(body.phone)
+    email = _clean_email(body.email)
+    address = _address_columns(body.address)
 
     # Generated here (not by the DB default) so the raw-ІПН envelope AAD can
     # bind to the row id before the INSERT.
@@ -253,6 +404,9 @@ async def create_patient(
                 dob=parse_dob(body.dob),
                 sex=body.sex,
                 mrn=body.mrn.strip(),
+                phone=phone,
+                email=email,
+                **address,
                 summary_uk=summary.uk.strip(),
                 summary_en=summary.en.strip(),
                 tags=[t.strip() for t in body.tags if t.strip()],
@@ -272,9 +426,14 @@ async def create_patient(
         claims,
         audit_kinds.PATIENT_CREATED,
         row["id"],
+        # Presence flags only — contact details are PII and never enter an
+        # audit payload (the ids-only convention; test_non_phi_assertions).
         {
             "has_mrn": bool(body.mrn.strip()),
             "has_ipn": ipn_cols["ipn_hmac"] is not None,
+            "has_phone": bool(phone),
+            "has_email": bool(email),
+            "has_address": any(address.values()),
         },
     )
     return _to_out(row)
@@ -317,7 +476,15 @@ async def list_patients(
         sort_key = last["last_visit_at"] or last["created_at"]
         next_cursor = encode_cursor(sort_key, last["id"])
         rows = rows[:limit]
-    return PatientList(items=[_to_out(r) for r in rows], next_cursor=next_cursor)
+    # S15 admin ⟂ PHI: without the full-read permission the roster comes
+    # back redacted — name + id is what an admin needs to FIND a record;
+    # everything else waits behind a per-patient break-glass grant.
+    serialize = (
+        _to_out
+        if can_claims(claims, "patient.read_full", "patient")
+        else _to_out_redacted
+    )
+    return PatientList(items=[serialize(r) for r in rows], next_cursor=next_cursor)
 
 
 # ── Read ────────────────────────────────────────────────────────────
@@ -326,14 +493,27 @@ async def list_patients(
 @router.get("/{patient_id}", response_model=PatientOut, summary="Fetch one patient.")
 async def get_patient(
     patient_id: UUID,
-    claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
+    access: Annotated[PatientAccess, Depends(patient_record_access)],
 ) -> PatientOut:
+    # Two standings reach this handler (S15): ordinary `patient.read_full`,
+    # or a live break-glass grant on THIS patient. The guard has already
+    # resolved which and counted the use; from here the only difference
+    # is what the audit trail says.
+    claims = access.claims
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         row = await patients_repository.get_patient(conn, patient_id=patient_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    await _audit(claims, audit_kinds.PATIENT_VIEWED, patient_id, {})
+    await _audit(
+        claims,
+        audit_kinds.PATIENT_VIEWED,
+        patient_id,
+        {"break_glass": access.is_break_glass},
+        severity=Severity.SEC if access.is_break_glass else Severity.INFO,
+    )
+    if access.is_break_glass:
+        await _audit_grant_use(access, patient_id, surface="patient_detail")
     return _to_out(row)
 
 
@@ -345,6 +525,9 @@ async def update_patient(
     patient_id: UUID,
     body: PatientUpdate,
     claims: Annotated[Claims, Depends(requires("patient.write", "patient"))],
+    # Editing presumes reading (S15): an admin's edit needs a live grant
+    # on this patient, a clinician's rides `patient.read_full`.
+    access: Annotated[PatientAccess, Depends(patient_record_access)],
 ) -> PatientOut:
     # `erased` is terminal and owned by the erasure engine (S11 step 07):
     # the public surface can neither set it nor modify an erased patient.
@@ -368,6 +551,12 @@ async def update_patient(
         fields["sex"] = body.sex
     if body.mrn is not None:
         fields["mrn"] = body.mrn.strip()
+    if body.phone is not None:
+        fields["phone"] = _clean_phone(body.phone)
+    if body.email is not None:
+        fields["email"] = _clean_email(body.email)
+    if body.address is not None:
+        fields.update(_address_columns(body.address))
     if body.summary is not None:
         fields["summary_uk"] = body.summary.uk.strip()
         fields["summary_en"] = body.summary.en.strip()
@@ -415,8 +604,14 @@ async def update_patient(
     # payload — presence only, never material.
     audit_fields = sorted({"ipn" if f.startswith("ipn_") else f for f in fields})
     await _audit(
-        claims, audit_kinds.PATIENT_UPDATED, patient_id, {"fields": audit_fields}
+        claims,
+        audit_kinds.PATIENT_UPDATED,
+        patient_id,
+        {"fields": audit_fields, "break_glass": access.is_break_glass},
+        severity=Severity.SEC if access.is_break_glass else Severity.INFO,
     )
+    if access.is_break_glass:
+        await _audit_grant_use(access, patient_id, surface="patient_update")
     return _to_out(row)
 
 
@@ -430,7 +625,7 @@ async def update_patient(
 )
 async def patient_timeline(
     patient_id: UUID,
-    claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
+    access: Annotated[PatientAccess, Depends(patient_record_access)],
 ) -> Timeline:
     """Reports, encounter-linked recordings and conversations, newest first.
 
@@ -443,6 +638,7 @@ async def patient_timeline(
     rows (S14) are conversation-mode consultations, and carry a segment
     COUNT rather than transcript text for the same reason.
     """
+    claims = access.claims
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         if await patients_repository.get_patient(conn, patient_id=patient_id) is None:
@@ -491,6 +687,8 @@ async def patient_timeline(
         for c in conversations
     ]
     items.sort(key=lambda i: i.date, reverse=True)
+    if access.is_break_glass:
+        await _audit_grant_use(access, patient_id, surface="patient_timeline")
     return Timeline(items=items)
 
 
@@ -498,8 +696,38 @@ async def patient_timeline(
 
 
 async def _audit(
-    claims: Claims, kind: str, target_id: UUID, payload: dict[str, object]
+    claims: Claims,
+    kind: str,
+    target_id: UUID,
+    payload: dict[str, object],
+    *,
+    severity: Severity = Severity.INFO,
 ) -> None:
     await audit_helper.emit(
-        get_state(), claims, kind, target_kind="patient", target_id=target_id, payload=payload
+        get_state(),
+        claims,
+        kind,
+        target_kind="patient",
+        target_id=target_id,
+        payload=payload,
+        severity=severity,
+    )
+
+
+async def _audit_grant_use(
+    access: PatientAccess, patient_id: UUID, *, surface: str
+) -> None:
+    """A second, distinctly-kinded event per break-glass read, so "every
+    break-glass access" is one query over the chain rather than a filter
+    over every patient view ever recorded (mirrors report-service)."""
+    await _audit(
+        access.claims,
+        audit_kinds.PHI_ACCESS_USED,
+        patient_id,
+        {
+            "grant_id": str(access.grant_id),
+            "reason_code": access.reason_code,
+            "surface": surface,
+        },
+        severity=Severity.SEC,
     )

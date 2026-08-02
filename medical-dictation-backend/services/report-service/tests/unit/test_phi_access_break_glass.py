@@ -148,6 +148,15 @@ def env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(phi_access.repo, "fetch_report", _fetch_report)
     monkeypatch.setattr(reports.repo, "fetch_report", _fetch_report)
 
+    async def _fetch_patient_label(conn, *, patient_id):  # noqa: ANN001
+        from report_service.domain.reports_repository import PatientLabel
+
+        if patient_id != PATIENT_ID:
+            return None
+        return PatientLabel(id=patient_id, name_uk="Іван", name_en="Ivan")
+
+    monkeypatch.setattr(phi_access.repo, "fetch_patient_label", _fetch_patient_label)
+
     async def _fetch_version(conn, *, version_id):  # noqa: ANN001
         return None
 
@@ -165,9 +174,13 @@ def env(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(phi_access.grants, "create_grant", _create_grant)
 
-    async def _find_live(conn, *, user_sub, resource_id):  # noqa: ANN001
+    async def _find_live(conn, *, user_sub, resource_id, resource_kind="report"):  # noqa: ANN001
         grant = state.live_grant
-        if grant is None or grant["resource_id"] != resource_id:
+        if (
+            grant is None
+            or grant["resource_id"] != resource_id
+            or grant["resource_kind"] != resource_kind
+        ):
             return None
         return grant
 
@@ -381,3 +394,57 @@ def test_a_refused_attempt_is_itself_recorded(env) -> None:
     assert len(denied) == 1
     assert denied[0]["payload"]["reason"] == "no_live_grant"
     assert str(denied[0]["severity"]) == "sec"
+
+
+# ── 5. Patient-kind grants (S15) ─────────────────────────────────────
+
+
+def test_patient_kind_grant_mints_and_tells_no_author(env) -> None:
+    """A patient record has no author to notify — the after-the-fact
+    control is the sec audit trail plus the oversight list only."""
+    resp = _as(env, _claims("tenant_admin")).post(
+        "/v1/phi-access-requests",
+        json={
+            "resource_kind": "patient",
+            "resource_id": str(PATIENT_ID),
+            "reason_code": "patient_complaint",
+            "reauth_ticket": GOOD_TICKET,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert env.created[0]["resource_kind"] == "patient"
+    assert env.created[0]["patient_id"] == PATIENT_ID
+
+    granted = [c for c in env.audit_calls if c["kind"] == "phi_access.granted"]
+    assert granted and granted[0]["target_kind"] == "patient"
+    assert env.published == []  # no author, no notification
+
+
+def test_patient_kind_grant_needs_an_existing_patient(env) -> None:
+    """The lookup must fail BEFORE the ticket is spent — a typo must not
+    burn the password step-up."""
+    resp = _as(env, _claims("tenant_admin")).post(
+        "/v1/phi-access-requests",
+        json={
+            "resource_kind": "patient",
+            "resource_id": str(OTHER_REPORT_ID),  # no such patient
+            "reason_code": "patient_complaint",
+            "reauth_ticket": GOOD_TICKET,
+        },
+    )
+    assert resp.status_code == 404
+    assert env.consumed == []  # ticket untouched
+    assert env.created == []
+
+
+def test_a_patient_grant_does_not_open_a_report(env) -> None:
+    """Kind isolation: a live grant on the PATIENT must not satisfy the
+    REPORT guard, even for the id the report is about."""
+    grant = _grant_record(resource_id=REPORT_ID)
+    grant["resource_kind"] = "patient"
+    env.live_grant = grant
+    resp = _as(env, _claims("tenant_admin")).get(
+        f"/v1/reports/{REPORT_ID}?purpose=audit"
+    )
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "phi_access_required"

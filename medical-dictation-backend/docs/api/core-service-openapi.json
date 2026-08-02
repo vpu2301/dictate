@@ -1,6 +1,44 @@
 {
   "components": {
     "schemas": {
+      "Address": {
+        "additionalProperties": false,
+        "description": "Postal address, split at capture (0060).\n\nEvery component is optional \u2014 a record with only a city is a valid\npartial address, and \"not captured\" is the empty string throughout.",
+        "properties": {
+          "city": {
+            "default": "",
+            "maxLength": 120,
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Country",
+            "type": "string"
+          },
+          "house": {
+            "default": "",
+            "maxLength": 32,
+            "title": "House",
+            "type": "string"
+          },
+          "street": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Street",
+            "type": "string"
+          },
+          "zip": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Zip",
+            "type": "string"
+          }
+        },
+        "title": "Address",
+        "type": "object"
+      },
       "AnamnesisBody": {
         "additionalProperties": false,
         "properties": {
@@ -880,6 +918,9 @@
       "PatientCreate": {
         "additionalProperties": false,
         "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
           "dob": {
             "anyOf": [
               {
@@ -890,6 +931,12 @@
               }
             ],
             "title": "Dob"
+          },
+          "email": {
+            "default": "",
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
           },
           "ipn": {
             "anyOf": [
@@ -909,6 +956,12 @@
           },
           "name": {
             "$ref": "#/components/schemas/NameI18n"
+          },
+          "phone": {
+            "default": "",
+            "maxLength": 32,
+            "title": "Phone",
+            "type": "string"
           },
           "sex": {
             "default": "U",
@@ -975,6 +1028,9 @@
       "PatientOut": {
         "additionalProperties": false,
         "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -991,6 +1047,11 @@
               }
             ],
             "title": "Dob"
+          },
+          "email": {
+            "default": "",
+            "title": "Email",
+            "type": "string"
           },
           "has_ipn": {
             "default": false,
@@ -1020,6 +1081,11 @@
           },
           "name": {
             "$ref": "#/components/schemas/NameI18n"
+          },
+          "phone": {
+            "default": "",
+            "title": "Phone",
+            "type": "string"
           },
           "sex": {
             "title": "Sex",
@@ -1064,6 +1130,16 @@
       "PatientUpdate": {
         "additionalProperties": false,
         "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "dob": {
             "anyOf": [
               {
@@ -1074,6 +1150,18 @@
               }
             ],
             "title": "Dob"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "ipn": {
             "anyOf": [
@@ -1106,6 +1194,18 @@
                 "type": "null"
               }
             ]
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "sex": {
             "anyOf": [

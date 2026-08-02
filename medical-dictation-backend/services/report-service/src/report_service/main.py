@@ -17,11 +17,13 @@ from .deps import install_state
 from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
 from .routers import (
+    audio_clips,
     health,
     icd10,
     phi_access,
     reports,
     reports_amend,
+    reports_audio,
     reports_diff,
     reports_drafts,
     reports_from_transcript,
@@ -31,6 +33,8 @@ from .routers import (
     reports_sign,
     reports_synthesis,
     reports_versions,
+    search_tips,
+    synonyms,
     templates,
 )
 
@@ -105,6 +109,13 @@ def create_app() -> FastAPI:
     app.include_router(reports_versions.router)
     app.include_router(reports_pdf.router)
     app.include_router(reports_synthesis.router)
+    # Sprint 15: audio replay (ADR-0037). No ordering hazard: the
+    # multi-segment sections path can't be swallowed by /{report_id}.
+    app.include_router(reports_audio.router)
+    app.include_router(audio_clips.router)
+    # Sprint 15: query expansion surfaces (ADR-0038).
+    app.include_router(search_tips.router)
+    app.include_router(synonyms.router)
     FastAPIInstrumentor.instrument_app(app)
     return app
 

@@ -20,6 +20,9 @@
 #   report-service        :8006
 #   autocomplete-service  :8007
 #   signing-service       :8008
+#   generation-service    :8009   (S15 Layer C inline completion)
+#   llama-server          :8089   (S15 inference backend — mounts the
+#                                  host's `ollama pull gemma3:1b` blob)
 #   asr-worker            (no port — Redis-stream consumer)
 #
 # NOTE: building asr-worker + dictation-service downloads the pinned
@@ -98,6 +101,11 @@ services:
         mc ilm rule add --expire-days 7 local/mdx-dsar
         mc ilm rule rm --all --force local/mdx-backups 2>/dev/null || true
         mc ilm rule add --expire-days 35 local/mdx-backups
+        # S15 (ADR-0037): replay clips — 5-min token/registry TTL is the
+        # real lifetime; 1-day ILM is the ciphertext backstop.
+        mc mb --ignore-existing local/mdx-audio-clips
+        mc ilm rule rm --all --force local/mdx-audio-clips 2>/dev/null || true
+        mc ilm rule add --expire-days 1 local/mdx-audio-clips
         echo "minio-init: buckets ready"
     restart: "no"
 
@@ -373,6 +381,13 @@ services:
       # (redis://localhost:6379/0) resolves to the container itself and
       # every publish silently no-ops, since publish_event never raises.
       REDIS_URL: redis://redis:6379/0
+      # S15 audio replay (ADR-0037): decrypt-slice-encode needs the same
+      # S3 + envelope-crypto wiring dictation-service has.
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+    volumes:
+      - ./infra/dev/master.key:/etc/mdx/master.key:ro
     ports:
       - "127.0.0.1:8006:8000"
     healthcheck: *svc-healthcheck
@@ -384,6 +399,8 @@ services:
       keycloak:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      minio-init:
         condition: service_completed_successfully
 
   # ── core-service — patients & the per-patient clinical record ─────
@@ -445,10 +462,69 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # ── llama-server — Layer C inference backend (S15, ADR-0036) ──────
+  # Serves the pinned gemma3:1b GGUF (docs/models/PINS.md). The blob is
+  # mounted from the host's Ollama store — run `ollama pull gemma3:1b`
+  # ONCE on the host if it's missing. Containerized inference is
+  # CPU-only (no Metal inside the Docker VM), hence the raised dev
+  # timeout on generation-service below; the production bake + GPU
+  # numbers are rig-gated (ADR-0036).
+  llama-server:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    command:
+      - "-m"
+      - "/models/gemma3-1b.gguf"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8080"
+      - "--parallel"
+      - "2"
+      - "-c"
+      - "4096"
+    volumes:
+      - ~/.ollama/models/blobs/sha256-7cd4618c1faf8b7233c6c906dac1694b6a47684b37b8895d470ac688520b9c01:/models/gemma3-1b.gguf:ro
+    ports:
+      - "127.0.0.1:8089:8080"
+
+  # ── generation-service — Layer C inline completion (S15) ──────────
+  generation-service:
+    build:
+      context: .
+      dockerfile: services/generation-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
+      REDIS_URL: redis://redis:6379/0
+      MDX_GEN_BACKEND: llamacpp
+      MDX_GEN_BASE_URL: http://llama-server:8080
+      MDX_GEN_MODEL: gemma3:1b
+      # CPU-container inference (no Metal in the Docker VM) runs well
+      # over the 600 ms production budget — dev keeps the feature usable
+      # instead of answering 204 to everything (ADR-0036 dev posture).
+      MDX_GEN_TIMEOUT_MS: "6000"
+    ports:
+      - "127.0.0.1:8009:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      llama-server:
+        # service_started, not healthy: the image ships no probe tool;
+        # generation-service's own /readyz reflects backend readiness.
+        condition: service_started
+
   # ── public-edge — the ONLY internet-facing surface (S09-rev) ──────
-  # Reverse-proxy allowlist: exactly POST /signing/callbacks/diia and
-  # GET /verify/* pass through (TLS + edge rate limit); every other
-  # path 404s at the edge. See infra/edge/nginx.conf.template.
+  # Reverse-proxy allowlist: exactly POST /signing/callbacks/diia,
+  # GET /verify/* and POST /v1/completions/inline (S15 typing path,
+  # per-IP edge cap below the app burst) pass through (TLS + edge rate
+  # limit); every other path 404s at the edge. See
+  # infra/edge/nginx.conf.template.
   # ── Mailpit — dev SMTP sink (S12) ─────────────────────────────────
   # Catches every outbound mail so nothing can escape a dev box, and
   # exposes an HTTP API the PHI gate asserts against. :8025 is the web
@@ -506,6 +582,7 @@ services:
     restart: unless-stopped
     environment:
       SIGNING_UPSTREAM: signing-service:8000
+      GENERATION_UPSTREAM: generation-service:8000
     volumes:
       - ./infra/edge/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./infra/edge/certs:/etc/nginx/certs:ro
@@ -513,6 +590,8 @@ services:
       - "8443:443"
     depends_on:
       signing-service:
+        condition: service_healthy
+      generation-service:
         condition: service_healthy
 
   # ── signing-service — Ukrainian KEP e-signature + public /verify ──

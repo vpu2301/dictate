@@ -332,13 +332,17 @@ async def overwrite_patient_identity(
     conn: asyncpg.Connection, patient_id: UUID, ctx: EraserContext
 ) -> Outcome:
     """The tombstone write (ADR-0027): identity destroyed in place —
-    names, DOB, MRN, tags, summaries, and ALL ІПН columns (hmac included:
-    total identity destruction, DPO branch recorded in the ADR)."""
+    names, DOB, MRN, contact details (phone/e-mail/address, 0060), tags,
+    summaries, and ALL ІПН columns (hmac included: total identity
+    destruction, DPO branch recorded in the ADR)."""
     result = await conn.execute(
         """
         UPDATE patients
         SET name_uk = 'ERASED', name_en = 'ERASED', dob = NULL, sex = 'U',
             mrn = '', summary_uk = '', summary_en = '', tags = '{}',
+            phone = '', email = '',
+            address_street = '', address_house = '', address_zip = '',
+            address_city = '', address_country = '',
             ipn_hmac = NULL, ipn_encrypted = NULL, ipn_dek = NULL,
             status = 'erased', erased_at = now(), updated_at = now()
         WHERE id = $1 AND status <> 'erased'

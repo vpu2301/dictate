@@ -22,6 +22,7 @@ members = [
     "db",
     "demo",
     "dictation-service",
+    "generation-service",
     "medical-kep",
     "messaging",
     "nlp-service",
@@ -1715,6 +1716,64 @@ sdist = { url = "https://files.pythonhosted.org/packages/d5/8d/1c51c094345df128c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d5/0c/043d5e551459da400957a1395e0febbf771446ff34291afcbe3d8be2a279/fsspec-2026.4.0-py3-none-any.whl", hash = "sha256:11ef7bb35dab8a394fde6e608221d5cf3e8499401c249bebaeaad760a1a8dec2", size = 203402, upload-time = "2026-04-29T20:42:36.842Z" },
 ]
+
+[[package]]
+name = "generation-service"
+version = "0.15.0"
+source = { editable = "services/generation-service" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "audit" },
+    { name = "auth" },
+    { name = "db" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "observability" },
+    { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "opentelemetry-sdk" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-json-logger" },
+    { name = "redis" },
+    { name = "secret" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "fakeredis" },
+    { name = "httpx" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.29.0" },
+    { name = "audit", editable = "libs/audit" },
+    { name = "auth", editable = "libs/auth" },
+    { name = "db", editable = "libs/db" },
+    { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.23" },
+    { name = "fastapi", specifier = ">=0.111.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
+    { name = "observability", editable = "libs/observability" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.45b0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.24.0" },
+    { name = "pydantic", specifier = ">=2.7.0" },
+    { name = "pydantic-settings", specifier = ">=2.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
+    { name = "python-json-logger", specifier = ">=2.0.7" },
+    { name = "redis", specifier = ">=5.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
+    { name = "secret", editable = "libs/secret" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.29.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "googleapis-common-protos"
@@ -3747,6 +3806,7 @@ dependencies = [
     { name = "audit" },
     { name = "auth" },
     { name = "cachetools" },
+    { name = "crypto" },
     { name = "db" },
     { name = "fastapi" },
     { name = "medical-kep", extra = ["pdf"] },
@@ -3760,12 +3820,14 @@ dependencies = [
     { name = "redis" },
     { name = "report-models" },
     { name = "secret" },
+    { name = "storage" },
     { name = "template-models" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.optional-dependencies]
 dev = [
+    { name = "fakeredis" },
     { name = "httpx" },
     { name = "hypothesis" },
     { name = "mypy" },
@@ -3780,7 +3842,9 @@ requires-dist = [
     { name = "audit", editable = "libs/audit" },
     { name = "auth", editable = "libs/auth" },
     { name = "cachetools", specifier = ">=5.3.3" },
+    { name = "crypto", editable = "libs/crypto" },
     { name = "db", editable = "libs/db" },
+    { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.23" },
     { name = "fastapi", specifier = ">=0.111.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.103" },
@@ -3799,6 +3863,7 @@ requires-dist = [
     { name = "report-models", editable = "libs/report_models" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "secret", editable = "libs/secret" },
+    { name = "storage", editable = "libs/storage" },
     { name = "template-models", editable = "libs/template_models" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29.0" },
 ]

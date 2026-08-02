@@ -224,3 +224,63 @@ async def test_retention_drops_only_expired_partitions():
     finally:
         await su.execute(f"DROP TABLE IF EXISTS {name}")
         await su.close()
+
+
+async def test_layer_c_rows_ignored_by_phrase_counters_but_feed_acceptance_rate():
+    """Sprint 15: layer_c telemetry rides the same table but (a) never bumps
+    phrase counters and (b) feeds the acceptance-rate gauge state."""
+    from autocomplete_service.jobs import rollup as rollup_mod
+
+    from audit import AuditWriter
+
+    day = date(2026, 6, 16)  # inside the seeded 2026_06 partition
+    su = await asyncpg.connect(SU_DSN)
+    phrase_id = await su.fetchval(
+        "SELECT id FROM autocomplete_phrases WHERE source='system' AND language='uk' "
+        "ORDER BY phrase LIMIT 1"
+    )
+    baseline = await su.fetchrow(
+        "SELECT impression_count, acceptance_count FROM autocomplete_phrases WHERE id=$1",
+        phrase_id,
+    )
+    ts = datetime(2026, 6, 16, 12, 0, tzinfo=UTC)
+    try:
+        # 3 shown, 1 accepted, 1 rejected — all layer_c, no phrase ids.
+        for event, n in (("shown_only", 3), ("accepted", 1), ("rejected", 1)):
+            for _ in range(n):
+                await su.execute(
+                    "INSERT INTO autocomplete_telemetry "
+                    "(tenant_id, user_id, request_id, event_type, prefix_scrubbed, "
+                    " context_jsonb, source, created_at) "
+                    "VALUES ($1, $2, $3, $4, 'itest-lc', '{}', 'layer_c', $5)",
+                    TENANT_A, uuid4(), uuid4(), event, ts,
+                )
+        app_pool = await create_pool(APP_DSN, application_name="itest-lc", min_size=1, max_size=2)
+        audit_pool = await create_pool(AUDIT_DSN, application_name="itest-lc-audit", min_size=1, max_size=2)
+        redis = CountingRedis()
+        try:
+            await rollup_all(
+                app_pool=app_pool, audit_writer=AuditWriter(audit_pool),
+                redis=redis, day=day,
+            )
+        finally:
+            await app_pool.close()
+            await audit_pool.close()
+
+        after = await su.fetchrow(
+            "SELECT impression_count, acceptance_count FROM autocomplete_phrases WHERE id=$1",
+            phrase_id,
+        )
+        assert after["impression_count"] == baseline["impression_count"]
+        assert after["acceptance_count"] == baseline["acceptance_count"]
+        events = rollup_mod.layer_c_events_by_type()
+        assert events == {"shown_only": 3, "accepted": 1, "rejected": 1}
+        assert rollup_mod.layer_c_acceptance_rate() == pytest.approx(1 / 5)
+    finally:
+        await su.execute(
+            "DELETE FROM autocomplete_telemetry WHERE prefix_scrubbed='itest-lc'"
+        )
+        await su.execute(
+            "DELETE FROM autocomplete_rollup_progress WHERE rollup_date=$1", day
+        )
+        await su.close()

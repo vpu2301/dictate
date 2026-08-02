@@ -91,7 +91,7 @@ async def report_read_access(
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         grant = await grants.find_live_grant(
-            conn, user_sub=claims.sub, resource_id=report_id
+            conn, user_sub=claims.sub, resource_id=report_id, resource_kind="report"
         )
         if grant is None:
             await _audit_denied(claims, report_id, reason="no_live_grant")

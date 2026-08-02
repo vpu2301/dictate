@@ -9,6 +9,8 @@ RUN apt-get update \
         `# weasyprint (medical_kep[pdf]) native deps — A3 unsigned-PDF render` \
         libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
         libffi8 shared-mime-info fonts-dejavu-core \
+        `# sprint-15 audio replay: clip decode/opus encode (ADR-0037)` \
+        ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 65532 nonroot \
     && useradd --uid 65532 --gid 65532 --shell /sbin/nologin --no-create-home nonroot

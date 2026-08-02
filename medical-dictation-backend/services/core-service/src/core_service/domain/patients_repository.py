@@ -16,6 +16,8 @@ import asyncpg
 
 _COLUMNS = """
     id, tenant_id, name_uk, name_en, dob, sex, mrn,
+    phone, email,
+    address_street, address_house, address_zip, address_city, address_country,
     summary_uk, summary_en, tags, status, last_visit_at,
     created_by, created_at, updated_at,
     (ipn_hmac IS NOT NULL) AS has_ipn, erased_at
@@ -33,6 +35,13 @@ async def create_patient(
     dob: date | None,
     sex: str,
     mrn: str,
+    phone: str,
+    email: str,
+    address_street: str,
+    address_house: str,
+    address_zip: str,
+    address_city: str,
+    address_country: str,
     summary_uk: str,
     summary_en: str,
     tags: list[str],
@@ -47,9 +56,13 @@ async def create_patient(
         f"""
         INSERT INTO patients
             (id, tenant_id, name_uk, name_en, dob, sex, mrn,
+             phone, email,
+             address_street, address_house, address_zip,
+             address_city, address_country,
              summary_uk, summary_en, tags, created_by,
              ipn_hmac, ipn_encrypted, ipn_dek)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                $15, $16, $17, $18, $19, $20, $21)
         RETURNING {_COLUMNS}
         """,
         patient_id,
@@ -59,6 +72,13 @@ async def create_patient(
         dob,
         sex,
         mrn,
+        phone,
+        email,
+        address_street,
+        address_house,
+        address_zip,
+        address_city,
+        address_country,
         summary_uk,
         summary_en,
         tags,

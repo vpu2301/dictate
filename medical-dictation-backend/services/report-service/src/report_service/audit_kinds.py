@@ -53,3 +53,19 @@ PHI_ACCESS_GRANTED: Final = "phi_access.granted"
 PHI_ACCESS_DENIED: Final = "phi_access.denied"
 PHI_ACCESS_USED: Final = "phi_access.used"
 PHI_ACCESS_REVOKED: Final = "phi_access.revoked"
+
+# ── S15: audio replay (ADR-0037) ─────────────────────────────────────
+# One event per clip created — replay is a per-decision review act, not
+# a keystroke stream, so no aggregation. Payload: clip_id, source_kind,
+# ms range, purpose, is_author, break_glass. Never transcript text.
+REPORT_AUDIO_REPLAYED: Final = "report.audio_replayed"
+
+# ── S15: query expansion (ADR-0038) ──────────────────────────────────
+# search.expanded is AGGREGATED (one row per tenant per flush interval;
+# payload: count, expanded_terms_total — never the query text). The
+# synonym.group.* kinds fire per curation act; terms are dictionary
+# entries, not prose.
+SEARCH_EXPANDED: Final = "search.expanded"
+SYNONYM_GROUP_CREATED: Final = "synonym.group.created"
+SYNONYM_GROUP_UPDATED: Final = "synonym.group.updated"
+SYNONYM_GROUP_DELETED: Final = "synonym.group.deleted"

@@ -91,6 +91,12 @@ services:
         mc ilm rule add --expire-days 7 local/mdx-dsar
         mc ilm rule rm --all --force local/mdx-backups 2>/dev/null || true
         mc ilm rule add --expire-days 35 local/mdx-backups
+        # S15 (ADR-0037): replay clips are ephemeral derivatives — the real
+        # lifetime is the 5-min Redis registry/token TTL; this 1-day ILM is
+        # the ciphertext backstop (mc has no sub-day granularity).
+        mc mb --ignore-existing local/mdx-audio-clips
+        mc ilm rule rm --all --force local/mdx-audio-clips 2>/dev/null || true
+        mc ilm rule add --expire-days 1 local/mdx-audio-clips
         echo "minio-init: buckets ready"
     restart: "no"
 

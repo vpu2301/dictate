@@ -1,6 +1,6 @@
 # ADR-0033 — Administrators are separated from PHI; break-glass is the door
 
-- **Status:** Accepted
+- **Status:** Accepted (amended 2026-08-02 — see the S15 amendment below)
 - **Date:** 2026-07-24
 - **Supersedes in part:** ADR-0006 (the permission matrix's original
   "tenant_admin is a superset of clinician" shape)
@@ -156,7 +156,55 @@ better at the same time.
 - Rolling `0056` back destroys the reason notes. The down migration says
   so.
 
-**Not done.** Break-glass covers `report` only (`resource_kind` is a
-CHECK with one value). Notes and dictations are simply invisible to an
-administrator, with no door at all — widening that is a deliberate future
-act requiring its own enforcement point, not a config change.
+**Not done.** ~~Break-glass covers `report` only (`resource_kind` is a
+CHECK with one value).~~ *(Amended below: `patient` joined in S15.)*
+Notes and dictations are simply invisible to an administrator, with no
+door at all — widening that is a deliberate future act requiring its own
+enforcement point, not a config change.
+
+## Amendment (S15, 2026-08-02) — the patient record joins the wall
+
+The original decision kept `patient.read`/`patient.write` as a standing
+admin grant on the reasoning that "the roster is the surface an admin's
+job actually needs". In practice that standing grant covered far more
+than a roster: full demographics (dob, contact details, address), the
+ІПН presence flag, the clinical timeline, visit history and the
+anamnesis — a per-patient view of everything except the documents
+themselves, readable with no reason given and audited only at `info`.
+That contradicted the minimum-necessary premise of this ADR.
+
+### What changed
+
+- A new action `patient.read_full` (clinician/nurse only) gates one
+  patient's demographics, timeline, visit history and anamnesis.
+  `tenant_admin` does not hold it.
+- `patient.read` — which the admin keeps — now yields a **redacted
+  roster**: name + id (+ status, for the erased-tombstone listing).
+  Enough to find the record to break glass on; a door you cannot find
+  the handle of is a wall.
+- `resource_kind` in `phi_access_requests` widens to
+  `('report','patient')` (migration 0061). A patient-kind grant is
+  minted through the same `POST /v1/phi-access-requests` door (same
+  reason vocabulary, same reauth ticket, same TTL) and enforced by
+  core-service's twin of the report guard. Kind isolation is explicit:
+  a patient grant never opens a report, nor vice versa.
+- An admin's `PUT /patients/{id}` rides the same grant — editing
+  presumes reading. `POST /patients` (registration), consents, the
+  open-visits queue, the schedule and the privacy queue stay on the
+  standing permissions: they are the admin's operational job.
+- Audit mirrors the report side: `patient.viewed` / `patient.updated`
+  escalate to `sec` with `break_glass: true` under a grant, plus a
+  distinct `phi_access.used` event per read. Refused attempts write
+  `authz.denied` at `sec`.
+- No notification is sent for a patient-kind grant — a patient record
+  has no author to tell. The after-the-fact control is the `sec` trail
+  and the oversight list. (A DPO-directed notification is a possible
+  future refinement.)
+
+### Consequence for the admin workflow
+
+The two-step flow becomes explicit: break glass on the *patient* to see
+the record and find the report in the timeline, then break glass on the
+*report* to read its content. Two grants, two reasons, two audit
+trails — deliberate, for the same reason a report grant never spread to
+the whole patient in the original decision.

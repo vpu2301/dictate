@@ -124,15 +124,20 @@ auditor,report.write,report,false,read-only role — no clinical content writes
 auditor,report.read,report,false,clinical content out of audit role (mirrors dictation)
 service,report.write,report,false,user-only authoring
 service,report.read,report,true,sprint 09 — signing-service S2S reads report to sign; sprint 10 — also gates /autocomplete/* (suggest/phrases/telemetry): deliberate reuse of report.read; granular autocomplete.* scopes deferred until a role needs the distinction
-tenant_admin,patient.read,patient,true,sprint 11 — read patient roster + record
-tenant_admin,patient.write,patient,true,sprint 11 — create/update patients/encounters/consents/anamnesis/privacy
+tenant_admin,patient.read,patient,true,sprint 11 — roster list; S15: rows come back REDACTED (name + id) without patient.read_full
+tenant_admin,patient.write,patient,true,sprint 11 — create/update patients/encounters/consents/anamnesis/privacy; S15: update of an existing patient additionally needs a live break-glass grant
+tenant_admin,patient.read_full,patient,false,S15 admin ⟂ PHI — one patient's demographics/timeline go through a per-patient break-glass grant
 clinician,patient.read,patient,true,sprint 11 — reads patients
+clinician,patient.read_full,patient,true,S15 — full single-patient read (demographics + timeline)
 clinician,patient.write,patient,true,sprint 11 — authors patient record
 nurse,patient.read,patient,true,sprint 11 — reads patients
+nurse,patient.read_full,patient,true,S15 — full single-patient read (demographics + timeline)
 nurse,patient.write,patient,true,sprint 11 — authors patient record
 auditor,patient.read,patient,false,PHI out of audit role (mirrors report/dictation)
+auditor,patient.read_full,patient,false,PHI out of audit role
 auditor,patient.write,patient,false,read-only role — no clinical writes
 service,patient.read,patient,false,no S2S patient-read surface today
+service,patient.read_full,patient,false,no S2S patient-read surface today
 service,patient.write,patient,false,user-only authoring
 tenant_admin,privacy.approve,patient,true,S11 step 04 — second person of the erasure two-person rule (never own request)
 tenant_admin,patient.dsar,patient,true,S11 step 06 — trigger/download the complete DSAR package (admin-only)
@@ -199,3 +204,13 @@ clinician,autocomplete.write,phrase,true,S14 — own user-scope phrases
 nurse,autocomplete.write,phrase,true,S14 — own user-scope phrases
 auditor,autocomplete.write,phrase,false,read-only role
 service,autocomplete.write,phrase,false,user-only authoring
+clinician,synonym.read,synonym,true,S15 — synonym dictionary read (search expansion)
+nurse,synonym.read,synonym,true,S15 — synonym dictionary read (search expansion)
+service,synonym.read,synonym,true,S15 — S2S dictionary read
+tenant_admin,synonym.read,synonym,true,S15 — dictionary curation view
+tenant_admin,synonym.write,synonym,true,"S15 — tenant synonym curation; dictionary terms, not PHI"
+auditor,synonym.read,synonym,false,read-only audit role — no search surface
+clinician,synonym.write,synonym,false,curation is administration
+nurse,synonym.write,synonym,false,curation is administration
+auditor,synonym.write,synonym,false,read-only role
+service,synonym.write,synonym,false,human curation only

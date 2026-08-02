@@ -1,0 +1,95 @@
+groups:
+  - name: sprint-15-layer-c-replay-search
+    interval: 1m
+    rules:
+      # NOTE: no Alertmanager routing exists yet — these fire in the
+      # Prometheus UI only (deployment-sprint concern, same as S10-S14).
+      # `or vector(0)` guards per the sprint-10/13 empty-series bug class.
+
+      - alert: LayerCInlineLatencyHigh
+        # THE Layer C budget alert (ADR-0036): served completions must sit
+        # under the p95 <= 400 ms budget. Sustained breach means the model
+        # host is degraded or the slot pool is starved — ghost text that
+        # arrives late is ghost text nobody sees (the FE discards it), so
+        # this is "the feature silently died", not "slightly slower".
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(mdx_layer_c_inline_latency_ms_histogram_bucket[10m]))
+          ) > 400
+        for: 10m
+        labels:
+          severity: warn
+          team: generation
+        annotations:
+          summary: "Layer C inline p95 {{ $value | printf \"%.0f\" }} ms (budget 400)"
+          description: |
+            Served inline completions exceeded the p95 <= 400 ms budget for
+            10 minutes. Check the inference backend (llama-server) health
+            and the slot pool. Timeouts already degrade to silent 204s.
+            Runbook: docs/runbooks/generation.md#inline-latency-high
+
+      - alert: LayerCFilterRateHigh
+        # The kill-switch input: the safety filter dropping >10% of
+        # completions means the model is routinely trying to invent
+        # clinical values — prompt or model regression. Volume-gated so a
+        # quiet hour with 2 filtered ghosts cannot page anyone.
+        expr: |
+          (
+            (sum(increase(mdx_layer_c_completions_total{outcome="filtered"}[1h])) or vector(0))
+            /
+            (
+              (sum(increase(mdx_layer_c_completions_total{outcome="served"}[1h])) or vector(0))
+              + (sum(increase(mdx_layer_c_completions_total{outcome="filtered"}[1h])) or vector(0))
+            )
+          ) > 0.10
+          and
+          (
+            (sum(increase(mdx_layer_c_completions_total{outcome="served"}[1h])) or vector(0))
+            + (sum(increase(mdx_layer_c_completions_total{outcome="filtered"}[1h])) or vector(0))
+          ) >= 20
+        for: 15m
+        labels:
+          severity: warn
+          team: generation
+        annotations:
+          summary: "Layer C safety filter firing on {{ $value | humanizePercentage }} of completions"
+          description: |
+            More than 10% of inline completions introduced clinical values
+            absent from the typed text and were dropped (audited as
+            layer_c.completion.filtered). Consider MDX_LAYER_C_ENABLED=false
+            while investigating the prompt/model.
+            Runbook: docs/runbooks/generation.md#filter-rate-high
+
+      - alert: LayerCBackendErrors
+        expr: |
+          (sum(increase(mdx_layer_c_completions_total{outcome="backend_error"}[10m])) or vector(0)) > 5
+        for: 5m
+        labels:
+          severity: warn
+          team: generation
+        annotations:
+          summary: "Layer C inference backend erroring ({{ $value | printf \"%.0f\" }} in 10m)"
+          description: |
+            The llama-server/Ollama backend is reachable enough to accept
+            requests but failing them. /readyz on generation-service covers
+            full unreachability; this catches the half-dead state.
+            Runbook: docs/runbooks/generation.md#backend-errors
+
+      - alert: AudioClipFailuresHigh
+        # Replay is the clinician's trust surface: failed clip pipelines
+        # mean "I tapped a sentence and heard nothing".
+        expr: |
+          (sum(increase(mdx_audio_clips_created_total{outcome="pipeline_error"}[15m])) or vector(0)) > 3
+        for: 5m
+        labels:
+          severity: warn
+          team: reports
+        annotations:
+          summary: "Audio clip pipeline failing ({{ $value | printf \"%.0f\" }} in 15m)"
+          description: |
+            decrypt/slice/encode failures on POST /v1/audio-clips (ffmpeg
+            missing? corrupt WAV? see mdx_audio_clip_pipeline_latency_ms
+            for stalls). 410s are NOT counted here — those are honest
+            retention answers, not failures.
+            Runbook: docs/runbooks/reports.md#audio-clip-failures

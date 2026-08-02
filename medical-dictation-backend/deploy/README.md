@@ -57,6 +57,12 @@ DELETE 0        -- privilege exercised; no rows matched by design
 - `mdx-backups` carries a **35-day ILM expiry** (minio-init) — the
   maximum retention window. The engine stamps
   `report_of_execution.backups_purged_by = executed_at + 35d`.
+- **Backup scope is the Postgres dump only** — no bucket is mirrored
+  into backups. `mdx-audio-clips` (S15 audio-replay derivatives,
+  ADR-0037) is excluded **by policy**: clips are regenerable,
+  envelope-encrypted ephemera (5-min Redis registry lifetime, 1-day
+  bucket ILM backstop) and must never survive in a backup after their
+  source audio is erased.
 - `restore.sh` refuses to be a resurrection tool: it captures the
   erasure ledger pre-restore and re-runs every erasure completed after
   the backup through the idempotent engine (`operator=restore-rerun`).

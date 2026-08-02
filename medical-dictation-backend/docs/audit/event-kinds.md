@@ -175,6 +175,13 @@ Tenant-scoped, hash-chained. Constants in
 | `notification.read`               | info     | notification-service feed router | User marked a notification read. |
 | `notification.preferences_updated`| info     | notification-service preferences router | User changed their own notification preferences. |
 | `notification.digest_sent`        | info     | notification-service digest job  | Daily digest email sent. Payload: digest_date, included count. |
+| `report.audio_replayed`           | info     | report-service POST /v1/audio-clips | Sprint 15 (ADR-0037) — a replay clip was created. Payload: clip_id, source_kind, start_ms, end_ms, purpose, is_author, break_glass. Sec severity when under break-glass. |
+| `layer_c.completion.shown`        | info     | generation-service shown-audit buffer | Sprint 15 (ADR-0036) — AGGREGATED: one row per tenant per flush interval counting served inline completions. Payload: count. Per-keystroke rows would pollute the chain. |
+| `layer_c.completion.filtered`     | warn     | generation-service POST /v1/completions/inline | Sprint 15 — the output safety filter dropped a completion that introduced a clinical value absent from the typed text. Payload: section_key, reason (pattern class), matched (the offending fragment — closed class, never prose), language. |
+| `search.expanded`                 | info     | report-service search-audit buffer | Sprint 15 (ADR-0038) — AGGREGATED: one row per tenant per flush interval counting synonym-expanded searches. Payload: count, expanded_terms_total. Never the query text. |
+| `synonym.group.created`           | info     | report-service POST /v1/synonyms | Sprint 15 — tenant synonym group added. Payload: group_id, term_count, language. Terms are closed-vocabulary dictionary entries, not prose. |
+| `synonym.group.updated`           | info     | report-service PUT /v1/synonyms/{group_id} | Sprint 15 — tenant synonym group replaced. Payload: group_id, term_count, language. |
+| `synonym.group.deleted`           | info     | report-service DELETE /v1/synonyms/{group_id} | Sprint 15 — tenant synonym group removed. Payload: group_id. |
 
 ## Payload conventions
 

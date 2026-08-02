@@ -5,7 +5,7 @@ The realm defines five roles. The permission matrix lives at
 
 | Role           | Holds                                                   | Cannot                       |
 | -------------- | ------------------------------------------------------- | ---------------------------- |
-| `tenant_admin` | Onboarding, **user read/list, role management, deactivation/reactivation**, MFA reset, audit read/verify, tenant settings, templates, the patient roster, PHI-free usage stats | Cross-tenant operations; **all clinical content** — notes, dictations, ASR jobs, reports (S14, ADR-0033) |
+| `tenant_admin` | Onboarding, **user read/list, role management, deactivation/reactivation**, MFA reset, audit read/verify, tenant settings, templates, the patient roster (redacted to name + id since S15), PHI-free usage stats | Cross-tenant operations; **all clinical content** — notes, dictations, ASR jobs, reports (S14, ADR-0033) — and, since S15, a patient's demographics/timeline without a per-patient break-glass grant |
 | `clinician`    | Routine clinical user. Tenant-read. Notes, dictations, ASR, reports (read/write/sign) | User admin (incl. user read); audit |
 | `nurse`        | Limited clinical user. Same clinical reads/writes as clinician, minus `asr.cancel` | Most admin; user read     |
 | `auditor`      | Read-only audit + tenant context + **read-only user roster (`user.read`)** | Any write                   |

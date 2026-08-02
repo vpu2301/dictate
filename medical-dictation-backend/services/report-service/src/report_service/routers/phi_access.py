@@ -1,13 +1,16 @@
-"""``/v1/phi-access-requests`` — break-glass access to a single report.
+"""``/v1/phi-access-requests`` — break-glass access to a single report
+or a single patient record.
 
-An administrator holds no standing clinical read (S14). When one
-genuinely needs a specific report — a complaint to answer, a subpoena, a
-billing dispute — this is the door, and it is deliberately a door and
-not a queue:
+An administrator holds no standing clinical read (S14) and no standing
+full patient read (S15). When one genuinely needs a specific report or
+patient record — a complaint to answer, a subpoena, a billing dispute —
+this is the door, and it is deliberately a door and not a queue:
 
     POST /auth/reauth              → reauth_ticket   (auth-service)
     POST /v1/phi-access-requests   → grant, valid for a bounded window
     GET  /v1/reports/{id}          → now succeeds, and is counted
+    (or GET /patients/{id} — patient-kind grants are enforced by
+    core-service's twin guard)
 
 There is no approval step. An admin facing a legal deadline at 2am has
 nobody to approve it, and a control that cannot be used in the situation
@@ -86,7 +89,10 @@ class _Strict(BaseModel):
 
 
 class PhiAccessCreate(_Strict):
-    resource_id: UUID = Field(description="The report to open.")
+    # 'report' since S14; 'patient' since S15 — one patient's
+    # demographics/timeline in core-service go through the same door.
+    resource_kind: Literal["report", "patient"] = "report"
+    resource_id: UUID = Field(description="The report or patient to open.")
     reason_code: ReasonCode
     reason_note: str = Field(default="", max_length=2000)
     reauth_ticket: str = Field(
@@ -225,7 +231,7 @@ async def list_reasons(
     "",
     response_model=PhiAccessOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Break glass on one report: reason + password re-entry → a time-limited grant.",
+    summary="Break glass on one report or patient: reason + password re-entry → a time-limited grant.",
 )
 async def create_request(
     body: PhiAccessCreate,
@@ -251,13 +257,32 @@ async def create_request(
     )
 
     async with tenant_connection(state.app_pool, claims.tid) as conn:
-        # The report must exist BEFORE the ticket is spent — otherwise a
+        # The resource must exist BEFORE the ticket is spent — otherwise a
         # typo in resource_id burns the step-up and the user has to
-        # retype their password to correct it.
-        report = await repo.fetch_report(conn, report_id=body.resource_id)
-        if report is None:
-            _rejected_counter.add(1, {"cause": "report_not_found"})
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="report not found")
+        # retype their password to correct it. (RLS scopes both lookups,
+        # so cross-tenant ids read as "not found".)
+        report = None
+        if body.resource_kind == "report":
+            report = await repo.fetch_report(conn, report_id=body.resource_id)
+            if report is None:
+                _rejected_counter.add(1, {"cause": "report_not_found"})
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND, detail="report not found"
+                )
+            patient_id = report.patient_id
+        else:
+            patient = await repo.fetch_patient_label(
+                conn, patient_id=body.resource_id
+            )
+            if patient is None:
+                _rejected_counter.add(1, {"cause": "patient_not_found"})
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND, detail="patient not found"
+                )
+            # For patient-kind grants the denormalised patient_id IS the
+            # resource — kept redundantly so the oversight view's
+            # group-by-patient works identically across both kinds.
+            patient_id = body.resource_id
 
         consumed = await grants.consume_reauth_ticket(
             conn,
@@ -271,7 +296,8 @@ async def create_request(
                 state,
                 claims,
                 kind=audit_kinds.PHI_ACCESS_DENIED,
-                report_id=body.resource_id,
+                target_kind=body.resource_kind,
+                target_id=body.resource_id,
                 payload={
                     "reason_code": body.reason_code,
                     "cause": "reauth_ticket_invalid",
@@ -291,8 +317,9 @@ async def create_request(
             conn,
             tenant_id=claims.tid,
             requested_by=claims.sub,
+            resource_kind=body.resource_kind,
             resource_id=body.resource_id,
-            patient_id=report.patient_id,
+            patient_id=patient_id,
             reason_code=body.reason_code,
             reason_note=note,
             expires_at=expires_at,
@@ -308,35 +335,39 @@ async def create_request(
         state,
         claims,
         kind=audit_kinds.PHI_ACCESS_GRANTED,
-        report_id=body.resource_id,
+        target_kind=body.resource_kind,
+        target_id=body.resource_id,
         payload={
             "grant_id": str(row["id"]),
             "reason_code": body.reason_code,
             "reason_note": note,
             "expires_at": expires_at.isoformat(),
-            "patient_id": str(report.patient_id) if report.patient_id else None,
+            "patient_id": str(patient_id) if patient_id else None,
         },
     )
 
     # Tell the clinicians whose report it is. Fire-and-forget by design
     # (ADR-0029) — but note the asymmetry with the audit write above: the
     # grant is already committed, so a bus outage costs a notification,
-    # never the record that this happened.
-    await emit_report_event(
-        state.redis,
-        category=Category.PHI_ACCESS_GRANTED,
-        tenant_id=claims.tid,
-        report_id=body.resource_id,
-        report_code=report.code,
-        actor_user_id=claims.sub,
-        primary_author_id=report.primary_author_id,
-        co_author_ids=tuple(report.co_author_ids),
-        extra_payload={
-            "reason_code": body.reason_code,
-            "requested_by_display": _actor_display(claims),
-            "expires_at": expires_at.isoformat(timespec="minutes"),
-        },
-    )
+    # never the record that this happened. A patient record has no author
+    # to tell — for patient-kind grants the after-the-fact control is the
+    # `sec` audit trail plus the oversight list only.
+    if report is not None:
+        await emit_report_event(
+            state.redis,
+            category=Category.PHI_ACCESS_GRANTED,
+            tenant_id=claims.tid,
+            report_id=body.resource_id,
+            report_code=report.code,
+            actor_user_id=claims.sub,
+            primary_author_id=report.primary_author_id,
+            co_author_ids=tuple(report.co_author_ids),
+            extra_payload={
+                "reason_code": body.reason_code,
+                "requested_by_display": _actor_display(claims),
+                "expires_at": expires_at.isoformat(timespec="minutes"),
+            },
+        )
 
     return _to_out(row)
 
@@ -392,7 +423,8 @@ async def revoke_request(
         state,
         claims,
         kind=audit_kinds.PHI_ACCESS_REVOKED,
-        report_id=row["resource_id"],
+        target_kind=row["resource_kind"],
+        target_id=row["resource_id"],
         payload={"grant_id": str(grant_id), "reason_code": row["reason_code"]},
     )
     return _to_out(row)
@@ -416,7 +448,8 @@ async def _audit(
     claims: Claims,
     *,
     kind: str,
-    report_id: UUID,
+    target_kind: str,
+    target_id: UUID,
     payload: dict[str, object],
 ) -> None:
     try:
@@ -425,8 +458,8 @@ async def _audit(
             kind=kind,
             actor_sub=claims.sub,
             actor_role=(claims.roles[0] if claims.roles else None),
-            target_kind="report",
-            target_id=report_id,
+            target_kind=target_kind,
+            target_id=target_id,
             payload=payload,
             severity=Severity.SEC,
         )

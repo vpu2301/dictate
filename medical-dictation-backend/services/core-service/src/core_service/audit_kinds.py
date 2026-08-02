@@ -9,6 +9,12 @@ PATIENT_CREATED: Final = "patient.created"
 PATIENT_UPDATED: Final = "patient.updated"
 PATIENT_VIEWED: Final = "patient.viewed"
 
+# ── break-glass (S15) ───────────────────────────────────────────────
+# Emitted per read of a patient record served under a patient-kind
+# grant, `sec` severity — same kind report-service emits for report
+# grants, so "every break-glass read" stays one query over the chain.
+PHI_ACCESS_USED: Final = "phi_access.used"
+
 # ── encounters ──────────────────────────────────────────────────────
 ENCOUNTER_CREATED: Final = "encounter.created"
 # Lifecycle (0058). One kind per clinical action, not a generic

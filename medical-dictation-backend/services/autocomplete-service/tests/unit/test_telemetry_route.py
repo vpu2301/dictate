@@ -117,3 +117,61 @@ async def test_buffer_failure_never_surfaces():
     # Fire-and-forget doctrine: even a wedged buffer must not 5xx.
     resp = await receive_telemetry(body, _claims())
     assert resp.status_code == 204
+
+
+# ── Sprint 15: Layer C source discriminator ──────────────────────────────
+
+
+def test_layer_c_accepted_without_ids_is_valid():
+    TelemetryRequest(
+        request_id=uuid4(), event="accepted", prefix="Пацієнт скарж", source="layer_c"
+    )
+
+
+def test_layer_c_with_phrase_id_rejected():
+    with pytest.raises(ValidationError, match="layer_c events must not carry"):
+        TelemetryRequest(
+            request_id=uuid4(), event="shown_only", prefix="x",
+            phrase_id=uuid4(), source="layer_c",
+        )
+
+
+def test_layer_c_with_snippet_id_rejected():
+    with pytest.raises(ValidationError, match="layer_c events must not carry"):
+        TelemetryRequest(
+            request_id=uuid4(), event="rejected", prefix="x",
+            snippet_id=uuid4(), source="layer_c",
+        )
+
+
+def test_default_source_is_autocomplete_and_rules_unchanged():
+    req = TelemetryRequest(request_id=uuid4(), event="shown_only", prefix="x")
+    assert req.source == "autocomplete"
+    with pytest.raises(ValidationError, match="requires phrase_id or snippet_id"):
+        TelemetryRequest(request_id=uuid4(), event="accepted", prefix="x")
+
+
+async def test_layer_c_row_carries_source_and_is_scrubbed():
+    state = _FakeState()
+    install_state(state)
+    body = TelemetryRequest(
+        request_id=uuid4(),
+        event="accepted",
+        prefix="пацієнт ivan@example.com диктує",
+        source="layer_c",
+    )
+    resp = await receive_telemetry(body, _claims())
+    assert resp.status_code == 204
+    row = state.telemetry_buffer.rows[0]
+    assert row[8] == "layer_c"
+    assert "ivan@example.com" not in row[6]
+
+
+async def test_autocomplete_row_carries_default_source():
+    state = _FakeState()
+    install_state(state)
+    body = TelemetryRequest(
+        request_id=uuid4(), event="accepted", prefix="зад", phrase_id=uuid4()
+    )
+    await receive_telemetry(body, _claims())
+    assert state.telemetry_buffer.rows[0][8] == "autocomplete"

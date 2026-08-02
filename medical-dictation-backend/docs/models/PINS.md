@@ -14,6 +14,7 @@ Pins resolved from the Hugging Face API on **2026-06-10**.
 | asr-worker, dictation-service (CPU dev) | `Systran/faster-whisper-tiny` | `d90ca5fe260221311c53c58e660288d3deb8d356` | `model.bin` | `dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1` | `/opt/models/whisper-tiny` |
 | nlp-service | `oliverguhr/fullstop-punctuation-multilang-large` | `345e80adc07e761d3a35feafd20f2f44a151f453` | `model.safetensors` | `270f27d7398a5fdad43bdf9953ea532fbe62c5f5227ed5f5316e9bd64a9255e1` | `/opt/models/punctuation` |
 | dictation-service (conversation mode, sprint 14, ADR-0034) | `speechbrain/spkrec-ecapa-voxceleb` | `0f99f2d0ebe89ac095bcc5903c4dd8f72b367286` | `embedding_model.ckpt` | `0575cb64845e6b9a10db9bcb74d5ac32b326b8dc90352671d345e2ee3d0126a2` | `/opt/models/ecapa` |
+| generation-service (Layer C inline completion, sprint 15, ADR-0036) | `ollama.com/library/gemma3:1b` (Gemma 3 1B instruct, Q4_K_M GGUF) | tag digest `8648f39daa8f` | GGUF blob | `7cd4618c1faf8b7233c6c906dac1694b6a47684b37b8895d470ac688520b9c01` | dev: `~/.ollama/models/blobs/` (served by `llama-server`); prod bake pending GPU rig |
 
 Assembly for the ECAPA row is scripted — `scripts/models/prepare_ecapa.py`
 (also verifies `mean_var_norm_emb.ckpt`
@@ -23,6 +24,14 @@ gap, recorded deliberately: **Silero VAD weights ship inside the `silero-vad`
 PyPI wheel** (uv.lock-pinned, MIT) rather than through this table's
 fetch+checksum flow — acceptable for the pilot because the wheel hash is
 locked, but a future sprint should hoist the JIT file into a pinned artifact.
+
+Layer C (sprint 15) row: the Gemma 3 1B GGUF is fetched via `ollama pull
+gemma3:1b` (content-addressed — the blob file IS its sha256) and served in dev
+by `llama-server` pointed at the blob path (ADR-0036 records why: a constant
+~420 ms/request scheduler overhead in Ollama 0.32.5 with gemma3's SWA cache).
+The production image bake (fetch at pin → `sha256sum -c` → bake, same flow as
+the rows above) is deferred with the GPU rig; the digest above is the pin it
+must verify against.
 
 ## How the pin is enforced
 

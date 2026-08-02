@@ -136,11 +136,13 @@ ON CONFLICT (tenant_id, user_sub) DO NOTHING;
 -- ── Klarnote's own account — the vendor, not a customer ────────────────────
 -- Backs the platform-owner console at #/company (src/company/ in the SPA),
 -- whose access gate is an email allowlist because there is no platform role in
--- KNOWN_ROLES yet. In Keycloak it carries tenant_admin + clinician + auditor so
--- every read the console makes actually resolves: tenant_admin for /admin/users
--- and /tenants/*, auditor for /audit/*, and clinician because S14 dropped
--- tenant_admin from reports/sessions/ASR — without it the Usage tab 403s on
--- every call. Anchored in tenant-a so the token's tid points at the tenant that
+-- KNOWN_ROLES yet. In Keycloak it carries tenant_admin + auditor — and
+-- deliberately NOT clinician: tenant_admin covers /admin/users and /tenants/*,
+-- auditor covers /audit/*, and the Usage tab's reports/sessions/ASR reads
+-- resolve through tenant_admin's `stats.read` (S14) in the PHI-stripped mode.
+-- Holding clinician here would grant standing report.read and silently bypass
+-- the break-glass control this account is supposed to demonstrate (ADR-0033).
+-- Anchored in tenant-a so the token's tid points at the tenant that
 -- has seeded activity.
 --
 -- WHY THIS RECONCILES ON EMAIL, NOT ON A PINNED sub:

@@ -579,7 +579,6 @@
       ],
       "realmRoles": [
         "tenant_admin",
-        "clinician",
         "auditor"
       ]
     },

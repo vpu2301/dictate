@@ -76,6 +76,67 @@
         "title": "AmendResponse",
         "type": "object"
       },
+      "AudioSegmentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "end_ms": {
+            "title": "End Ms",
+            "type": "integer"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "segment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Id"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
+          },
+          "speaker_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Role"
+          },
+          "start_ms": {
+            "title": "Start Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "segment_id",
+          "index",
+          "start_ms",
+          "end_ms",
+          "speaker",
+          "speaker_role"
+        ],
+        "title": "AudioSegmentOut",
+        "type": "object"
+      },
       "CancelRequest": {
         "additionalProperties": false,
         "properties": {
@@ -177,6 +238,56 @@
           "id"
         ],
         "title": "CloneResponse",
+        "type": "object"
+      },
+      "CreateClipRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "end_ms": {
+            "title": "End Ms",
+            "type": "integer"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          },
+          "start_ms": {
+            "title": "Start Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "report_id",
+          "start_ms",
+          "end_ms"
+        ],
+        "title": "CreateClipRequest",
+        "type": "object"
+      },
+      "CreateClipResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "clip_id": {
+            "format": "uuid",
+            "title": "Clip Id",
+            "type": "string"
+          },
+          "clip_url": {
+            "title": "Clip Url",
+            "type": "string"
+          },
+          "expires_at_unix": {
+            "title": "Expires At Unix",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clip_id",
+          "clip_url",
+          "expires_at_unix"
+        ],
+        "title": "CreateClipResponse",
         "type": "object"
       },
       "CreateFromTranscriptRequest": {
@@ -783,9 +894,18 @@
             "type": "string"
           },
           "resource_id": {
-            "description": "The report to open.",
+            "description": "The report or patient to open.",
             "format": "uuid",
             "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "default": "report",
+            "enum": [
+              "report",
+              "patient"
+            ],
+            "title": "Resource Kind",
             "type": "string"
           }
         },
@@ -1646,6 +1766,14 @@
       "SearchResponse": {
         "additionalProperties": false,
         "properties": {
+          "expanded_terms": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Expanded Terms",
+            "type": "array"
+          },
           "hits": {
             "items": {
               "$ref": "#/components/schemas/SearchHitDTO"
@@ -1693,6 +1821,56 @@
           "total_estimated"
         ],
         "title": "SearchResponse",
+        "type": "object"
+      },
+      "SearchTip": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "body"
+        ],
+        "title": "SearchTip",
+        "type": "object"
+      },
+      "SearchTipsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "enum": [
+              "uk",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "tips": {
+            "items": {
+              "$ref": "#/components/schemas/SearchTip"
+            },
+            "title": "Tips",
+            "type": "array"
+          }
+        },
+        "required": [
+          "language",
+          "tips"
+        ],
+        "title": "SearchTipsResponse",
         "type": "object"
       },
       "SectionLabel": {
@@ -1932,6 +2110,75 @@
           "patient_id"
         ],
         "title": "SourceJobLink",
+        "type": "object"
+      },
+      "SynonymGroupBody": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "enum": [
+              "uk",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 2,
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "terms",
+          "language"
+        ],
+        "title": "SynonymGroupBody",
+        "type": "object"
+      },
+      "SynonymGroupOut": {
+        "additionalProperties": false,
+        "properties": {
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "uk",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "system",
+              "tenant"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "group_id",
+          "source",
+          "language",
+          "terms"
+        ],
+        "title": "SynonymGroupOut",
         "type": "object"
       },
       "SynthesisJobResponse": {
@@ -3080,6 +3327,152 @@
         ]
       }
     },
+    "/v1/audio-clips": {
+      "post": {
+        "operationId": "create_clip_v1_audio_clips_post",
+        "parameters": [
+          {
+            "description": "Required for non-author reads.",
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReadPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for non-author reads.",
+              "title": "Purpose"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateClipResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Clip",
+        "tags": [
+          "audio-clips"
+        ]
+      }
+    },
+    "/v1/audio-clips/{clip_id}": {
+      "get": {
+        "description": "Authenticated decrypt-and-stream (the DSAR download idiom): the\ntoken narrows the window; it never replaces authentication.",
+        "operationId": "stream_clip_v1_audio_clips__clip_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clip_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Clip Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Download token from clip creation.",
+            "in": "query",
+            "name": "t",
+            "required": true,
+            "schema": {
+              "description": "Download token from clip creation.",
+              "title": "T",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Clip",
+        "tags": [
+          "audio-clips"
+        ]
+      }
+    },
     "/v1/icd10/search": {
       "get": {
         "operationId": "search_icd10_v1_icd10_search_get",
@@ -3301,7 +3694,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Break glass on one report: reason + password re-entry \u2192 a time-limited grant.",
+        "summary": "Break glass on one report or patient: reason + password re-entry \u2192 a time-limited grant.",
         "tags": [
           "phi-access"
         ]
@@ -3761,6 +4154,18 @@
               ],
               "description": "set to 'exact' for full count",
               "title": "Total"
+            }
+          },
+          {
+            "description": "Synonym query expansion (ADR-0038); false = exact terms only.",
+            "in": "query",
+            "name": "expand",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Synonym query expansion (ADR-0038); false = exact terms only.",
+              "title": "Expand",
+              "type": "boolean"
             }
           },
           {
@@ -4418,6 +4823,96 @@
         ]
       }
     },
+    "/v1/reports/{report_id}/sections/{section_key}/audio-clips": {
+      "get": {
+        "operationId": "list_section_audio_segments_v1_reports__report_id__sections__section_key__audio_clips_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section_key",
+            "required": true,
+            "schema": {
+              "title": "Section Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required for non-author reads.",
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReadPurpose"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for non-author reads.",
+              "title": "Purpose"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AudioSegmentOut"
+                  },
+                  "title": "Response List Section Audio Segments V1 Reports  Report Id  Sections  Section Key  Audio Clips Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Section Audio Segments",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/v1/reports/{report_id}/sign": {
       "post": {
         "operationId": "sign_report_v1_reports__report_id__sign_post",
@@ -4799,6 +5294,298 @@
         "summary": "Get Version",
         "tags": [
           "reports"
+        ]
+      }
+    },
+    "/v1/search/tips": {
+      "get": {
+        "operationId": "get_search_tips_v1_search_tips_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "default": "uk",
+              "enum": [
+                "uk",
+                "en"
+              ],
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchTipsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Search Tips",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/v1/synonyms": {
+      "get": {
+        "operationId": "list_synonym_groups_v1_synonyms_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SynonymGroupOut"
+                  },
+                  "title": "Response List Synonym Groups V1 Synonyms Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Synonym Groups",
+        "tags": [
+          "synonyms"
+        ]
+      },
+      "post": {
+        "operationId": "create_synonym_group_v1_synonyms_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynonymGroupBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynonymGroupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Synonym Group",
+        "tags": [
+          "synonyms"
+        ]
+      }
+    },
+    "/v1/synonyms/{group_id}": {
+      "delete": {
+        "operationId": "delete_synonym_group_v1_synonyms__group_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Synonym Group",
+        "tags": [
+          "synonyms"
+        ]
+      },
+      "put": {
+        "operationId": "update_synonym_group_v1_synonyms__group_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynonymGroupBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynonymGroupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Synonym Group",
+        "tags": [
+          "synonyms"
         ]
       }
     }

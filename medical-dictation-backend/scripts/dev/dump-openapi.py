@@ -31,6 +31,7 @@ SERVICES: list[tuple[str, str]] = [
     ("core_service.main", "core-service-openapi.json"),
     ("autocomplete_service.main", "autocomplete-service-openapi.json"),
     ("notification_service.main", "notification-service-openapi.json"),
+    ("generation_service.main", "generation-service-openapi.json"),
 ]
 
 

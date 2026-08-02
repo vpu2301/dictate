@@ -1,11 +1,15 @@
-# Runbook — break-glass access to a report
+# Runbook — break-glass access to a report or a patient record
 
 **Audience:** tenant administrators, and whoever reviews what they did.
-**Decision record:** ADR-0033. **Permission matrix:** `docs/auth/permissions.csv`.
+**Decision record:** ADR-0033 (incl. the S15 amendment).
+**Permission matrix:** `docs/auth/permissions.csv`.
 
-An administrator holds no standing access to clinical records. Break-glass
-is how they read **one** report when they genuinely need to, and how
-everyone else finds out that they did.
+An administrator holds no standing access to clinical records — and,
+since S15, no standing access to a patient's demographics, timeline,
+visit history or anamnesis either. The roster you see is redacted to
+name + id. Break-glass is how you open **one** patient record or **one**
+report when you genuinely need to, and how everyone else finds out that
+you did.
 
 ## When to use it
 
@@ -24,16 +28,23 @@ task), not a habit.
 
 ## Doing it — UI
 
-1. Open **Patients** → the patient → the **Reports** tab. This list is
-   metadata only (title, author, date); an admin can see it without a
-   grant, which is how you find the right report.
-2. **Request access** on the row.
+It is a two-step door since S15: glass on the **patient** first, then —
+only if you need a document's content — glass on the **report**. Two
+grants, two reasons, two audit trails.
+
+1. Open **Patients** and find the patient by name — the redacted roster
+   needs no grant.
+2. Open the patient. The 403 turns into the **Request access** dialog,
+   pre-targeted at that patient.
 3. Pick a **reason**. Choosing *Other* requires a written justification of
    at least 10 characters.
 4. Re-enter **your own password**. This proves you are at the keyboard;
    a live session is not enough on its own.
-5. The report opens. The grant lasts **60 minutes** by default
-   (`MDX_PHI_ACCESS_GRANT_TTL_MINUTES`) and covers **that report only**.
+5. The record opens — demographics, timeline, visit history — for
+   **60 minutes** by default (`MDX_PHI_ACCESS_GRANT_TTL_MINUTES`),
+   covering **that patient only**.
+6. To read a report's content from the timeline, **Request access** on
+   the row — the separate, per-report grant as before.
 
 Opening a report link directly works too: the 403 turns into the same
 request dialog, pre-targeted at that report.
@@ -46,14 +57,17 @@ TICKET=$(curl -sS -X POST "$AUTH/auth/reauth" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"password":"…","purpose":"phi_access_request"}' | jq -r .reauth_ticket)
 
-# 2. Spend it.
+# 2. Spend it. resource_kind is 'report' (default) or 'patient' (S15).
 curl -sS -X POST "$REPORT/v1/phi-access-requests" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"resource_id\":\"$REPORT_ID\",\"reason_code\":\"legal_request\",
+  -d "{\"resource_kind\":\"patient\",\"resource_id\":\"$PATIENT_ID\",
+       \"reason_code\":\"legal_request\",
        \"reason_note\":\"Court order 12/2026\",\"reauth_ticket\":\"$TICKET\"}"
 
 # 3. The ordinary read now succeeds — and is counted.
-curl -sS "$REPORT/v1/reports/$REPORT_ID?purpose=audit" -H "Authorization: Bearer $TOKEN"
+curl -sS "$CORE/patients/$PATIENT_ID" -H "Authorization: Bearer $TOKEN"
+# (report-kind grants unlock the report read instead:)
+# curl -sS "$REPORT/v1/reports/$REPORT_ID?purpose=audit" -H "Authorization: Bearer $TOKEN"
 ```
 
 `GET /v1/phi-access-requests/reasons` returns the reason vocabulary, the
@@ -64,8 +78,8 @@ pinned by a DB CHECK.
 
 | Where | What lands there |
 |---|---|
-| Audit chain | `phi_access.granted` (`sec`) with your reason **and note**; `phi_access.used` (`sec`) per read; `report.viewed_full` / `report.pdf_rendered` escalated to `sec` with `break_glass: true` |
-| The report's authors | An in-app `phi_access.granted` notification naming you, the report code and the reason (never the note) |
+| Audit chain | `phi_access.granted` (`sec`) with your reason **and note**; `phi_access.used` (`sec`) per read; `report.viewed_full` / `report.pdf_rendered` — or `patient.viewed` / `patient.updated` for patient-kind grants — escalated to `sec` with `break_glass: true` |
+| The report's authors | An in-app `phi_access.granted` notification naming you, the report code and the reason (never the note). Patient-kind grants notify nobody — a patient record has no author; the trail and the oversight list are the control |
 | `phi_access_requests` | The durable row: window, use count, last use |
 | Metrics | `mdx_phi_access_granted_total{reason_code}`, `mdx_phi_access_rejected_total{cause}` |
 

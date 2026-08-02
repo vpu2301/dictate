@@ -17,11 +17,13 @@ Two standings reach it (S14):
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from opentelemetry import metrics
 from pydantic import BaseModel, ConfigDict
 
 from audit import Severity
@@ -30,6 +32,7 @@ from db import tenant_connection
 
 from .. import audit_kinds
 from ..deps import get_state, requires_any
+from ..domain import query_expansion
 from ..domain import reports_repository as repo
 from ..domain import search as searchmod
 from ..domain.pii_redactor import is_treatment_team, redact_snippet
@@ -37,6 +40,23 @@ from ..domain.pii_redactor import is_treatment_team, redact_snippet
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/reports", tags=["reports"])
+
+_meter = metrics.get_meter("mdx.report")
+# Sprint 15: closes the sprint-08 gap — the dashboard panel "Search latency
+# (split by has_q)" and the ReportSearchLatencyHigh alert have queried
+# mdx_reports_search_latency_ms_histogram since sprint 08, but nothing ever
+# created the instrument. unit deliberately empty (exporter appends unit
+# names; values are ms); the "*latency*" View supplies the ms buckets.
+_search_latency = _meter.create_histogram(
+    "mdx_reports_search_latency_ms_histogram",
+    description="End-to-end report search latency in ms (label has_q)",
+    unit="",
+)
+_expansion_metric = _meter.create_counter(
+    "mdx_reports_search_expansion_total",
+    description="Query-expansion outcomes on /v1/reports/search (label hit)",
+    unit="1",
+)
 
 
 class LocalizedName(BaseModel):
@@ -81,6 +101,10 @@ class SearchResponse(BaseModel):
     next_cursor: str | None
     total_estimated: int | None
     total_exact: int | None = None
+    # Sprint 15 (ADR-0038): synonym terms that broadened this query —
+    # transparency for the FE ("also matching: інфаркт міокарда, MI").
+    # Empty when expansion found nothing or expand=false.
+    expanded_terms: list[str] = []
 
 
 @router.get("/search", response_model=SearchResponse)
@@ -99,8 +123,13 @@ async def search_reports(
     cursor: str | None = None,
     limit: int = Query(default=25, ge=1, le=100),
     total: str | None = Query(default=None, description="set to 'exact' for full count"),
+    expand: bool = Query(
+        default=True,
+        description="Synonym query expansion (ADR-0038); false = exact terms only.",
+    ),
 ) -> SearchResponse:
     state = get_state()
+    started = time.perf_counter()
     cursor_decoded: tuple[datetime, UUID] | None = None
     if cursor:
         try:
@@ -121,7 +150,16 @@ async def search_reports(
         icd10=icd10,
     )
 
+    expanded_terms: list[str] = []
     async with tenant_connection(state.app_pool, claims.tid) as conn:
+        if q and expand:
+            expansion = await query_expansion.expand_query(conn, raw_q=q)
+            if expansion.tsquery is not None and expansion.groups_used > 0:
+                filters.ts_query = expansion.tsquery
+                expanded_terms = expansion.expanded_terms
+            _expansion_metric.add(
+                1, {"hit": str(bool(expansion.groups_used)).lower()}
+            )
         hits, next_cursor, total_estimated = await searchmod.search_reports(
             conn,
             filters=filters,
@@ -226,10 +264,21 @@ async def search_reports(
         },
         severity=Severity.INFO,
     )
+    if expanded_terms:
+        # Aggregated search.expanded (ADR-0038): counted in memory, one
+        # audit row per tenant per flush — never per keystroke.
+        await state.search_audit_buffer.record(
+            tenant_id=claims.tid, expanded_terms=len(expanded_terms)
+        )
 
+    _search_latency.record(
+        (time.perf_counter() - started) * 1000.0,
+        {"has_q": str(q is not None).lower()},
+    )
     return SearchResponse(
         hits=out,
         next_cursor=next_cursor,
         total_estimated=total_estimated,
         total_exact=total_exact,
+        expanded_terms=expanded_terms,
     )

@@ -24,6 +24,9 @@ dependencies = [
     "redis>=5.0",
     "secret",
     "medical_kep[pdf]",
+    # Sprint 15: audio replay (ADR-0037)
+    "crypto",
+    "storage",
 ]
 
 [tool.uv.sources]
@@ -36,6 +39,8 @@ report_models = { workspace = true }
 notification_events = { workspace = true }
 secret = { workspace = true }
 medical_kep = { workspace = true }
+crypto = { workspace = true }
+storage = { workspace = true }
 
 [project.optional-dependencies]
 dev = [
@@ -45,6 +50,7 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
     "hypothesis>=6.103",
+    "fakeredis>=2.23",
 ]
 
 [build-system]
