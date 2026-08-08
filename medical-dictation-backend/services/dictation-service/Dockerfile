@@ -13,13 +13,21 @@ ARG MD_ASR_MODEL_SHA256=69f74147e3334731bc3a76048724833325d2ec74642fb52620eda873
 
 RUN pip install --no-cache-dir "huggingface_hub[cli]==0.25.2"
 
+# Retry on a broken stream: hf_hub resumes from the .incomplete file in this
+# same layer. If every attempt fails, sha256sum -c below still fails closed.
+ENV HF_HUB_DOWNLOAD_TIMEOUT=60
 RUN --mount=type=secret,id=hf_token \
     set -eu; \
     if [ -f /run/secrets/hf_token ]; then HF_TOKEN="$(cat /run/secrets/hf_token)"; export HF_TOKEN; fi; \
-    huggingface-cli download "$MD_ASR_MODEL_REPO" \
-      --revision "$MD_ASR_MODEL_REVISION" \
-      --local-dir /opt/models/whisper \
-      --local-dir-use-symlinks False; \
+    for attempt in 1 2 3 4 5; do \
+      huggingface-cli download "$MD_ASR_MODEL_REPO" \
+        --revision "$MD_ASR_MODEL_REVISION" \
+        --local-dir /opt/models/whisper \
+        --local-dir-use-symlinks False \
+        --max-workers 2 && break; \
+      echo "whisper download attempt ${attempt} failed; resuming in 10s"; \
+      sleep 10; \
+    done; \
     echo "${MD_ASR_MODEL_SHA256}  /opt/models/whisper/model.bin" | sha256sum -c -; \
     echo "model.bin checksum verified against pinned digest"
 
@@ -44,14 +52,22 @@ COPY infra/models/ecapa/ /build/infra/models/ecapa/
 # ECAPA is ungated (Apache-2.0) so the token is not needed for the public
 # repo; the mount is kept for a private in-perimeter mirror. BuildKit
 # secrets never land in a layer — verified in docs/runbooks/dictation.md.
+# Retried like the Whisper fetch above; the script verifies both digests
+# itself, so a run that completes has already failed closed on a mismatch.
+ENV HF_HUB_DOWNLOAD_TIMEOUT=60
 RUN --mount=type=secret,id=hf_token \
     set -eu; \
     if [ -f /run/secrets/hf_token ]; then HF_TOKEN="$(cat /run/secrets/hf_token)"; export HF_TOKEN; fi; \
-    python /build/scripts/models/prepare_ecapa.py \
-      --target /opt/models/ecapa \
-      --revision "$MDX_DIAR_MODEL_REVISION" \
-      --embedding-sha256 "$MDX_DIAR_MODEL_SHA256" \
-      --meanvar-sha256 "$MDX_DIAR_MEANVAR_SHA256"
+    for attempt in 1 2 3 4 5; do \
+      python /build/scripts/models/prepare_ecapa.py \
+        --target /opt/models/ecapa \
+        --revision "$MDX_DIAR_MODEL_REVISION" \
+        --embedding-sha256 "$MDX_DIAR_MODEL_SHA256" \
+        --meanvar-sha256 "$MDX_DIAR_MEANVAR_SHA256" && exit 0; \
+      echo "ecapa download attempt ${attempt} failed; resuming in 10s"; \
+      sleep 10; \
+    done; \
+    echo "ecapa download failed after 5 attempts" >&2; exit 1
 
 # ── Stage 2: runtime image ─────────────────────────────────────────────
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS runtime

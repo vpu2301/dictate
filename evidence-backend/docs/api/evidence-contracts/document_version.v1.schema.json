@@ -1,0 +1,52 @@
+{
+  "$id": "https://evidentia.contracts/document_version@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "checksum": {
+      "title": "Checksum",
+      "type": "string"
+    },
+    "content_ref": {
+      "title": "Content Ref",
+      "type": "string"
+    },
+    "document_id": {
+      "format": "uuid",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "parsed_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parsed Ref"
+    },
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "document_id",
+    "version",
+    "content_ref",
+    "checksum"
+  ],
+  "title": "DocumentVersion",
+  "type": "object",
+  "x-contract-name": "document_version",
+  "x-contract-version": "1.0"
+}

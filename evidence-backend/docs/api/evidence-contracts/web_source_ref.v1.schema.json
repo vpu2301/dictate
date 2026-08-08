@@ -1,0 +1,59 @@
+{
+  "$defs": {
+    "WebTrustTier": {
+      "enum": [
+        "international_organization",
+        "government",
+        "professional_society",
+        "guideline_registry",
+        "journal",
+        "other"
+      ],
+      "title": "WebTrustTier",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/web_source_ref@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "accessed_at": {
+      "format": "date-time",
+      "title": "Accessed At",
+      "type": "string"
+    },
+    "domain": {
+      "title": "Domain",
+      "type": "string"
+    },
+    "snapshot_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Ref"
+    },
+    "trust_tier": {
+      "$ref": "#/$defs/WebTrustTier"
+    },
+    "url": {
+      "title": "Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "domain",
+    "trust_tier",
+    "accessed_at"
+  ],
+  "title": "WebSourceRef",
+  "type": "object",
+  "x-contract-name": "web_source_ref",
+  "x-contract-version": "1.0"
+}

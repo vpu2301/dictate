@@ -71,7 +71,7 @@ class TemplateSectionIn(_StrictModel):
 class ProcessRequest(_StrictModel):
     text: str
     words: list[WordIn] = Field(default_factory=list)
-    language: Literal["uk", "en"]
+    language: Literal["uk", "en", "de"]
     specialty: str | None = None
     reference_date: date | None = None
     is_partial: bool = False
@@ -236,7 +236,7 @@ class BatchSegmentIn(_StrictModel):
 
 class BatchProcessRequest(_StrictModel):
     segments: list[BatchSegmentIn]
-    language: Literal["uk", "en"]
+    language: Literal["uk", "en", "de"]
     specialty: str | None = None
     reference_date: date | None = None
     template_sections: list[TemplateSectionIn] = Field(default_factory=list)
@@ -379,9 +379,12 @@ def _section(s: TemplateSectionIn) -> TemplateSection:
     )
 
 
+# German shares Ukrainian's conventions here: decimal comma ("37,2 °C")
+# and DD.MM.YYYY — the forms a German clinician reads back without
+# re-parsing. A caller can still override both per request.
 def _default_decimal(language: str) -> str:
-    return "," if language == "uk" else "."
+    return "," if language in {"uk", "de"} else "."
 
 
 def _default_date_format(language: str) -> Literal["DD.MM.YYYY", "YYYY-MM-DD", "WORD"]:
-    return "DD.MM.YYYY" if language == "uk" else "YYYY-MM-DD"
+    return "DD.MM.YYYY" if language in {"uk", "de"} else "YYYY-MM-DD"

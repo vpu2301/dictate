@@ -1,0 +1,14 @@
+# PROTECTED FILE (rule T4): lowering any threshold requires an ADR plus
+# clinical sign-off — never a quiet edit. CI treats changes to this file as
+# review-blocking outside that path.
+#
+# Thresholds are RELATIVE to the adopted baseline (evidence_eval.baseline):
+#   recall@20 may drop at most 0.01 (the spec's "1 pt")
+#   ndcg@10  may drop at most 0.01
+# Rationale: retrieval regressions surface as recall/ordering loss before
+# they surface anywhere else; the deltas absorb judgment noise on small
+# corpora while catching real regressions (ADR-0019 pattern).
+retrieval:
+  recall_at_20_max_drop: 0.01
+  ndcg_at_10_max_drop: 0.01
+  rubric_version: "1.0"

@@ -439,6 +439,340 @@ async def create_patient(
     return _to_out(row)
 
 
+# ── Bulk import ─────────────────────────────────────────────────────
+#
+# A clinic arriving from another system has its roster in a spreadsheet, and
+# typing it into the single-create form is not a migration plan. This endpoint
+# takes the parsed rows and answers per row, because a batch of demographics
+# is never uniformly clean: one line has a malformed phone, another repeats a
+# patient the clinic already registered last week.
+#
+# Three properties the design turns on:
+#
+# * **Partial success is the normal outcome.** Each row runs inside its own
+#   SAVEPOINT, so a duplicate MRN on line 40 rolls back line 40 and nothing
+#   else. An all-or-nothing import of 400 rows would be rejected by one typo
+#   and re-uploaded until the file is perfect — which is not how clinic data
+#   arrives.
+# * **Duplicates are a decision, not an error.** Re-uploading last month's
+#   file must not create twins, so an MRN or ІПН that already exists is
+#   reported (skipped, or failed if the caller wants a hard stop) and never
+#   silently merged. Nothing here overwrites an existing record: an import
+#   cannot become a mass-edit of demographics.
+# * **`dry_run` is the same code path.** Validation, duplicate lookups and
+#   row statuses are computed identically; only the INSERT is skipped. A
+#   preview that ran different logic would be a preview of nothing.
+
+
+class PatientImportItem(PatientCreate):
+    """One row of an import — identical to a single-create body.
+
+    Subclassed rather than aliased so the wire contract stays visibly the
+    same one: whatever the create form can express, a file can express too,
+    and `extra="forbid"` is inherited.
+    """
+
+
+class PatientImportRequest(_Strict):
+    items: list[PatientImportItem] = Field(min_length=1)
+    # Validate + detect duplicates and write nothing. What the SPA shows in
+    # its preview step before the clinician commits the file.
+    dry_run: bool = False
+    # What to do with a row whose MRN or ІПН is already on the roster:
+    # leave the existing record alone and move on ("skip"), or mark the row
+    # failed so a caller who expects a clean file sees a non-zero count.
+    # Neither one modifies the existing patient.
+    on_duplicate: Literal["skip", "fail"] = "skip"
+
+
+class PatientImportRow(_Strict):
+    """The verdict for one input row, positionally matched to `items`.
+
+    `index` is the caller's row number, so a spreadsheet UI can point at the
+    line that failed. `code` is the machine-readable reason, reusing the same
+    vocabulary the single-create errors already use (`name_required`,
+    `phone_invalid`, `email_invalid`, `ipn_invalid`) plus the duplicate codes
+    (`mrn_exists`, `ipn_exists`, `duplicate_in_batch`).
+    """
+
+    index: int
+    status: Literal["created", "valid", "skipped", "failed"]
+    patient_id: UUID | None = None
+    code: str | None = None
+    message: str | None = None
+    # Set on a duplicate so the UI can link to the record already on file.
+    existing_patient_id: UUID | None = None
+
+
+class PatientImportResult(_Strict):
+    dry_run: bool
+    total: int
+    created: int
+    skipped: int
+    failed: int
+    rows: list[PatientImportRow]
+
+
+class _PreparedRow(BaseModel):
+    """A row that passed validation, resolved to storage columns."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    patient_id: UUID
+    name_uk: str
+    name_en: str
+    dob: date | None
+    sex: str
+    mrn: str
+    phone: str
+    email: str
+    address: dict[str, str]
+    summary_uk: str
+    summary_en: str
+    tags: list[str]
+    ipn_hmac: bytes | None
+    ipn_encrypted: bytes | None
+    ipn_dek: bytes | None
+
+
+async def _prepare_import_row(item: PatientImportItem, *, tenant_id: UUID) -> _PreparedRow:
+    """Validate one row and resolve it to columns, or raise the same
+    HTTPException the single-create path would have raised."""
+    name_uk = item.name.uk.strip() or item.name.en.strip()
+    name_en = item.name.en.strip() or item.name.uk.strip()
+    if not name_uk:
+        raise _http_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "patient name is required (uk or en)",
+            code="name_required",
+        )
+    summary = item.summary or NameI18n()
+    patient_id = uuid4()
+    ipn_cols: dict[str, bytes | None] = {
+        "ipn_hmac": None,
+        "ipn_encrypted": None,
+        "ipn_dek": None,
+    }
+    if item.ipn and item.ipn.strip():
+        ipn_cols = await _ipn_columns(
+            item.ipn, tenant_id=tenant_id, patient_id=patient_id
+        )
+    return _PreparedRow(
+        patient_id=patient_id,
+        name_uk=name_uk,
+        name_en=name_en,
+        dob=parse_dob(item.dob),
+        sex=item.sex,
+        mrn=item.mrn.strip(),
+        # These two raise on a malformed value — caught per row by the caller.
+        phone=_clean_phone(item.phone),
+        email=_clean_email(item.email),
+        address=_address_columns(item.address),
+        summary_uk=summary.uk.strip(),
+        summary_en=summary.en.strip(),
+        tags=[t.strip() for t in item.tags if t.strip()],
+        ipn_hmac=ipn_cols["ipn_hmac"],
+        ipn_encrypted=ipn_cols["ipn_encrypted"],
+        ipn_dek=ipn_cols["ipn_dek"],
+    )
+
+
+def _row_error(exc: HTTPException, index: int) -> PatientImportRow:
+    """Turn a per-row validation failure into its result row, keeping the
+    machine-readable `code` the single-create path would have returned."""
+    extras = getattr(exc, "problem_extras", {}) or {}
+    code = extras.get("code")
+    return PatientImportRow(
+        index=index,
+        status="failed",
+        code=str(code) if code else "invalid",
+        message=str(exc.detail),
+    )
+
+
+@router.post(
+    "/import",
+    response_model=PatientImportResult,
+    summary="Import a batch of patients onto the roster.",
+)
+async def import_patients(
+    body: PatientImportRequest,
+    claims: Annotated[Claims, Depends(requires("patient.write", "patient"))],
+) -> PatientImportResult:
+    max_rows = settings.patient_import_max_rows
+    if len(body.items) > max_rows:
+        raise _http_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"an import carries at most {max_rows} rows per request",
+            code="import_too_large",
+            max_rows=max_rows,
+        )
+
+    rows: list[PatientImportRow] = []
+    created = skipped = failed = 0
+    # Duplicates *within the file* are caught here rather than left to the
+    # unique index: on a dry run nothing is written, so the second copy of a
+    # row would otherwise be reported as importable and then fail for real.
+    seen_mrn: dict[str, int] = {}
+    seen_ipn: dict[bytes, int] = {}
+
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        for index, item in enumerate(body.items):
+            try:
+                prepared = await _prepare_import_row(item, tenant_id=claims.tid)
+            except HTTPException as exc:
+                rows.append(_row_error(exc, index))
+                failed += 1
+                continue
+
+            # ── duplicate detection ──────────────────────────────
+            dup_code: str | None = None
+            dup_existing: UUID | None = None
+            dup_message = ""
+            if prepared.mrn and prepared.mrn in seen_mrn:
+                dup_code = "duplicate_in_batch"
+                dup_message = (
+                    f"MRN {prepared.mrn!r} repeats row {seen_mrn[prepared.mrn]}"
+                )
+            elif prepared.ipn_hmac is not None and prepared.ipn_hmac in seen_ipn:
+                dup_code = "duplicate_in_batch"
+                dup_message = f"ІПН repeats row {seen_ipn[prepared.ipn_hmac]}"
+            else:
+                if prepared.mrn:
+                    dup_existing = await patients_repository.find_patient_id_by_mrn(
+                        conn, mrn=prepared.mrn
+                    )
+                    if dup_existing is not None:
+                        dup_code = "mrn_exists"
+                        dup_message = f"MRN {prepared.mrn!r} is already on the roster"
+                if dup_code is None and prepared.ipn_hmac is not None:
+                    dup_existing = (
+                        await patients_repository.find_patient_id_by_ipn_hmac(
+                            conn, ipn_hmac=prepared.ipn_hmac
+                        )
+                    )
+                    if dup_existing is not None:
+                        dup_code = "ipn_exists"
+                        dup_message = "this ІПН is already on the roster"
+
+            if prepared.mrn:
+                seen_mrn.setdefault(prepared.mrn, index)
+            if prepared.ipn_hmac is not None:
+                seen_ipn.setdefault(prepared.ipn_hmac, index)
+
+            if dup_code is not None:
+                is_skip = body.on_duplicate == "skip"
+                rows.append(
+                    PatientImportRow(
+                        index=index,
+                        status="skipped" if is_skip else "failed",
+                        code=dup_code,
+                        message=dup_message,
+                        existing_patient_id=dup_existing,
+                    )
+                )
+                if is_skip:
+                    skipped += 1
+                else:
+                    failed += 1
+                continue
+
+            if body.dry_run:
+                rows.append(PatientImportRow(index=index, status="valid"))
+                continue
+
+            # ── write ────────────────────────────────────────────
+            # Own SAVEPOINT: a unique violation this loop did not predict
+            # (a concurrent import, a race with the create form) rolls back
+            # this row only, leaving the outer transaction usable.
+            try:
+                async with conn.transaction():
+                    record = await patients_repository.create_patient(
+                        conn,
+                        patient_id=prepared.patient_id,
+                        tenant_id=claims.tid,
+                        created_by=claims.sub,
+                        name_uk=prepared.name_uk,
+                        name_en=prepared.name_en,
+                        dob=prepared.dob,
+                        sex=prepared.sex,
+                        mrn=prepared.mrn,
+                        phone=prepared.phone,
+                        email=prepared.email,
+                        **prepared.address,
+                        summary_uk=prepared.summary_uk,
+                        summary_en=prepared.summary_en,
+                        tags=prepared.tags,
+                        ipn_hmac=prepared.ipn_hmac,
+                        ipn_encrypted=prepared.ipn_encrypted,
+                        ipn_dek=prepared.ipn_dek,
+                    )
+            except asyncpg.UniqueViolationError as exc:
+                is_ipn = exc.constraint_name == "uq_patients_tenant_ipn"
+                is_skip = body.on_duplicate == "skip"
+                rows.append(
+                    PatientImportRow(
+                        index=index,
+                        status="skipped" if is_skip else "failed",
+                        code="ipn_exists" if is_ipn else "mrn_exists",
+                        message="already on the roster",
+                    )
+                )
+                if is_skip:
+                    skipped += 1
+                else:
+                    failed += 1
+                continue
+
+            created += 1
+            rows.append(
+                PatientImportRow(
+                    index=index, status="created", patient_id=record["id"]
+                )
+            )
+            # Per-record trail, same payload shape as the single create: an
+            # imported patient must be as auditable as a typed one.
+            await _audit(
+                claims,
+                audit_kinds.PATIENT_CREATED,
+                record["id"],
+                {
+                    "has_mrn": bool(prepared.mrn),
+                    "has_ipn": prepared.ipn_hmac is not None,
+                    "has_phone": bool(prepared.phone),
+                    "has_email": bool(prepared.email),
+                    "has_address": any(prepared.address.values()),
+                    "source": "import",
+                },
+            )
+
+    # One event for the run itself — counts only, no names, no MRNs.
+    await audit_helper.emit(
+        state,
+        claims,
+        audit_kinds.PATIENT_IMPORTED,
+        target_kind="tenant",
+        target_id=claims.tid,
+        payload={
+            "total": len(body.items),
+            "created": created,
+            "skipped": skipped,
+            "failed": failed,
+            "dry_run": body.dry_run,
+        },
+    )
+
+    return PatientImportResult(
+        dry_run=body.dry_run,
+        total=len(body.items),
+        created=created,
+        skipped=skipped,
+        failed=failed,
+        rows=rows,
+    )
+
+
 # ── List / search ───────────────────────────────────────────────────
 
 

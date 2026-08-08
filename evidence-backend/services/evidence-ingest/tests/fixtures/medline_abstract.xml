@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE">
+      <PMID Version="1">36000002</PMID>
+      <Article PubModel="Print">
+        <ArticleTitle>Statin therapy for primary prevention</ArticleTitle>
+        <Abstract>
+          <AbstractText Label="BACKGROUND">Cardiovascular disease remains the
+          leading cause of death worldwide despite preventive therapy.</AbstractText>
+          <AbstractText Label="CONCLUSIONS">Statins reduce major vascular events
+          in adults at elevated baseline risk.</AbstractText>
+        </Abstract>
+      </Article>
+    </MedlineCitation>
+  </PubmedArticle>
+</PubmedArticleSet>

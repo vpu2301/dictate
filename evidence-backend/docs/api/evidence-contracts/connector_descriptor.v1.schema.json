@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "ConnectorKind": {
+      "enum": [
+        "local_corpus",
+        "tenant_corpus",
+        "pubmed",
+        "guideline_registry",
+        "web",
+        "drug"
+      ],
+      "title": "ConnectorKind",
+      "type": "string"
+    },
+    "SourceAuthority": {
+      "description": "Authority precedence per rule RR3 (tenant > national > international > primary literature).",
+      "enum": [
+        "tenant",
+        "national",
+        "international",
+        "primary_literature",
+        "other"
+      ],
+      "title": "SourceAuthority",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/connector_descriptor@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_default": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SourceAuthority"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ConnectorKind"
+    },
+    "needs_egress": {
+      "default": false,
+      "title": "Needs Egress",
+      "type": "boolean"
+    },
+    "tenant_flaggable": {
+      "default": false,
+      "title": "Tenant Flaggable",
+      "type": "boolean"
+    },
+    "timeout_ms": {
+      "default": 600,
+      "title": "Timeout Ms",
+      "type": "integer"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "display_name",
+    "version"
+  ],
+  "title": "ConnectorDescriptor",
+  "type": "object",
+  "x-contract-name": "connector_descriptor",
+  "x-contract-version": "1.0"
+}

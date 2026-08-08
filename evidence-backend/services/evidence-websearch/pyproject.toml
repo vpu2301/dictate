@@ -1,0 +1,44 @@
+[project]
+name = "evidence-websearch"
+version = "0.1.0"
+description = "Quick-Search web agent: self-hosted metasearch, allowlisted fetch through the egress proxy, ephemeral per-query index"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn>=0.30.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.2",
+    "httpx>=0.27",
+    "redis>=5.0",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.2",
+    # Internal (workspace)
+    "evidence-models",
+    "evidence-safety",
+    "models",
+    # Platform libs (path deps via root tool.uv.sources)
+    "db",
+    "auth",
+    "audit",
+    "storage",
+    "crypto",
+    "secret",
+    "observability",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evidence_websearch"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

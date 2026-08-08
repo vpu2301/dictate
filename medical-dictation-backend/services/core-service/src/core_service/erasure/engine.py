@@ -143,6 +143,9 @@ class ErasureRuntime:
             transcript_store=EncryptedObjectStore(
                 s3=s3, bucket=settings.s3_transcripts_bucket, envelope=envelope
             ),
+            document_store=EncryptedObjectStore(
+                s3=s3, bucket=settings.s3_patient_docs_bucket, envelope=envelope
+            ),
             report_retention_years=settings.report_retention_years,
             pdf_object_deleter=_delete_pdf_by_uri,
         )

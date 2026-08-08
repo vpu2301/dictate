@@ -19,15 +19,27 @@ RUN pip install --no-cache-dir "huggingface_hub[cli]==0.25.2"
 # Fetch only what transformers needs (skip the duplicate onnx/, tf, and
 # pytorch_model.bin payloads to keep the image lean), then fail-closed on a
 # SHA-256 mismatch of the safetensors weights.
+#
+# The safetensors payload is ~2.2 GB and several images fetch models in
+# parallel, so a mid-stream ChunkedEncodingError is a routine build failure
+# on a home link. Retry: hf_hub resumes from the .incomplete file in this
+# same layer, so each attempt continues where the last one broke. If every
+# attempt fails the file is absent/short and sha256sum -c still fails closed.
+ENV HF_HUB_DOWNLOAD_TIMEOUT=60
 RUN --mount=type=secret,id=hf_token \
     set -eu; \
     if [ -f /run/secrets/hf_token ]; then HF_TOKEN="$(cat /run/secrets/hf_token)"; export HF_TOKEN; fi; \
-    huggingface-cli download "$MDX_NLP_PUNCTUATION_MODEL_REPO" \
-      --revision "$MDX_NLP_PUNCTUATION_MODEL_REVISION" \
-      --local-dir /opt/models/punctuation \
-      --local-dir-use-symlinks False \
-      config.json model.safetensors tokenizer.json tokenizer_config.json \
-      sentencepiece.bpe.model special_tokens_map.json; \
+    for attempt in 1 2 3 4 5; do \
+      huggingface-cli download "$MDX_NLP_PUNCTUATION_MODEL_REPO" \
+        --revision "$MDX_NLP_PUNCTUATION_MODEL_REVISION" \
+        --local-dir /opt/models/punctuation \
+        --local-dir-use-symlinks False \
+        --max-workers 2 \
+        config.json model.safetensors tokenizer.json tokenizer_config.json \
+        sentencepiece.bpe.model special_tokens_map.json && break; \
+      echo "punctuation download attempt ${attempt} failed; resuming in 10s"; \
+      sleep 10; \
+    done; \
     echo "${MDX_NLP_PUNCTUATION_MODEL_SHA256}  /opt/models/punctuation/model.safetensors" | sha256sum -c -; \
     echo "model.safetensors checksum verified against pinned digest"
 

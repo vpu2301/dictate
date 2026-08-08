@@ -1,0 +1,669 @@
+[
+  {
+    "intent": "newparagraph",
+    "phrases": [
+      [
+        "neuer",
+        "absatz"
+      ],
+      [
+        "absatz"
+      ],
+      [
+        "neuer",
+        "abschnitt"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "newline",
+    "phrases": [
+      [
+        "neue",
+        "zeile"
+      ],
+      [
+        "zeilenumbruch"
+      ]
+    ],
+    "requires_pause_before_ms": 200,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "period",
+    "phrases": [
+      [
+        "punkt"
+      ]
+    ],
+    "requires_pause_before_ms": 300,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
+  },
+  {
+    "intent": "comma",
+    "phrases": [
+      [
+        "komma"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
+  },
+  {
+    "intent": "question_mark",
+    "phrases": [
+      [
+        "fragezeichen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "dash",
+    "phrases": [
+      [
+        "gedankenstrich"
+      ],
+      [
+        "geviertstrich"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "colon",
+    "phrases": [
+      [
+        "doppelpunkt"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
+  },
+  {
+    "intent": "exclamation_mark",
+    "phrases": [
+      [
+        "ausrufezeichen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "semicolon",
+    "phrases": [
+      [
+        "semikolon"
+      ],
+      [
+        "strichpunkt"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "ellipsis",
+    "phrases": [
+      [
+        "auslassungspunkte"
+      ],
+      [
+        "drei",
+        "punkte"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
+  },
+  {
+    "intent": "hyphen",
+    "phrases": [
+      [
+        "bindestrich"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
+  },
+  {
+    "intent": "en_dash",
+    "phrases": [
+      [
+        "halbgeviertstrich"
+      ],
+      [
+        "kurzer",
+        "gedankenstrich"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "open_double_quote",
+    "phrases": [
+      [
+        "doppelte",
+        "anführungszeichen",
+        "auf"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "close_double_quote",
+    "phrases": [
+      [
+        "doppelte",
+        "anführungszeichen",
+        "zu"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "open_single_quote",
+    "phrases": [
+      [
+        "einfaches",
+        "anführungszeichen",
+        "auf"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "close_single_quote",
+    "phrases": [
+      [
+        "einfaches",
+        "anführungszeichen",
+        "zu"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "open_paren",
+    "phrases": [
+      [
+        "klammer",
+        "auf"
+      ],
+      [
+        "runde",
+        "klammer",
+        "auf"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "close_paren",
+    "phrases": [
+      [
+        "klammer",
+        "zu"
+      ],
+      [
+        "runde",
+        "klammer",
+        "zu"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "open_bracket",
+    "phrases": [
+      [
+        "eckige",
+        "klammer",
+        "auf"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "close_bracket",
+    "phrases": [
+      [
+        "eckige",
+        "klammer",
+        "zu"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "open_brace",
+    "phrases": [
+      [
+        "geschweifte",
+        "klammer",
+        "auf"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "close_brace",
+    "phrases": [
+      [
+        "geschweifte",
+        "klammer",
+        "zu"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "slash",
+    "phrases": [
+      [
+        "schrägstrich"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
+  },
+  {
+    "intent": "backslash",
+    "phrases": [
+      [
+        "umgekehrter",
+        "schrägstrich"
+      ],
+      [
+        "backslash"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "apostrophe",
+    "phrases": [
+      [
+        "apostroph"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "asterisk",
+    "phrases": [
+      [
+        "sternchen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "hash",
+    "phrases": [
+      [
+        "raute"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88,
+    "exact_match_only": true
+  },
+  {
+    "intent": "numero_sign",
+    "phrases": [
+      [
+        "nummernzeichen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "percent_sign",
+    "phrases": [
+      [
+        "prozentzeichen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "ampersand",
+    "phrases": [
+      [
+        "kaufmännisches",
+        "und"
+      ],
+      [
+        "ampersand"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "at_sign",
+    "phrases": [
+      [
+        "at",
+        "zeichen"
+      ],
+      [
+        "klammeraffe"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "plus_sign",
+    "phrases": [
+      [
+        "pluszeichen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "minus_sign",
+    "phrases": [
+      [
+        "minuszeichen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "equals_sign",
+    "phrases": [
+      [
+        "gleichheitszeichen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "underscore",
+    "phrases": [
+      [
+        "unterstrich"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "vertical_bar",
+    "phrases": [
+      [
+        "senkrechter",
+        "strich"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.88
+  },
+  {
+    "intent": "section.diagnosis",
+    "phrases": [
+      [
+        "abschnitt",
+        "diagnose"
+      ],
+      [
+        "gehe",
+        "zu",
+        "diagnose"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.history",
+    "phrases": [
+      [
+        "abschnitt",
+        "anamnese"
+      ],
+      [
+        "gehe",
+        "zu",
+        "anamnese"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.exam",
+    "phrases": [
+      [
+        "abschnitt",
+        "untersuchung"
+      ],
+      [
+        "körperliche",
+        "untersuchung"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "section.plan",
+    "phrases": [
+      [
+        "abschnitt",
+        "plan"
+      ],
+      [
+        "behandlungsplan"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_section_command": true
+  },
+  {
+    "intent": "insert_template",
+    "phrases": [
+      [
+        "vorlage",
+        "einfügen"
+      ],
+      [
+        "vorlage"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "save_draft",
+    "phrases": [
+      [
+        "entwurf",
+        "speichern"
+      ],
+      [
+        "als",
+        "entwurf",
+        "speichern"
+      ],
+      [
+        "speichern"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "undo_last",
+    "phrases": [
+      [
+        "letztes",
+        "rückgängig"
+      ],
+      [
+        "rückgängig",
+        "machen"
+      ],
+      [
+        "rückgängig"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "stop_dictation",
+    "phrases": [
+      [
+        "diktat",
+        "beenden"
+      ],
+      [
+        "diktat",
+        "stoppen"
+      ],
+      [
+        "ende",
+        "des",
+        "diktats"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85
+  },
+  {
+    "intent": "begin_quote",
+    "phrases": [
+      [
+        "zitat",
+        "anfang"
+      ],
+      [
+        "zitat",
+        "beginn"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "end_quote",
+    "phrases": [
+      [
+        "zitat",
+        "ende"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  },
+  {
+    "intent": "choice.set",
+    "phrases": [
+      [
+        "auswählen"
+      ],
+      [
+        "wählen"
+      ],
+      [
+        "setzen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_option_command": true,
+    "exact_match_only": true
+  },
+  {
+    "intent": "choice.add",
+    "phrases": [
+      [
+        "hinzufügen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_option_command": true,
+    "exact_match_only": true
+  },
+  {
+    "intent": "choice.remove",
+    "phrases": [
+      [
+        "entfernen"
+      ],
+      [
+        "löschen"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "is_option_command": true,
+    "exact_match_only": true
+  },
+  {
+    "intent": "diagnosis.capture",
+    "phrases": [
+      [
+        "diagnose"
+      ],
+      [
+        "hauptdiagnose"
+      ]
+    ],
+    "requires_pause_before_ms": 250,
+    "min_avg_probability": 0.85,
+    "exact_match_only": true
+  }
+]

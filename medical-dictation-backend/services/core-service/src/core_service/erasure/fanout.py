@@ -253,6 +253,24 @@ FANOUT: tuple[Artifact, ...] = (
               "direction; re-runs tolerate absence.",
     ),
     Artifact(
+        kind="patient_document",
+        table="patient_documents",
+        ids_sql="SELECT id FROM patient_documents WHERE patient_id = $1",
+        export_sql=f"""
+            SELECT x.id, x.created_at,
+                   {_sanitize("sha256", "envelope_metadata")} AS payload,
+                   x.storage_uri AS object_ref
+            FROM patient_documents x WHERE patient_id = $1
+        """,
+        exportable=True,
+        erasability=Erasability.CRYPTO_SHRED,
+        object_store="patient_docs",
+        object_uri_column="storage_uri",
+        notes="Migration 0065 — record attachments (referrals, lab PDFs, "
+              "scans). MinIO object deleted FIRST (its per-object DEK dies "
+              "with the header), then the row; re-runs tolerate absence.",
+    ),
+    Artifact(
         kind="transcription_job",
         table="transcription_jobs",
         ids_sql="""

@@ -8,6 +8,19 @@ from typing import Final
 PATIENT_CREATED: Final = "patient.created"
 PATIENT_UPDATED: Final = "patient.updated"
 PATIENT_VIEWED: Final = "patient.viewed"
+# Bulk roster import. Emitted ONCE per request with the counts; every row
+# that was actually written still emits its own `patient.created`, so the
+# per-record trail stays complete and this event answers "who ran an import,
+# when, and how much of it landed".
+PATIENT_IMPORTED: Final = "patient.imported"
+
+# ── patient documents (0065) ────────────────────────────────────────
+# Uploading and deleting are writes; DOWNLOADING is a PHI read and is
+# audited as its own kind — a file read that looked like a list call in the
+# trail would defeat the point of auditing record access at all.
+PATIENT_DOCUMENT_UPLOADED: Final = "patient_document.uploaded"
+PATIENT_DOCUMENT_DOWNLOADED: Final = "patient_document.downloaded"
+PATIENT_DOCUMENT_DELETED: Final = "patient_document.deleted"
 
 # ── break-glass (S15) ───────────────────────────────────────────────
 # Emitted per read of a patient record served under a patient-kind

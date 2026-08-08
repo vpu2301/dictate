@@ -1,0 +1,281 @@
+{
+  "$defs": {
+    "Coding": {
+      "additionalProperties": false,
+      "description": "A code in a terminology system (ICD-10, ATC, SNOMED, LOINC, ...).",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "Coding",
+      "type": "object"
+    },
+    "FactOriginKind": {
+      "enum": [
+        "patient",
+        "encounter",
+        "anamnesis",
+        "note",
+        "report",
+        "consent",
+        "act",
+        "user",
+        "host"
+      ],
+      "title": "FactOriginKind",
+      "type": "string"
+    },
+    "FactProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "origin_kind": {
+          "$ref": "#/$defs/FactOriginKind"
+        },
+        "origin_ref": {
+          "title": "Origin Ref",
+          "type": "string"
+        },
+        "recorded_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recorded At"
+        }
+      },
+      "required": [
+        "origin_ref",
+        "origin_kind"
+      ],
+      "title": "FactProvenance",
+      "type": "object"
+    },
+    "FactSource": {
+      "enum": [
+        "chart",
+        "act",
+        "user_reported",
+        "host_reported"
+      ],
+      "title": "FactSource",
+      "type": "string"
+    },
+    "FactStatus": {
+      "enum": [
+        "coded",
+        "uncoded",
+        "conflict"
+      ],
+      "title": "FactStatus",
+      "type": "string"
+    },
+    "NormalizedQuantity": {
+      "additionalProperties": false,
+      "description": "A quantity converted to the canonical unit for its dimension.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "title": "NormalizedQuantity",
+      "type": "object"
+    },
+    "PatientFact": {
+      "additionalProperties": false,
+      "properties": {
+        "coding": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Coding"
+          },
+          "title": "Coding",
+          "type": "array"
+        },
+        "deid_required": {
+          "default": true,
+          "title": "Deid Required",
+          "type": "boolean"
+        },
+        "field_path": {
+          "title": "Field Path",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/FactProvenance"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Quantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "$ref": "#/$defs/FactSource"
+        },
+        "status": {
+          "$ref": "#/$defs/FactStatus"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "field_path",
+        "label",
+        "provenance",
+        "source",
+        "status"
+      ],
+      "title": "PatientFact",
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "normalized": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedQuantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "title": "Quantity",
+      "type": "object"
+    }
+  },
+  "$id": "https://evidentia.contracts/patient_snapshot@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "default": "1.0",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "encounter_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Encounter Ref"
+    },
+    "facts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PatientFact"
+      },
+      "title": "Facts",
+      "type": "array"
+    },
+    "patient_ref": {
+      "title": "Patient Ref",
+      "type": "string"
+    },
+    "snapshot_hash": {
+      "title": "Snapshot Hash",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "taken_at": {
+      "format": "date-time",
+      "title": "Taken At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "patient_ref",
+    "taken_at",
+    "snapshot_hash"
+  ],
+  "title": "PatientSnapshot",
+  "type": "object",
+  "x-contract-name": "patient_snapshot",
+  "x-contract-version": "1.0"
+}

@@ -9,25 +9,32 @@ into a canonical form per the tenant's `date_format`.
 | ---------------- | ------------------------- |
 | `DD.MM.YYYY`     | `01.05.2026`              |
 | `YYYY-MM-DD`     | `2026-05-01`              |
-| `WORD`           | `1 травня 2026` / `May 1, 2026` |
+| `WORD`           | `1 травня 2026` / `May 1, 2026` / `1. Mai 2026` |
 
-UK tenants default to `DD.MM.YYYY`; EN tenants to `YYYY-MM-DD`.
+UK and DE tenants default to `DD.MM.YYYY`; EN tenants to `YYYY-MM-DD`.
 
 ## Relative dates
 
 Anchored to `ProcessingContext.reference_date` (the caller passes it;
 defaults to server `now()` with a `missing_reference_date` warning).
 
-| Ukrainian          | English         | Offset             |
-| ------------------ | --------------- | ------------------ |
-| `сьогодні`         | `today`         | +0 days            |
-| `вчора` / `учора`  | `yesterday`     | −1 day             |
-| `позавчора`        | —               | −2 days            |
-| `завтра`           | `tomorrow`      | +1 day             |
-| `післязавтра`      | —               | +2 days            |
-| `наступного тижня` | `next week`     | +7 days            |
-| `минулого тижня`   | `last week`     | −7 days            |
-| `у <weekday>`      | `on <weekday>`  | next future weekday|
+| Ukrainian          | English         | German                        | Offset             |
+| ------------------ | --------------- | ----------------------------- | ------------------ |
+| `сьогодні`         | `today`         | `heute`                       | +0 days            |
+| `вчора` / `учора`  | `yesterday`     | `gestern`                     | −1 day             |
+| `позавчора`        | —               | `vorgestern`                  | −2 days            |
+| `завтра`           | `tomorrow`      | `morgen`                      | +1 day             |
+| `післязавтра`      | —               | `übermorgen`                  | +2 days            |
+| `наступного тижня` | `next week`     | `nächste/kommende Woche`      | +7 days            |
+| `минулого тижня`   | `last week`     | `letzte/vergangene Woche`     | −7 days            |
+| `у <weekday>`      | `on <weekday>`  | `am <Wochentag>`              | next future weekday|
+
+**`morgen` is deliberately context-gated.** The same word is both
+*tomorrow* and *morning*, and capitalization can't settle it (the
+punctuation model is not reliable enough to bet a date on). `am
+Morgen`, `guten Morgen`, `jeden/diesen Morgen` and `morgen früh /
+abend / mittag / nachmittag` are left as text; everything else resolves
+to a date.
 
 ## Absolute dates
 
@@ -38,6 +45,9 @@ defaults to server `now()` with a `missing_reference_date` warning).
   dictate the day as a genitive ordinal, which Stage 3 (cardinals only)
   leaves untouched, so Stage 4 maps `першого…тридцять першого` directly.
 - Word-form EN: `May 1, 2026` or `May first 2026`.
+- German: `5. März 2026`, `5 März`, and the spelled ordinal
+  `am fünften März` → `05.03.<year>` (all four case endings, up to
+  `einunddreißigsten`). `Jänner` is accepted for January.
 
 Year defaults to `reference_date.year` if omitted.
 
@@ -51,6 +61,12 @@ clinical-rules layer validates and surfaces to the clinician.
 ## Times
 
 - `о пів на <hour>` / `half past <hour>` → `HH:30`.
+- German `um 8 Uhr [30]` → `08:00` / `08:30`. `Uhr` is required — a bare
+  "um 8" is as often a dose interval as a clock time.
+- German `halb acht` → **`07:30`**, not 08:30: `halb` counts down to the
+  named hour. `Viertel vor/nach zehn` → `09:45` / `10:15`. `halb eins`
+  is `12:30` — a spoken 12-hour clock names the coming hour and midday
+  is the overwhelmingly likely reading in a consultation.
 - Explicit `HH:MM` passes through.
 
 ## Reference-date discipline

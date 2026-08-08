@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article article-type="research-article">
+  <front>
+    <article-meta>
+      <article-id pub-id-type="doi">10.5555/pmc.2023.42</article-id>
+      <article-id pub-id-type="pmid">36000001</article-id>
+      <article-id pub-id-type="pmc">PMC9900001</article-id>
+      <title-group>
+        <article-title>Hypertension management in primary care</article-title>
+      </title-group>
+      <pub-date pub-type="epub"><day>04</day><month>07</month><year>2023</year></pub-date>
+      <abstract>
+        <p>Blood pressure control reduces cardiovascular events; this review
+        summarises randomized evidence for first-line drug classes.</p>
+      </abstract>
+    </article-meta>
+  </front>
+  <body>
+    <sec id="s1">
+      <title>Methods</title>
+      <p>We reviewed randomized trials comparing antihypertensive drug classes
+      in adults with essential hypertension.</p>
+      <sec id="s1a">
+        <title>Search strategy</title>
+        <p>MEDLINE and Embase were searched from inception to January 2023.</p>
+      </sec>
+    </sec>
+    <sec id="s2">
+      <title>Results</title>
+      <p>Twelve trials met inclusion criteria.</p>
+      <table-wrap id="t1">
+        <label>Table 1</label>
+        <table>
+          <tbody>
+            <tr><th>Drug</th><th>Dose</th></tr>
+            <tr><td>Amlodipine</td><td>5 mg</td></tr>
+          </tbody>
+        </table>
+      </table-wrap>
+    </sec>
+  </body>
+</article>

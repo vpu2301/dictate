@@ -2,9 +2,10 @@
 
 Monorepo for a **medical dictation platform**. The backend lives in
 [`medical-dictation-backend/`](medical-dictation-backend/) — a multi-tenant,
-HIPAA-conscious FastAPI microservice system for Ukrainian/English clinical
-speech-to-text, NLP post-processing, structured reports, and qualified
-electronic signing (КЕП / KEP).
+HIPAA-conscious FastAPI microservice system for Ukrainian/English/German
+clinical speech-to-text, NLP post-processing, structured reports, and
+qualified electronic signing (КЕП / KEP). Streaming dictation and the NLP
+pipeline speak `uk`/`en`/`de`; batch ASR is still `uk`/`en`.
 
 > This README is the entry point and the **working context for Claude Code**.
 > If you are an AI agent picking up work here, read the whole file first — the
@@ -164,13 +165,16 @@ make keycloak-export # re-extract realm JSON from running container
 make wer-eval            # batch WER harness
 make wer-eval-streaming  # streaming WER harness
 make wer-eval-per-section
+make der-eval            # conversation diarization (DER + attribution + latency)
+make capacity-probe      # dual-model capacity: residency + per-window latency
+make prepare-ecapa       # fetch + checksum-verify the pinned diarization model
 
 make help            # full target list with descriptions
 ```
 
 CI-only grep/policy gates (also part of `make ci`):
 `check-rls`, `check-audit-insert`, `check-no-object-storage`, `check-no-crypto`,
-`validate-templates`, `openapi-check`.
+`validate-templates`, `openapi-check`, `check-alert-rules`.
 
 ---
 
@@ -241,7 +245,7 @@ in `docs/adr/`, not a quiet edit.
 | **Foundations** (S01) | `_template`, secret, db, observability, messaging Protocols, import-linter, pre-commit | Health = `/healthz` + `/readyz`; RFC 9457 problem details; coverage gate 80% |
 | **auth-service** (S02) | Login/refresh/logout, admin users, audit API; Keycloak realm; RLS; hash-chained audit; perms matrix; MFA stub | **MFA intentionally disabled** in pilot — flip `MDX_REQUIRE_MFA=true` to enforce |
 | **asr-service / asr-worker** (S03) | Batch Whisper ASR; 8-step validators; envelope crypto; EncryptedObjectStore; Redis Streams | First PHI-bearing path. AAD = `tenant_id ‖ row_id`; `master.key` mode ≤ 0400 |
-| **dictation-service** (S04) | Real-time streaming ASR over WebSocket, protocol `medical-dictation.v1` | Sliding-window Whisper, reconnect/resume, tmpfs ring buffer, binary Opus frames |
+| **dictation-service** (S04) | Real-time streaming ASR over WebSocket, protocol `medical-dictation.v1`; languages `uk`/`en`/`de` | Sliding-window Whisper, reconnect/resume, tmpfs ring buffer, binary Opus frames |
 | **nlp-service** (S05) | 6-stage pipeline: voice commands → punctuation → numbers → dates → abbreviations → confidence | Ordered contract; `PIPELINE_VERSION` in idempotence cache key; abbrev snapshot per request |
 | **report-service** (S06, S08) | Section-aware templates (16 system templates) + reports (versioning, diff, FTS) | Cosmetic-vs-structural edit rule; append-only `report_versions`; linear amendment chain |
 | **signing-service** (S09) | КЕП/KEP signing (Дія + ІІТ + mock) + public `/verify` | PAdES-LTV with embedded canonical JSON (JCS); IP-HMAC audit + rate limiter on /verify |

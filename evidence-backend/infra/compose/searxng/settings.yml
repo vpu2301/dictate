@@ -1,0 +1,71 @@
+# SearXNG — self-hosted metasearch for the Quick-Search web agent.
+#
+# Only the JSON API is used (`GET /search?format=json`); the HTML UI exists
+# for operators debugging why a query returned what it did.
+#
+# Engine selection is deliberately narrow: general web engines whose results
+# we then filter against the product allowlist. Adding an engine that needs
+# an API key would reintroduce an external service dependency (rule P7), so
+# key-requiring engines stay off.
+
+# `keep_only` is what makes the narrow selection below actually narrow: a bare
+# `use_default_settings: true` MERGES our list into SearXNG's defaults, so
+# google/brave/wikidata/… stay enabled, hammer the proxy for domains that are
+# deliberately not on the allowlist, and fill every response with
+# `unresponsive_engines` noise.
+use_default_settings:
+  engines:
+    keep_only:
+      - duckduckgo
+      - bing
+      - startpage
+      - pubmed
+      - crossref
+
+general:
+  instance_name: "evidentia-metasearch"
+  # No public instance: this one answers only the websearch service.
+  privacypolicy_url: false
+  contact_url: false
+
+server:
+  # Dev value. In deployment this comes from the secret store, never a file
+  # in git (rule S3) — the compose stack is local-only.
+  secret_key: "dev-only-not-a-secret"
+  limiter: false
+  image_proxy: false
+  method: "GET"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: ""
+  formats:
+    - json
+    - html
+
+outgoing:
+  request_timeout: 5.0
+  max_request_timeout: 10.0
+  pool_connections: 20
+  pool_maxsize: 10
+  # Every upstream call leaves through the egress proxy (ADR-0005). The
+  # HTTP(S)_PROXY environment variables in compose cover this too; stating it
+  # here as well means a stripped environment cannot silently open a direct
+  # path.
+  proxies:
+    http: http://egress-proxy:3128
+    https: http://egress-proxy:3128
+
+engines:
+  - name: duckduckgo
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: startpage
+    disabled: false
+  # Bibliographic engines: useful for the journal/registry tiers.
+  - name: pubmed
+    disabled: false
+  - name: crossref
+    disabled: false

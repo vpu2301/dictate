@@ -1,6 +1,6 @@
 # Roles
 
-The realm defines five roles. The permission matrix lives at
+The realm defines six roles. The permission matrix lives at
 `docs/auth/permissions.csv`; this file is its prose companion.
 
 | Role           | Holds                                                   | Cannot                       |
@@ -10,6 +10,7 @@ The realm defines five roles. The permission matrix lives at
 | `nurse`        | Limited clinical user. Same clinical reads/writes as clinician, minus `asr.cancel` | Most admin; user read     |
 | `auditor`      | Read-only audit + tenant context + **read-only user roster (`user.read`)** | Any write                   |
 | `service`      | Machine-to-machine token identity                       | Any user-facing operation today |
+| `knowledge_admin` | Evidence-corpus curation only (EVA-S01): upload/review/approve/expire tenant corpus documents (`evidence.corpus.manage`), web-search domain allowlist (`evidence.domains.manage`) | Everything else — every pre-existing action carries an explicit `false` row; no clinical content, no user admin, no audit |
 
 The full machine-readable matrix (every role × action × target_kind, with an
 explicit `true|false` for each) lives in `docs/auth/permissions.csv`; the

@@ -55,6 +55,41 @@ emits `voice_command.undone` for telemetry.
 | `begin_quote`       | open quote, quote begin                 | 250   | 0.85 |
 | `end_quote`         | close quote, quote end                  | 250   | 0.85 |
 
+### German (15 intents)
+
+The German catalogue mirrors the English intent set exactly (a test
+pins the two sets together — a missing intent is a German session where
+a command silently does nothing).
+
+| Intent              | Canonical phrases                          | Pause | Conf |
+| ------------------- | ------------------------------------------ | ----- | ---- |
+| `newparagraph`      | neuer Absatz, Absatz, neuer Abschnitt      | 250   | 0.85 |
+| `newline`           | neue Zeile, Zeilenumbruch                  | 200   | 0.85 |
+| `period`            | Punkt                                      | 300   | 0.88 |
+| `comma`             | Komma                                      | 250   | 0.88 |
+| `question_mark`     | Fragezeichen                               | 250   | 0.85 |
+| `section.diagnosis` | Abschnitt Diagnose, gehe zu Diagnose       | 250   | 0.85 |
+| `section.history`   | Abschnitt Anamnese, gehe zu Anamnese       | 250   | 0.85 |
+| `section.exam`      | Abschnitt Untersuchung, körperliche Untersuchung | 250 | 0.85 |
+| `section.plan`      | Abschnitt Plan, Behandlungsplan            | 250   | 0.85 |
+| `insert_template`   | Vorlage einfügen, Vorlage                  | 250   | 0.85 |
+| `save_draft`        | Entwurf speichern, als Entwurf speichern   | 250   | 0.85 |
+| `undo_last`         | letztes rückgängig, rückgängig machen      | 250   | 0.85 |
+| `stop_dictation`    | Diktat beenden, Diktat stoppen             | 250   | 0.85 |
+| `begin_quote`       | Zitat Anfang, Zitat Beginn                 | 250   | 0.85 |
+| `end_quote`         | Zitat Ende                                 | 250   | 0.85 |
+
+**German-specific hardening.** Two families are `exact_match_only`,
+found by the German TP/FP corpus, not by review:
+
+- **`auf` vs `zu`** — "Klammer auf" and "Klammer zu" are ONE edit apart,
+  so the FSM's 1-substitution tolerance fired the opposite bracket.
+  Every open/close pair (parens, brackets, braces, quotes) is exact.
+- **Short single-word heads** — "Punkt", "Komma", "Doppelpunkt",
+  "Bindestrich", "Schrägstrich", "Raute", plus the ellipsis phrase
+  "drei Punkte". German inflection puts ordinary prose one edit away
+  ("die Punkte sind gerötet", "Patient im Koma").
+
 ## Adding a new command
 
 1. Edit `infra/postgres/seed/voice_commands_<lang>.json` — add a phrase
@@ -77,12 +112,12 @@ Hands-free structured input: one utterance, zero taps. The option name
 resolves against the **template's** `choice`/`multi_choice` sections,
 and the operation carries the option **slug** — never the spoken words.
 
-| Intent | uk | en | Operation | arg |
-| --- | --- | --- | --- | --- |
-| `choice.set` | обрати / вибрати / встановити `<опція>` | select / choose / set `<option>` | `set_choice` | `{section_key, value}` |
-| `choice.add` | додати `<опція>` | add `<option>` | `add_choice` | `{section_key, value}` |
-| `choice.remove` | прибрати / видалити `<опція>` | remove / delete `<option>` | `remove_choice` | `{section_key, value}` |
-| `diagnosis.capture` | діагноз / основний діагноз | diagnosis / primary diagnosis | `mark_diagnosis_text` | `{from_word_index}` |
+| Intent | uk | en | de | Operation | arg |
+| --- | --- | --- | --- | --- | --- |
+| `choice.set` | обрати / вибрати / встановити `<опція>` | select / choose / set `<option>` | auswählen / wählen / setzen `<Option>` | `set_choice` | `{section_key, value}` |
+| `choice.add` | додати `<опція>` | add `<option>` | hinzufügen `<Option>` | `add_choice` | `{section_key, value}` |
+| `choice.remove` | прибрати / видалити `<опція>` | remove / delete `<option>` | entfernen / löschen `<Option>` | `remove_choice` | `{section_key, value}` |
+| `diagnosis.capture` | діагноз / основний діагноз | diagnosis / primary diagnosis | Diagnose / Hauptdiagnose | `mark_diagnosis_text` | `{from_word_index}` |
 
 ### Rules that make this safe
 
@@ -125,6 +160,10 @@ select via voice and extract from the same words (test-enforced).
   stray "/" into notes. The `slash` spec is now `exact_match_only`.
   Found by the sprint-13 TP/FP corpus
   (`tests/fixtures/command_corpus_uk.py`).
+
+- **"Klammer zu" → `open_paren`** — FIXED when German was added. See
+  the German hardening note above; found by
+  `tests/fixtures/command_corpus_de.py`.
 
 - **"крапка над і"** — Ukrainian idiom; the pause-before gate (300 ms)
   catches the mid-phrase case. Verified day-9.

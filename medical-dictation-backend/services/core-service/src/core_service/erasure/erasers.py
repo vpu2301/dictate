@@ -49,6 +49,8 @@ class EraserContext:
 
     audio_store: ObjectStore | None = None
     transcript_store: ObjectStore | None = None
+    # 0065 — patient record attachments (mdx-patient-docs).
+    document_store: ObjectStore | None = None
     report_retention_years: int = 25
     # Deletes a signed-PDF object by its full storage URI (bucket varies) —
     # used only for out-of-retention-window envelopes. None in tests that
@@ -150,6 +152,16 @@ async def erase_transcription_jobs(
 ) -> Outcome:
     return await _shred_blob_artifact(
         conn, _BY_KIND["transcription_job"], patient_id, ctx.transcript_store
+    )
+
+
+async def erase_patient_documents(
+    conn: asyncpg.Connection, patient_id: UUID, ctx: EraserContext
+) -> Outcome:
+    """Attachments carry no independent retention basis: a referral letter
+    is not a signed clinical record, so Art. 17 takes it whole."""
+    return await _shred_blob_artifact(
+        conn, _BY_KIND["patient_document"], patient_id, ctx.document_store
     )
 
 
@@ -358,6 +370,7 @@ async def overwrite_patient_identity(
 
 # The engine's execution order (leaves → parents → identity last).
 ERASERS_IN_ORDER: tuple = (
+    erase_patient_documents,
     erase_transcription_jobs,
     erase_dictation_sessions,
     erase_recordings,

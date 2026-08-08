@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "StageOutcome": {
+      "enum": [
+        "ok",
+        "retried",
+        "failed",
+        "skipped"
+      ],
+      "title": "StageOutcome",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/stage_trace@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "ended_at": {
+      "format": "date-time",
+      "title": "Ended At",
+      "type": "string"
+    },
+    "meta": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "title": "Meta",
+      "type": "object"
+    },
+    "outcome": {
+      "$ref": "#/$defs/StageOutcome"
+    },
+    "stage": {
+      "title": "Stage",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "stage",
+    "started_at",
+    "ended_at",
+    "outcome"
+  ],
+  "title": "StageTrace",
+  "type": "object",
+  "x-contract-name": "stage_trace",
+  "x-contract-version": "1.0"
+}

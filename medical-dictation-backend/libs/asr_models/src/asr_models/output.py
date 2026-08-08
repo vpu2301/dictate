@@ -39,7 +39,10 @@ class TranscriptionMetadata(BaseModel):
 
 
 class TranscriptionOutput(BaseModel):
-    language: str = Field(pattern=r"^(uk|en)$")
+    # The union of what any ASR surface supports. `de` arrived with
+    # streaming dictation; the batch edge (asr-service) keeps its own,
+    # narrower `^(uk|en)$` form gate until German batch is piloted.
+    language: str = Field(pattern=r"^(uk|en|de)$")
     segments: list[Segment]
     metadata: TranscriptionMetadata
     schema_version: int = 1
@@ -85,7 +88,7 @@ class TranscriptResultView(BaseModel):
     """
 
     job_id: UUID
-    language: str = Field(pattern=r"^(uk|en)$")
+    language: str = Field(pattern=r"^(uk|en|de)$")
     segments: list[EnrichedSegment]
     metadata: TranscriptionMetadata
     nlp_applied: bool = False

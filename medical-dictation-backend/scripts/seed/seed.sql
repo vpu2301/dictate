@@ -52,6 +52,16 @@ ON CONFLICT (tenant_id, email) DO UPDATE
         role         = EXCLUDED.role,
         status       = EXCLUDED.status;
 
+-- ── EVA-S01: knowledge_admin dev users (one per tenant) ─────────────────────
+-- Corpus curation role for the evidence module; subs match realm-export.json.
+INSERT INTO users (sub, tenant_id, email, display_name, role, status) VALUES
+    ('1a000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'knowledge_admin@tenant-a.example', 'Dev Knowledge A', 'knowledge_admin', 'active'),
+    ('1a000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 'knowledge_admin@tenant-b.example', 'Dev Knowledge B', 'knowledge_admin', 'active')
+ON CONFLICT (tenant_id, email) DO UPDATE
+    SET display_name = EXCLUDED.display_name,
+        role         = EXCLUDED.role,
+        status       = EXCLUDED.status;
+
 -- ── Tenant branding (migration 0032; idempotent, dev-cosmetic) ──────────────
 UPDATE tenants SET
     legal_name      = 'Dev Hospital A LLC',

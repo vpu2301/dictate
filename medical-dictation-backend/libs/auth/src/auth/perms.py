@@ -26,7 +26,7 @@ Action = str  # e.g. 'user.invite', 'audit.read'
 TargetKind = str  # e.g. 'user', 'audit', 'tenant'
 
 KNOWN_ROLES: Final[frozenset[str]] = frozenset(
-    {"tenant_admin", "clinician", "nurse", "auditor", "service"}
+    {"tenant_admin", "clinician", "nurse", "auditor", "service", "knowledge_admin"}
 )
 
 KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
@@ -46,6 +46,8 @@ KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
         "phrase",
         "phi_access_request",
         "synonym",
+        "evidence",
+        "evidence_corpus",
     }
 )
 
@@ -251,6 +253,34 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("nurse", "synonym.write", "synonym"): False,
     ("auditor", "synonym.write", "synonym"): False,
     ("service", "synonym.write", "synonym"): False,
+    # ── EVA-S01: evidence module (Evidence AI extension) ──────────────
+    # New role `knowledge_admin` curates the tenant corpus and holds NO
+    # clinical or user-management permission (explicit false rows in the
+    # CSV for every pre-existing action). Patient-context reads follow the
+    # admin ⟂ PHI separation: tenant_admin may ask generic questions but
+    # never reads patient context (evidence.context.read is clinical-only).
+    # nurse context reads and clinician drug predictions are additionally
+    # gated by per-site feature flags in the service layer (S05/S10); the
+    # matrix records the ceiling, the flag lowers it at runtime.
+    ("clinician", "evidence.ask", "evidence"): True,
+    ("nurse", "evidence.ask", "evidence"): True,
+    ("tenant_admin", "evidence.ask", "evidence"): True,
+    ("clinician", "evidence.context.read", "evidence"): True,
+    ("nurse", "evidence.context.read", "evidence"): True,
+    ("tenant_admin", "evidence.context.read", "evidence"): False,
+    ("clinician", "evidence.acts.manage", "evidence"): True,
+    ("tenant_admin", "evidence.acts.manage", "evidence"): True,
+    ("clinician", "evidence.deeptrace.run", "evidence"): True,
+    ("tenant_admin", "evidence.deeptrace.run", "evidence"): True,
+    ("clinician", "evidence.drugs.read", "evidence"): True,
+    ("nurse", "evidence.drugs.read", "evidence"): True,
+    ("tenant_admin", "evidence.drugs.read", "evidence"): True,
+    ("clinician", "evidence.drugs.predict", "evidence"): True,
+    ("knowledge_admin", "evidence.corpus.manage", "evidence_corpus"): True,
+    ("tenant_admin", "evidence.corpus.manage", "evidence_corpus"): True,
+    ("knowledge_admin", "evidence.domains.manage", "evidence_corpus"): True,
+    ("auditor", "evidence.ops.read", "evidence"): True,
+    ("tenant_admin", "evidence.ops.read", "evidence"): True,
 }
 
 

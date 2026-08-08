@@ -59,7 +59,7 @@ A session is **exactly one version for its whole lifetime**:
   "type": "start_session",
   "protocol_version": 2,
   "prompt_id": "…",
-  "language": "uk",
+  "language": "uk",              // "uk" | "en" | "de"
   "mode": "conversation",        // NEW: "dictation" (default) | "conversation"
   "encounter_id": "…",           // REQUIRED when mode=conversation
   "template_id": "…",            // needed for a draft at finalize

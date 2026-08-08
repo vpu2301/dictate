@@ -124,3 +124,43 @@ def test_unknown_and_none_speakers_are_ignored() -> None:
     _feed(inference, "S1", hits=6, plain=6)
     assert inference.evaluate() is None
     assert set(inference._words) == {"S1"}
+
+
+# ── German ──────────────────────────────────────────────────────────
+
+_DE_DOCTOR_OPENER = "Ich verschreibe Ibuprofen und überweise Sie."
+_DE_DOCTOR_QUESTION = "Bitte untersuchen wir das Blutbild."
+_DE_PATIENT_WORDS = "ich habe seit zwei Tagen Kopfschmerzen"
+_DE_PLAIN = "gut"  # 0 hits
+
+
+def test_german_lexicon_maps_the_clinician() -> None:
+    inference = SpeakerMappingInference(language="de")
+    inference.observe_segments(
+        [
+            SpeakerSegment(0, 6000, "S1", 0.9),
+            SpeakerSegment(6000, 9000, "S2", 0.9),
+        ]
+    )
+    inference.observe_word(_DE_DOCTOR_OPENER, "S1")
+    inference.observe_word(_DE_DOCTOR_QUESTION, "S1")
+    for word in _DE_PATIENT_WORDS.split():
+        inference.observe_word(word, "S2")
+
+    hypothesis = inference.evaluate()
+    assert hypothesis is not None
+    assert hypothesis.mapping == {"S1": "doctor", "S2": "patient"}
+    assert hypothesis.confidence >= 0.6
+
+
+def test_german_abstains_without_clinician_register() -> None:
+    """No discriminating vocabulary → no doctor/patient claim, exactly as
+    for uk/en. The opener prior must never decide alone."""
+    inference = SpeakerMappingInference(language="de")
+    inference.observe_segments([SpeakerSegment(0, 8000, "S1", 0.9)])
+    for speaker in ("S1", "S2"):
+        for _ in range(8):
+            inference.observe_word(_DE_PLAIN, speaker)
+
+    assert inference.evaluate() is None
+    assert inference.current is None

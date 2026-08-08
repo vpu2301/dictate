@@ -1,0 +1,541 @@
+{
+  "$defs": {
+    "AnswerStatus": {
+      "enum": [
+        "ok",
+        "insufficient_basis",
+        "deflected"
+      ],
+      "title": "AnswerStatus",
+      "type": "string"
+    },
+    "CheckOutcome": {
+      "enum": [
+        "passed",
+        "warning",
+        "failed",
+        "not_applicable"
+      ],
+      "title": "CheckOutcome",
+      "type": "string"
+    },
+    "CheckResult": {
+      "additionalProperties": false,
+      "description": "Result of one deterministic check (rule CS1); computed by code, never a model.",
+      "properties": {
+        "db_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Db Version"
+        },
+        "engine": {
+          "title": "Engine",
+          "type": "string"
+        },
+        "entities": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "narrative": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narrative"
+        },
+        "outcome": {
+          "$ref": "#/$defs/CheckOutcome"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/FlagSeverity"
+        }
+      },
+      "required": [
+        "rule_id",
+        "engine",
+        "outcome",
+        "severity"
+      ],
+      "title": "CheckResult",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "passage_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passage Id"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "EvidenceTier": {
+      "description": "Fixed evidence-strength scale per rule SC2.",
+      "enum": [
+        "guideline",
+        "systematic_review",
+        "rct",
+        "observational",
+        "other"
+      ],
+      "title": "EvidenceTier",
+      "type": "string"
+    },
+    "Flag": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "requires_ack": {
+          "default": false,
+          "title": "Requires Ack",
+          "type": "boolean"
+        },
+        "severity": {
+          "$ref": "#/$defs/FlagSeverity"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "Flag",
+      "type": "object"
+    },
+    "FlagSeverity": {
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ],
+      "title": "FlagSeverity",
+      "type": "string"
+    },
+    "FollowUp": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_type": {
+          "$ref": "#/$defs/FollowUpAnswerType"
+        },
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "choices": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Choices"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "priority": {
+          "$ref": "#/$defs/FollowUpPriority"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "why_needed": {
+          "title": "Why Needed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "question",
+        "why_needed",
+        "priority",
+        "answer_type"
+      ],
+      "title": "FollowUp",
+      "type": "object"
+    },
+    "FollowUpAnswerType": {
+      "enum": [
+        "boolean",
+        "choice",
+        "number",
+        "quantity",
+        "text"
+      ],
+      "title": "FollowUpAnswerType",
+      "type": "string"
+    },
+    "FollowUpPriority": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "FollowUpPriority",
+      "type": "string"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "properties": {
+        "citations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SegmentKind"
+        },
+        "patient_fact_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Patient Fact Refs",
+          "type": "array"
+        },
+        "strength": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceTier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text"
+      ],
+      "title": "Segment",
+      "type": "object"
+    },
+    "SegmentKind": {
+      "description": "The six segment kinds of rule FE7/RC2. Final; changes go through v2 + ADR.",
+      "enum": [
+        "evidence",
+        "patient_fact",
+        "interpretation",
+        "uncertainty",
+        "missing_info",
+        "next_step"
+      ],
+      "title": "SegmentKind",
+      "type": "string"
+    },
+    "SourceAuthority": {
+      "description": "Authority precedence per rule RR3 (tenant > national > international > primary literature).",
+      "enum": [
+        "tenant",
+        "national",
+        "international",
+        "primary_literature",
+        "other"
+      ],
+      "title": "SourceAuthority",
+      "type": "string"
+    },
+    "SourceKind": {
+      "enum": [
+        "corpus",
+        "web",
+        "drug"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "An entry of the envelope's sources[] panel; citations point at these.",
+      "properties": {
+        "document_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Version Id"
+        },
+        "evidence_tier": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceTier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "source_authority": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceAuthority"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "web": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WebSourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "WebSourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "accessed_at": {
+          "format": "date-time",
+          "title": "Accessed At",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "snapshot_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Ref"
+        },
+        "trust_tier": {
+          "$ref": "#/$defs/WebTrustTier"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "domain",
+        "trust_tier",
+        "accessed_at"
+      ],
+      "title": "WebSourceRef",
+      "type": "object"
+    },
+    "WebTrustTier": {
+      "enum": [
+        "international_organization",
+        "government",
+        "professional_society",
+        "guideline_registry",
+        "journal",
+        "other"
+      ],
+      "title": "WebTrustTier",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/answer_envelope@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "answer_id": {
+      "format": "uuid",
+      "title": "Answer Id",
+      "type": "string"
+    },
+    "checks": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CheckResult"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "contract_version": {
+      "default": "1.0",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "detail_segments": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Segment"
+      },
+      "title": "Detail Segments",
+      "type": "array"
+    },
+    "flags": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Flag"
+      },
+      "title": "Flags",
+      "type": "array"
+    },
+    "followups": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FollowUp"
+      },
+      "title": "Followups",
+      "type": "array"
+    },
+    "provenance_ref": {
+      "title": "Provenance Ref",
+      "type": "string"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/AnswerStatus"
+    },
+    "summary_segments": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Segment"
+      },
+      "title": "Summary Segments",
+      "type": "array"
+    }
+  },
+  "required": [
+    "answer_id",
+    "status",
+    "provenance_ref"
+  ],
+  "title": "AnswerEnvelope",
+  "type": "object",
+  "x-contract-name": "answer_envelope",
+  "x-contract-version": "1.0"
+}

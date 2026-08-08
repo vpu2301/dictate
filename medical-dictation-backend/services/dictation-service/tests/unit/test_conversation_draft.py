@@ -173,7 +173,20 @@ def test_empty_segments_are_skipped() -> None:
 
 
 def test_unknown_language_falls_back_to_english_labels() -> None:
-    assert dialogue_text([{"text": "x", "speaker_role": "doctor"}], "de") == "DOCTOR: x"
+    # "fr" is not a dictation language; "de" is (see LANGUAGE_PATTERN).
+    assert dialogue_text([{"text": "x", "speaker_role": "doctor"}], "fr") == "DOCTOR: x"
+
+
+def test_german_labels() -> None:
+    text = dialogue_text(
+        [
+            {"text": "Was führt Sie zu mir?", "speaker_role": "doctor"},
+            {"text": "Ich habe Kopfschmerzen.", "speaker_role": "patient"},
+            {"text": "Hm.", "speaker_role": None, "speaker": "UNKNOWN"},
+        ],
+        "de",
+    )
+    assert text == ("ARZT: Was führt Sie zu mir?\nPATIENT: Ich habe Kopfschmerzen.\nUNBEKANNT: Hm.")
 
 
 # ── create_conversation_draft — happy path ───────────────────────────
@@ -280,3 +293,13 @@ async def test_report_service_error_is_audited_after_the_post() -> None:
     assert event["kind"] == audit_kinds.DRAFT_CREATE_FAILED
     assert event["payload"]["reason"] == "report_service_error"
     assert audit_kinds.DRAFT_CREATED not in state.audit_writer.kinds()
+
+
+async def test_german_draft_gets_the_german_title() -> None:
+    state = _state(draft=DraftResult(report_id="r3", code="C-3", version_id="v3"))
+    ctx = _ctx(language="de")
+
+    await create_conversation_draft(ctx, state, finalize_result=_result(_transcript()))
+
+    body = state.report_client.calls[0]["body"]
+    assert body["content"]["title"] == "Konsultation (Gesprächsmodus)"

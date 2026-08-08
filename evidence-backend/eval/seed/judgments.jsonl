@@ -1,0 +1,22 @@
+{"qid": "q01", "canonical_id": "doi:10.1234/who.2024.001", "section_like": "2 Recommendations", "grade": 3}
+{"qid": "q01", "canonical_id": "doi:10.7777/nice.ng28", "section_like": "Drug treatment", "grade": 3}
+{"qid": "q01", "canonical_id": "doi:10.1234/who.2024.001", "section_like": "1 Scope", "grade": 1}
+{"qid": "q01", "canonical_id": "doi:10.7777/nice.ng28", "section_like": "management$", "grade": 1}
+{"qid": "q02", "canonical_id": "doi:10.1234/who.2024.001", "section_like": "2 Recommendations", "grade": 3}
+{"qid": "q02", "canonical_id": "doi:10.7777/nice.ng28", "section_like": "Drug treatment", "grade": 3}
+{"qid": "q03", "canonical_id": "doi:10.1234/who.2024.001", "section_like": "Monitoring", "grade": 3}
+{"qid": "q04", "canonical_id": "doi:10.3333/moz.2022.15", "section_like": "Лікування$", "grade": 3}
+{"qid": "q04", "canonical_id": "moz:1234", "section_like": "Лікування", "grade": 2}
+{"qid": "q04", "canonical_id": "doi:10.5555/pmc.2023.42", "section_like": "Results", "grade": 2}
+{"qid": "q04", "canonical_id": "sha256:f31733ed1dd9e8ccd4b66a5b7b5ea1368207b4d371130d76f594a3b2841f86df", "section_like": "ROZDIL 1", "grade": 1}
+{"qid": "q05", "canonical_id": "doi:10.3333/moz.2022.15", "section_like": "Контроль тиску", "grade": 3}
+{"qid": "q06", "canonical_id": "pmid:36000002", "section_like": "CONCLUSIONS", "grade": 3}
+{"qid": "q06", "canonical_id": "pmid:36000002", "section_like": "BACKGROUND", "grade": 1}
+{"qid": "q07", "canonical_id": "doi:10.5555/pmc.2023.42", "section_like": "Methods$", "grade": 3}
+{"qid": "q07", "canonical_id": "doi:10.5555/pmc.2023.42", "section_like": "Abstract", "grade": 2}
+{"qid": "q07", "canonical_id": "doi:10.5555/pmc.2023.42", "section_like": "Results", "grade": 2}
+{"qid": "q08", "canonical_id": "doi:10.3333/moz.2022.15", "section_like": "Лікування$", "grade": 3}
+{"qid": "q08", "canonical_id": "doi:10.5555/pmc.2023.42", "section_like": "Results", "grade": 2}
+{"qid": "q09", "canonical_id": "doi:10.7777/nice.ng28", "section_like": "Recommendations$", "grade": 3}
+{"qid": "q10", "canonical_id": "moz:1234", "section_like": "Обстеження", "grade": 3}
+{"qid": "q10", "canonical_id": "sha256:f31733ed1dd9e8ccd4b66a5b7b5ea1368207b4d371130d76f594a3b2841f86df", "section_like": "DODATOK A", "grade": 2}

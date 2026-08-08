@@ -1,0 +1,52 @@
+{
+  "$id": "https://evidentia.contracts/chunk@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "char_end": {
+      "title": "Char End",
+      "type": "integer"
+    },
+    "char_start": {
+      "title": "Char Start",
+      "type": "integer"
+    },
+    "document_version_id": {
+      "format": "uuid",
+      "title": "Document Version Id",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "section_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Section Path"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "document_version_id",
+    "char_start",
+    "char_end",
+    "text"
+  ],
+  "title": "Chunk",
+  "type": "object",
+  "x-contract-name": "chunk",
+  "x-contract-version": "1.0"
+}

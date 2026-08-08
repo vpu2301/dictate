@@ -53,6 +53,10 @@
       {
         "name": "service",
         "description": "Service-to-service identity for backend daemons"
+      },
+      {
+        "name": "knowledge_admin",
+        "description": "Knowledge administrator — curates the tenant evidence corpus (EVA-S01)"
       }
     ],
     "client": {}
@@ -594,6 +598,62 @@
           "view-realm"
         ]
       }
+    },
+    {
+      "id": "1a000000-0000-0000-0000-00000000000a",
+      "username": "dev-knowledge",
+      "email": "knowledge_admin@tenant-a.example",
+      "firstName": "Dev",
+      "lastName": "Knowledge",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000a"
+        ],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": [
+          "0"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "knowledge_admin"
+      ]
+    },
+    {
+      "id": "1a000000-0000-0000-0000-00000000000b",
+      "username": "dev-knowledge-b",
+      "email": "knowledge_admin@tenant-b.example",
+      "firstName": "Dev",
+      "lastName": "Knowledge",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "00000000-0000-0000-0000-00000000000b"
+        ],
+        "mfa_enrolled_at": [],
+        "recovery_codes_hash_count": [
+          "0"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "knowledge_admin"
+      ]
     }
   ]
 }

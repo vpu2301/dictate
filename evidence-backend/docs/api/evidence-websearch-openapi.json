@@ -1,0 +1,1097 @@
+{
+  "components": {
+    "schemas": {
+      "ClinicalConcept": {
+        "additionalProperties": false,
+        "properties": {
+          "coding": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Coding"
+            },
+            "title": "Coding",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ClinicalConcept",
+        "type": "object"
+      },
+      "ClinicalIntent": {
+        "additionalProperties": false,
+        "properties": {
+          "concepts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ClinicalConcept"
+            },
+            "title": "Concepts",
+            "type": "array"
+          },
+          "contract_version": {
+            "default": "1.0",
+            "pattern": "^\\d+\\.\\d+$",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "negations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Negations",
+            "type": "array"
+          },
+          "population": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Population"
+          },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType"
+          }
+        },
+        "required": [
+          "question_type"
+        ],
+        "title": "ClinicalIntent",
+        "type": "object"
+      },
+      "Coding": {
+        "additionalProperties": false,
+        "description": "A code in a terminology system (ICD-10, ATC, SNOMED, LOINC, ...).",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display"
+          },
+          "system": {
+            "title": "System",
+            "type": "string"
+          }
+        },
+        "required": [
+          "system",
+          "code"
+        ],
+        "title": "Coding",
+        "type": "object"
+      },
+      "ConnectorKind": {
+        "enum": [
+          "local_corpus",
+          "tenant_corpus",
+          "pubmed",
+          "guideline_registry",
+          "web",
+          "drug"
+        ],
+        "title": "ConnectorKind",
+        "type": "string"
+      },
+      "DomainCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$",
+            "title": "Domain",
+            "type": "string"
+          },
+          "metadata_only": {
+            "default": false,
+            "title": "Metadata Only",
+            "type": "boolean"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "status": {
+            "default": "pending",
+            "title": "Status",
+            "type": "string"
+          },
+          "trust_tier": {
+            "title": "Trust Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "trust_tier"
+        ],
+        "title": "DomainCreate",
+        "type": "object"
+      },
+      "DomainPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "metadata_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata Only"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "trust_tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Tier"
+          }
+        },
+        "title": "DomainPatch",
+        "type": "object"
+      },
+      "DomainView": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "metadata_only": {
+            "title": "Metadata Only",
+            "type": "boolean"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "shipped": {
+            "default": false,
+            "title": "Shipped",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "trust_tier": {
+            "title": "Trust Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "domain",
+          "trust_tier",
+          "status",
+          "is_default",
+          "metadata_only"
+        ],
+        "title": "DomainView",
+        "type": "object"
+      },
+      "EvidencePassage": {
+        "additionalProperties": false,
+        "description": "A retrieval result, whatever connector produced it.",
+        "properties": {
+          "char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char End"
+          },
+          "char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Start"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "connector_id": {
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "document_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Version Id"
+          },
+          "evidence_tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceTier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "license_class": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseClass"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "retracted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retracted"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "scores": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PassageScores"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "section_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Path"
+          },
+          "source_authority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceAuthority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectorKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "web_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebSourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "connector_id",
+          "text"
+        ],
+        "title": "EvidencePassage",
+        "type": "object"
+      },
+      "EvidenceTier": {
+        "description": "Fixed evidence-strength scale per rule SC2.",
+        "enum": [
+          "guideline",
+          "systematic_review",
+          "rct",
+          "observational",
+          "other"
+        ],
+        "title": "EvidenceTier",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LicenseClass": {
+        "enum": [
+          "public_domain",
+          "open_license",
+          "licensed_redistributable",
+          "licensed_internal",
+          "restricted"
+        ],
+        "title": "LicenseClass",
+        "type": "string"
+      },
+      "PageTrace": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "from_cache": {
+            "default": false,
+            "title": "From Cache",
+            "type": "boolean"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "domain",
+          "status"
+        ],
+        "title": "PageTrace",
+        "type": "object"
+      },
+      "PassageScores": {
+        "additionalProperties": false,
+        "description": "Per-stage score retention (S03): every stage's contribution stays\nvisible for provenance and eval ablations.",
+        "properties": {
+          "dense": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dense"
+          },
+          "final": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final"
+          },
+          "fused": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fused"
+          },
+          "lexical": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lexical"
+          },
+          "rerank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rerank"
+          }
+        },
+        "title": "PassageScores",
+        "type": "object"
+      },
+      "QuestionType": {
+        "enum": [
+          "diagnosis",
+          "therapy",
+          "dosing",
+          "interaction",
+          "contraindication",
+          "prognosis",
+          "etiology",
+          "prevention",
+          "other"
+        ],
+        "title": "QuestionType",
+        "type": "string"
+      },
+      "SourceAuthority": {
+        "description": "Authority precedence per rule RR3 (tenant > national > international > primary literature).",
+        "enum": [
+          "tenant",
+          "national",
+          "international",
+          "primary_literature",
+          "other"
+        ],
+        "title": "SourceAuthority",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WebSearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/ClinicalIntent"
+          },
+          "k": {
+            "default": 8,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "K",
+            "type": "integer"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace Id"
+          }
+        },
+        "required": [
+          "intent",
+          "tenant_id"
+        ],
+        "title": "WebSearchRequest",
+        "type": "object"
+      },
+      "WebSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "connector_id": {
+            "default": "web@searxng-1",
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "degrade_reason": {
+            "default": "",
+            "title": "Degrade Reason",
+            "type": "string"
+          },
+          "degraded": {
+            "default": false,
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "indexed_chunks": {
+            "default": 0,
+            "title": "Indexed Chunks",
+            "type": "integer"
+          },
+          "not_allowlisted": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Allowlisted",
+            "type": "array"
+          },
+          "pages": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PageTrace"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "passages": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/EvidencePassage"
+            },
+            "title": "Passages",
+            "type": "array"
+          }
+        },
+        "title": "WebSearchResponse",
+        "type": "object"
+      },
+      "WebSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "accessed_at": {
+            "format": "date-time",
+            "title": "Accessed At",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "snapshot_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Ref"
+          },
+          "trust_tier": {
+            "$ref": "#/components/schemas/WebTrustTier"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "domain",
+          "trust_tier",
+          "accessed_at"
+        ],
+        "title": "WebSourceRef",
+        "type": "object"
+      },
+      "WebTrustTier": {
+        "enum": [
+          "international_organization",
+          "government",
+          "professional_society",
+          "guideline_registry",
+          "journal",
+          "other"
+        ],
+        "title": "WebTrustTier",
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "description": "Quick-Search web agent: self-hosted metasearch, allowlisted fetch through the egress proxy, ephemeral per-query index",
+    "title": "Evidence Websearch",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readyz",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/web/domains": {
+      "get": {
+        "operationId": "list_domains_web_domains_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DomainView"
+                  },
+                  "title": "Response List Domains Web Domains Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Domains",
+        "tags": [
+          "domains"
+        ]
+      },
+      "post": {
+        "operationId": "create_domain_web_domains_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Domain",
+        "tags": [
+          "domains"
+        ]
+      }
+    },
+    "/web/domains/{domain_id}": {
+      "patch": {
+        "operationId": "patch_domain_web_domains__domain_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Domain",
+        "tags": [
+          "domains"
+        ]
+      }
+    },
+    "/web/search": {
+      "post": {
+        "operationId": "web_search_web_search_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-service-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Service-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Web Search",
+        "tags": [
+          "search"
+        ]
+      }
+    }
+  }
+}

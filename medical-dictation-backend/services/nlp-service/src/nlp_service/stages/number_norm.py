@@ -1,7 +1,8 @@
 """Stage 3 — number & unit normalization.
 
 Rule-based per-language modules implement word-tagging + pattern
-matching. Sprint 5 ships UK + EN; both deliberately err on the side of
+matching. Sprint 5 shipped UK + EN and German joined them with the
+dictation language rollout; all three deliberately err on the side of
 "pass through unchanged" rather than "normalize aggressively wrong" —
 clinical correctness on BP/dosage is the gate.
 """
@@ -17,6 +18,8 @@ from ..pipeline.base import (
     StageOutput,
 )
 from .artifacts import numeric_artifacts_from_output
+from .number_norm_de import _UNITS as _UNITS_DE
+from .number_norm_de import normalize_de
 from .number_norm_en import _UNITS as _UNITS_EN
 from .number_norm_en import normalize_en
 from .number_norm_uk import _UNITS as _UNITS_UK
@@ -28,6 +31,7 @@ from .number_norm_uk import normalize_uk
 _CANONICAL_UNITS = {
     "uk": frozenset(_UNITS_UK.values()) | {"мм рт. ст."},
     "en": frozenset(_UNITS_EN.values()) | {"mmHg"},
+    "de": frozenset(_UNITS_DE.values()) | {"mmHg", "°C"},
 }
 
 logger = logging.getLogger(__name__)
@@ -43,6 +47,12 @@ class NumberNormStage:
         t0 = time.monotonic()
         if ctx.language == "uk":
             new_text = normalize_uk(
+                input.text,
+                decimal_separator=ctx.decimal_separator,
+                bp_separator=ctx.bp_separator,
+            )
+        elif ctx.language == "de":
+            new_text = normalize_de(
                 input.text,
                 decimal_separator=ctx.decimal_separator,
                 bp_separator=ctx.bp_separator,

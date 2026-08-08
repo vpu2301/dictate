@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "ClinicalConcept": {
+      "additionalProperties": false,
+      "properties": {
+        "coding": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Coding"
+          },
+          "title": "Coding",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "ClinicalConcept",
+      "type": "object"
+    },
+    "Coding": {
+      "additionalProperties": false,
+      "description": "A code in a terminology system (ICD-10, ATC, SNOMED, LOINC, ...).",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "Coding",
+      "type": "object"
+    },
+    "QuestionType": {
+      "enum": [
+        "diagnosis",
+        "therapy",
+        "dosing",
+        "interaction",
+        "contraindication",
+        "prognosis",
+        "etiology",
+        "prevention",
+        "other"
+      ],
+      "title": "QuestionType",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/clinical_intent@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "concepts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ClinicalConcept"
+      },
+      "title": "Concepts",
+      "type": "array"
+    },
+    "contract_version": {
+      "default": "1.0",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "negations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Negations",
+      "type": "array"
+    },
+    "population": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Population"
+    },
+    "question_type": {
+      "$ref": "#/$defs/QuestionType"
+    }
+  },
+  "required": [
+    "question_type"
+  ],
+  "title": "ClinicalIntent",
+  "type": "object",
+  "x-contract-name": "clinical_intent",
+  "x-contract-version": "1.0"
+}

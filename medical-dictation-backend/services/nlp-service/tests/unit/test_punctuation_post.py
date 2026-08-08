@@ -43,3 +43,20 @@ def test_strip_double_punctuation() -> None:
     assert strip_double_punctuation("hello..") == "hello."
     assert strip_double_punctuation("yes!!") == "yes!"
     assert strip_double_punctuation("ok, , done") == "ok, done"
+
+
+def test_lowercase_units_de() -> None:
+    assert lowercase_units_after_numbers("5 MG", "de") == "5 mg"
+    assert lowercase_units_after_numbers("20 ML", "de") == "20 ml"
+
+
+def test_lowercase_units_de_preserves_nouns_and_ie() -> None:
+    """German capitalizes nouns, and "IE" (internationale Einheiten) is
+    written upper-case — neither may be lower-cased just for following a
+    number."""
+    assert lowercase_units_after_numbers("5 Tabletten", "de") == "5 Tabletten"
+    assert lowercase_units_after_numbers("1000 IE", "de") == "1000 IE"
+
+
+def test_capitalize_after_period_umlaut() -> None:
+    assert capitalize_post_punctuation("Befund. übelkeit besteht") == "Befund. Übelkeit besteht"

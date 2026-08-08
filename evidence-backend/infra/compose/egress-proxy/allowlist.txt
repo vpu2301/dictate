@@ -1,0 +1,60 @@
+# Egress allowlist — the ONLY destinations the platform may reach (ADR-0005).
+#
+# Squid `dstdomain` syntax: a leading dot matches the domain and all its
+# subdomains; a bare name matches that host exactly.
+#
+# This file and `web_domains` (migration 0070) must agree. They are separate
+# on purpose: the DB table is the *product* allowlist a knowledge_admin can
+# change at runtime; this file is the *network* boundary an operator changes,
+# and a domain enabled in the database but absent here simply fails to fetch.
+# Defense in depth means the weaker control cannot widen the stronger one.
+#
+# NOT on this list, deliberately and permanently: every model-vendor API
+# (api.openai.com, api.anthropic.com, generativelanguage.googleapis.com, …).
+# Rule LM1 says all inference is self-hosted, and the network proves it — the
+# `egress-network-policy` test asserts these are unreachable.
+
+# ── metasearch engine backends ─────────────────────────────────────────
+# Infrastructure, not sources: SearXNG queries these to *find* candidates,
+# and the fetcher then re-checks every hit against `web_domains` before a
+# page is fetched or cited. They therefore belong here and NOT in the
+# product allowlist — a duckduckgo.com URL is never citable. Without them
+# SearXNG's own upstream calls die at the proxy and every search returns
+# zero results with `unresponsive_engines: [... "proxy error"]`.
+.duckduckgo.com
+.bing.com
+.startpage.com
+.crossref.org
+
+# ── international organizations ────────────────────────────────────────
+.who.int
+.europa.eu
+
+# ── government / state agencies ────────────────────────────────────────
+.cdc.gov
+.fda.gov
+.nice.org.uk
+.moz.gov.ua
+.dec.gov.ua
+.nih.gov
+
+# ── guideline registries ───────────────────────────────────────────────
+.g-i-n.net
+.magicevidence.org
+
+# ── professional societies ─────────────────────────────────────────────
+.escardio.org
+.acc.org
+.idsociety.org
+.ersnet.org
+.easl.eu
+.kdigo.org
+.ginasthma.org
+.goldcopd.org
+.diabetes.org
+
+# ── journals (metadata-only in the product allowlist) ──────────────────
+.cochranelibrary.com
+.bmj.com
+.thelancet.com
+.nejm.org
