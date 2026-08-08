@@ -47,6 +47,22 @@ def test_decode_text_start_session_minimal() -> None:
     assert msg.language == "uk"
 
 
+def test_decode_text_start_session_german() -> None:
+    prompt = str(uuid4())
+    msg = decode_text(f'{{"type":"start_session","prompt_id":"{prompt}","language":"de"}}')
+    assert isinstance(msg, StartSession)
+    assert msg.language == "de"
+
+
+def test_decode_text_start_session_unsupported_language_rejected() -> None:
+    """The wire is the first gate: an unsupported language never reaches
+    the DB CHECK or a Whisper call."""
+    prompt = str(uuid4())
+    with pytest.raises(BadMessageError) as exc:
+        decode_text(f'{{"type":"start_session","prompt_id":"{prompt}","language":"fr"}}')
+    assert exc.value.code == ErrorCode.BAD_MESSAGE
+
+
 def test_decode_text_end_session() -> None:
     msg = decode_text('{"type":"end_session"}')
     assert isinstance(msg, EndSession)

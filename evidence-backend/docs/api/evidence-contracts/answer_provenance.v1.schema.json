@@ -1,0 +1,174 @@
+{
+  "$defs": {
+    "WebSourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "accessed_at": {
+          "format": "date-time",
+          "title": "Accessed At",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "snapshot_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Ref"
+        },
+        "trust_tier": {
+          "$ref": "#/$defs/WebTrustTier"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "domain",
+        "trust_tier",
+        "accessed_at"
+      ],
+      "title": "WebSourceRef",
+      "type": "object"
+    },
+    "WebTrustTier": {
+      "enum": [
+        "international_organization",
+        "government",
+        "professional_society",
+        "guideline_registry",
+        "journal",
+        "other"
+      ],
+      "title": "WebTrustTier",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/answer_provenance@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "answer_id": {
+      "format": "uuid",
+      "title": "Answer Id",
+      "type": "string"
+    },
+    "build_version": {
+      "title": "Build Version",
+      "type": "string"
+    },
+    "connectors": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Connectors",
+      "type": "array"
+    },
+    "consumed_fields": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Consumed Fields",
+      "type": "array"
+    },
+    "contract_version": {
+      "default": "1.0",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "corpus_snapshot_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Corpus Snapshot Id"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "model_pins": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "title": "Model Pins",
+      "type": "object"
+    },
+    "passage_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Passage Ids",
+      "type": "array"
+    },
+    "pipeline_version": {
+      "title": "Pipeline Version",
+      "type": "string"
+    },
+    "prompt_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "title": "Prompt Versions",
+      "type": "object"
+    },
+    "question_ref": {
+      "title": "Question Ref",
+      "type": "string"
+    },
+    "snapshot_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Hash"
+    },
+    "web_refs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WebSourceRef"
+      },
+      "title": "Web Refs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "answer_id",
+    "question_ref",
+    "pipeline_version",
+    "build_version",
+    "created_at"
+  ],
+  "title": "AnswerProvenance",
+  "type": "object",
+  "x-contract-name": "answer_provenance",
+  "x-contract-version": "1.0"
+}

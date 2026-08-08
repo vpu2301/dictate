@@ -92,6 +92,10 @@ typos at import.
 | `patient.created`                 | info     | core-service POST /patients      | Sprint 11 — new patient added to the roster. Payload: has_mrn |
 | `patient.updated`                 | info     | core-service PUT /patients/{id}  | Sprint 11 — patient demographics edited. Payload: fields (changed column names) |
 | `patient.viewed`                  | info     | core-service GET /patients/{id}  | Sprint 11 — full patient record fetched (PHI access). |
+| `patient.imported`                | info     | core-service POST /patients/import | Bulk roster import — one event per request, alongside a `patient.created` per written row. Payload: total, created, skipped, failed, dry_run |
+| `patient_document.uploaded`       | info     | core-service POST /patients/{id}/documents | Migration 0065 — file attached to a patient record. Payload: patient_id, category, content_type, byte_size, break_glass |
+| `patient_document.downloaded`     | info/sec | core-service GET /patients/{id}/documents/{doc}/content | Migration 0065 — attachment read (PHI access; `sec` under break-glass). Payload: patient_id, byte_size, break_glass |
+| `patient_document.deleted`        | sec      | core-service DELETE /patients/{id}/documents/{doc} | Migration 0065 — attachment crypto-shredded (object first, then row). Payload: patient_id, category, break_glass |
 | `encounter.created`              | info     | core-service POST /patients/{id}/encounters | Sprint 11 — encounter recorded. Payload: encounter_id, kind |
 | `encounter.started`               | info     | core-service POST /encounters/{id}/start | Migration 0058 — scheduled visit went live. Payload: encounter_id, from, to |
 | `encounter.paused`                | info     | core-service POST /encounters/{id}/pause | Migration 0058 — visit paused (clinician stepped out). Payload: encounter_id, from, to, reason? |
@@ -223,3 +227,64 @@ call for exactly this reason. Rationale also recorded in
 of a code entering a report — `anamnesis.field.confirmed` /
 `anamnesis.field.overridden` carry the codes. Searching is not a
 clinical act; choosing is.
+
+## EVA-S01 — evidence module (no kinds added)
+
+Sprint EVA-S01 (domain model & contracts, `evidence-backend` workspace) adds
+**no audit kinds**: it ships contracts, schema and permissions only — no
+runtime write path exists yet. The `evidence.probe_action` kind planned by the
+EVA-S00 spec was never registered because S00's runtime slice was not built
+(recorded as an as-built delta in `evidence-backend/docs/sprints/sprint-01.md`);
+first real evidence kinds arrive with the first evidence service (EVA-S02+).
+
+## EVA-S02 — evidence ingestion (`evidence-ingest`)
+
+Constants: `evidence-backend/services/evidence-ingest/src/evidence_ingest/audit_kinds.py`.
+
+| kind | severity | emitter | meaning |
+|---|---|---|---|
+| `evidence.document_ingested` | info | ingest pipeline (indexing stage) | new document or version parsed, chunked, embedded and indexed |
+| `evidence.document_retracted` | sec | retractions processor | retraction flagged; document excluded from the next snapshot (kept for provenance) |
+| `evidence.document_quarantined` | sec | ingest-time injection screen (LM4) | instruction-pattern payload held for knowledge_admin review |
+| `evidence.quarantine_decided` | sec | quarantine review endpoint | reviewer approved (pipeline resumes) or rejected (job dead) |
+| `evidence.snapshot_created` | info | snapshot builder | immutable corpus snapshot frozen (member list + license exclusions in payload) |
+
+`authz.denied` emissions from evidence services reuse the platform kind.
+
+## EVA-S03 — evidence retrieval (no kinds added; recorded decision)
+
+`evidence-retrieval` performs reads only and emits **no audit events at this
+layer** (spec §8): retrieval requests carry no user identity (service-token
+hop; identity attaches in evidence-answer), and answer-level provenance
+(ET1, `answer_provenance`) is the durable record of which passages were
+used. Revisiting this (e.g. auditing raw retrieval for research-use
+telemetry) is an ADR, not a quiet addition.
+
+## EVA-S04 — Quick Search (`evidence-answer`, `evidence-websearch`)
+
+Constants: `evidence-backend/services/evidence-answer/src/evidence_answer/audit_kinds.py`
+and `…/evidence-websearch/src/evidence_websearch/audit_kinds.py`.
+
+| kind | severity | emitter | meaning |
+|---|---|---|---|
+| `evidence.answer_generated` | info | `evidence-answer` persist stage | an answer was stored; payload: `answer_id`, `mode`, `status`, contributing `connectors`, `verified=false` (until S06) |
+| `evidence.question_deflected` | info | `evidence-answer` triage stage | a question was refused; payload: `reason_code`, `matched_rule`, `classifier_used` |
+| `evidence.web_domain_added` | sec | `evidence-websearch` domains admin | fetch allowlist entry created or re-enabled; payload: `domain`, `trust_tier`, `status`, `metadata_only` |
+| `evidence.web_domain_disabled` | sec | `evidence-websearch` domains admin | allowlist entry disabled for the tenant |
+
+Two payload decisions worth knowing:
+
+- **The question text is never in a deflection payload.** Audit payloads are
+  widely readable, and a deflected question — an emergency, a self-harm
+  disclosure, a patient asking about their own body — is the single most
+  likely one to carry something sensitive. The reason code and the rule id
+  are enough to explain the deflection and to count it.
+- **`evidence.answer_generated` is not best-effort.** If the audit write
+  fails, the `answers` row is deleted rather than left un-audited: an answer
+  nobody can account for is worse than no answer. (The envelope object is
+  left behind deliberately — an orphan blob is inert; the row is what makes
+  it reachable.)
+
+The question/answer *content* is in `questions`/`answers` under user-private
+RLS and, for the envelope, inside an `EncryptedObjectStore` object — not in
+the audit chain.

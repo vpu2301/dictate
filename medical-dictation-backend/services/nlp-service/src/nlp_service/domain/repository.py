@@ -30,7 +30,10 @@ async def load_voice_commands(
     Falls back to an empty catalogue if the table is absent (dev hosts
     without migrations). The matcher tolerates an empty catalogue.
     """
-    out: dict[str, list[CommandSpec]] = {"uk": [], "en": []}
+    # Pre-seeded so a language with no catalogue rows still resolves to an
+    # empty list (the matcher tolerates it) instead of a KeyError-shaped
+    # surprise for callers that index the map directly.
+    out: dict[str, list[CommandSpec]] = {"uk": [], "en": [], "de": []}
     try:
         async with pool.acquire() as conn:
             rows = await conn.fetch(

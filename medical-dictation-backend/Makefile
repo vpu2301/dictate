@@ -205,7 +205,7 @@ check-notification-phi-free: ## CI gate (BLOCKING) — no email template may ren
 run-notification-digest: ## Run the daily notification digest once (cron entrypoint)
 	uv run --project services/notification-service python -m notification_service.jobs.digest
 
-seed-prompts: ## Seed medical_prompts (uk/en × 7 specialties)
+seed-prompts: ## Seed medical_prompts (uk/en/de × 7 specialties)
 	psql "postgresql://postgres:postgres@localhost:5432/medical_dictation" \
 	    -f infra/postgres/seed/medical_prompts.sql
 

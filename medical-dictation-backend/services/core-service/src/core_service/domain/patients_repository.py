@@ -193,6 +193,22 @@ async def find_patient_id_by_ipn_hmac(
     )
 
 
+async def find_patient_id_by_mrn(
+    conn: asyncpg.Connection, *, mrn: str
+) -> UUID | None:
+    """Id of the live (non-erased) patient carrying this MRN, if any.
+
+    The unique index is partial (``WHERE mrn <> ''``), so an empty MRN is
+    "not assigned" and never matches — callers must not treat it as a key.
+    """
+    if not mrn:
+        return None
+    return await conn.fetchval(
+        "SELECT id FROM patients WHERE mrn = $1 AND status <> 'erased'",
+        mrn,
+    )
+
+
 async def bump_last_visit(
     conn: asyncpg.Connection, *, patient_id: UUID, when: datetime
 ) -> None:

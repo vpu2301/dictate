@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "TriageOutcome": {
+      "enum": [
+        "allow",
+        "deflect"
+      ],
+      "title": "TriageOutcome",
+      "type": "string"
+    },
+    "TriageReason": {
+      "description": "Why a question was deflected. Final for v1; new codes are additive.",
+      "enum": [
+        "emergency",
+        "self_harm",
+        "personal_advice",
+        "out_of_scope",
+        "unsafe_request"
+      ],
+      "title": "TriageReason",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/triage_decision@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "classifier_used": {
+      "default": false,
+      "title": "Classifier Used",
+      "type": "boolean"
+    },
+    "contract_version": {
+      "default": "1.0",
+      "pattern": "^\\d+\\.\\d+$",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "matched_rule": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Matched Rule"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    },
+    "outcome": {
+      "$ref": "#/$defs/TriageOutcome"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TriageReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "outcome"
+  ],
+  "title": "TriageDecision",
+  "type": "object",
+  "x-contract-name": "triage_decision",
+  "x-contract-version": "1.0"
+}

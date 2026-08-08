@@ -222,7 +222,7 @@
             "type": "string"
           },
           "language": {
-            "pattern": "^(uk|en)$",
+            "pattern": "^(uk|en|de)$",
             "title": "Language",
             "type": "string"
           },

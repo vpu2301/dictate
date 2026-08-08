@@ -1,0 +1,1066 @@
+{
+  "components": {
+    "schemas": {
+      "AnswerEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "answer_id": {
+            "format": "uuid",
+            "title": "Answer Id",
+            "type": "string"
+          },
+          "checks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "contract_version": {
+            "default": "1.0",
+            "pattern": "^\\d+\\.\\d+$",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "detail_segments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "title": "Detail Segments",
+            "type": "array"
+          },
+          "flags": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "followups": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FollowUp"
+            },
+            "title": "Followups",
+            "type": "array"
+          },
+          "provenance_ref": {
+            "title": "Provenance Ref",
+            "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnswerStatus"
+          },
+          "summary_segments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "title": "Summary Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answer_id",
+          "status",
+          "provenance_ref"
+        ],
+        "title": "AnswerEnvelope",
+        "type": "object"
+      },
+      "AnswerMode": {
+        "description": "Product modes; the DB CHECK on questions.mode carries the same values.",
+        "enum": [
+          "quick_search",
+          "contextual",
+          "deeptrace",
+          "drug"
+        ],
+        "title": "AnswerMode",
+        "type": "string"
+      },
+      "AnswerStatus": {
+        "enum": [
+          "ok",
+          "insufficient_basis",
+          "deflected"
+        ],
+        "title": "AnswerStatus",
+        "type": "string"
+      },
+      "AskRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "locale": {
+            "default": "uk",
+            "pattern": "^(uk|en)(-[A-Za-z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/AnswerMode",
+            "default": "quick_search"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "AskRequest",
+        "type": "object"
+      },
+      "CheckOutcome": {
+        "enum": [
+          "passed",
+          "warning",
+          "failed",
+          "not_applicable"
+        ],
+        "title": "CheckOutcome",
+        "type": "string"
+      },
+      "CheckResult": {
+        "additionalProperties": false,
+        "description": "Result of one deterministic check (rule CS1); computed by code, never a model.",
+        "properties": {
+          "db_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Version"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "entities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "narrative": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrative"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/CheckOutcome"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/FlagSeverity"
+          }
+        },
+        "required": [
+          "rule_id",
+          "engine",
+          "outcome",
+          "severity"
+        ],
+        "title": "CheckResult",
+        "type": "object"
+      },
+      "Citation": {
+        "additionalProperties": false,
+        "properties": {
+          "passage_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passage Id"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "EvidenceTier": {
+        "description": "Fixed evidence-strength scale per rule SC2.",
+        "enum": [
+          "guideline",
+          "systematic_review",
+          "rct",
+          "observational",
+          "other"
+        ],
+        "title": "EvidenceTier",
+        "type": "string"
+      },
+      "Flag": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "requires_ack": {
+            "default": false,
+            "title": "Requires Ack",
+            "type": "boolean"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/FlagSeverity"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "title": "Flag",
+        "type": "object"
+      },
+      "FlagSeverity": {
+        "enum": [
+          "info",
+          "warning",
+          "critical"
+        ],
+        "title": "FlagSeverity",
+        "type": "string"
+      },
+      "FollowUp": {
+        "additionalProperties": false,
+        "properties": {
+          "answer_type": {
+            "$ref": "#/components/schemas/FollowUpAnswerType"
+          },
+          "blocking": {
+            "default": false,
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/FollowUpPriority"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "why_needed": {
+            "title": "Why Needed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "why_needed",
+          "priority",
+          "answer_type"
+        ],
+        "title": "FollowUp",
+        "type": "object"
+      },
+      "FollowUpAnswerType": {
+        "enum": [
+          "boolean",
+          "choice",
+          "number",
+          "quantity",
+          "text"
+        ],
+        "title": "FollowUpAnswerType",
+        "type": "string"
+      },
+      "FollowUpPriority": {
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ],
+        "title": "FollowUpPriority",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "QuestionPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuestionView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "title": "QuestionPage",
+        "type": "object"
+      },
+      "QuestionView": {
+        "additionalProperties": false,
+        "properties": {
+          "answer_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Id"
+          },
+          "answer_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Status"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "mode",
+          "locale",
+          "created_at"
+        ],
+        "title": "QuestionView",
+        "type": "object"
+      },
+      "Segment": {
+        "additionalProperties": false,
+        "properties": {
+          "citations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SegmentKind"
+          },
+          "patient_fact_refs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Patient Fact Refs",
+            "type": "array"
+          },
+          "strength": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceTier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text"
+        ],
+        "title": "Segment",
+        "type": "object"
+      },
+      "SegmentKind": {
+        "description": "The six segment kinds of rule FE7/RC2. Final; changes go through v2 + ADR.",
+        "enum": [
+          "evidence",
+          "patient_fact",
+          "interpretation",
+          "uncertainty",
+          "missing_info",
+          "next_step"
+        ],
+        "title": "SegmentKind",
+        "type": "string"
+      },
+      "SourceAuthority": {
+        "description": "Authority precedence per rule RR3 (tenant > national > international > primary literature).",
+        "enum": [
+          "tenant",
+          "national",
+          "international",
+          "primary_literature",
+          "other"
+        ],
+        "title": "SourceAuthority",
+        "type": "string"
+      },
+      "SourceKind": {
+        "enum": [
+          "corpus",
+          "web",
+          "drug"
+        ],
+        "title": "SourceKind",
+        "type": "string"
+      },
+      "SourceRef": {
+        "additionalProperties": false,
+        "description": "An entry of the envelope's sources[] panel; citations point at these.",
+        "properties": {
+          "document_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Version Id"
+          },
+          "evidence_tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceTier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "source_authority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceAuthority"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "web": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebSourceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title"
+        ],
+        "title": "SourceRef",
+        "type": "object"
+      },
+      "SuggestionsView": {
+        "additionalProperties": false,
+        "properties": {
+          "curated": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Curated",
+            "type": "array"
+          },
+          "popular": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Popular",
+            "type": "array"
+          },
+          "specialties": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Specialties",
+            "type": "array"
+          }
+        },
+        "title": "SuggestionsView",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WebSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "accessed_at": {
+            "format": "date-time",
+            "title": "Accessed At",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "snapshot_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Ref"
+          },
+          "trust_tier": {
+            "$ref": "#/components/schemas/WebTrustTier"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "domain",
+          "trust_tier",
+          "accessed_at"
+        ],
+        "title": "WebSourceRef",
+        "type": "object"
+      },
+      "WebTrustTier": {
+        "enum": [
+          "international_organization",
+          "government",
+          "professional_society",
+          "guideline_registry",
+          "journal",
+          "other"
+        ],
+        "title": "WebTrustTier",
+        "type": "string"
+      }
+    }
+  },
+  "info": {
+    "description": "Quick Search: intake/triage, intent extraction, staged pipeline, SSE streaming, persistence and provenance",
+    "title": "Evidence Answer",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/answers": {
+      "post": {
+        "operationId": "ask_answers_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask",
+        "tags": [
+          "answers"
+        ]
+      }
+    },
+    "/answers/{answer_id}": {
+      "get": {
+        "description": "Reopen: served from the stored envelope object.\n\nWeb passages come from the page snapshot captured at answer time \u2014 the\nfetcher is not called, so reopening an answer neither re-fetches nor\nre-dates a citation (AC-S04-B-6).",
+        "operationId": "get_answer_answers__answer_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "answer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Answer Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Answer",
+        "tags": [
+          "answers"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/questions": {
+      "get": {
+        "operationId": "list_questions_questions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Questions",
+        "tags": [
+          "questions"
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readyz",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/suggestions": {
+      "get": {
+        "operationId": "get_suggestions_suggestions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "specialty",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Specialty"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "default": "uk",
+              "pattern": "^(uk|en)(-[A-Za-z]{2})?$",
+              "title": "Locale",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Suggestions",
+        "tags": [
+          "suggestions"
+        ]
+      }
+    }
+  }
+}

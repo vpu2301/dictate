@@ -1,0 +1,47 @@
+{
+  "comment": "Frozen EvidenceSource wire fixture (EVA-S03). Changing this file means the connector protocol changed — that requires an ADR, not a quiet edit.",
+  "request": {
+    "query": "лікування АГ у пацієнтів з ХХН",
+    "k": 8,
+    "filters": {
+      "authority": ["national", "international"],
+      "jurisdiction": "UA",
+      "specialty": ["cardiology"],
+      "date_from": "2019-01-01",
+      "date_to": "2026-01-01",
+      "include_superseded": false
+    }
+  },
+  "response_passage": {
+    "id": "chunk:1f9d1a2e-6b3c-4c1e-9a2b-0d5e7f8a9b10",
+    "connector_id": "local_corpus@1.0",
+    "text": "У пацієнтів з артеріальною гіпертензією та хронічною хворобою нирок препаратами першої лінії є інгібітори АПФ.",
+    "section_path": "treatment/first_line",
+    "document_version_id": "6c2f4d7e-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
+    "web_ref": {
+      "url": "https://guidelines.moz.gov.ua/documents/hypertension-2024",
+      "domain": "guidelines.moz.gov.ua",
+      "trust_tier": "government",
+      "accessed_at": "2026-01-15T10:30:00Z",
+      "snapshot_ref": "snapshots/guidelines.moz.gov.ua/hypertension-2024.html"
+    },
+    "evidence_tier": "guideline",
+    "source_authority": "national",
+    "published_at": "2024-03-01",
+    "score": 0.6113,
+    "chunk_id": "1f9d1a2e-6b3c-4c1e-9a2b-0d5e7f8a9b10",
+    "document_id": "9e8d7c6b-5a4f-4e3d-8c1b-0a9f8e7d6c5b",
+    "source_kind": "local_corpus",
+    "char_start": 120,
+    "char_end": 480,
+    "scores": {
+      "dense": 0.8123,
+      "lexical": 12.47,
+      "fused": 0.03252247488101534,
+      "rerank": 1.73,
+      "final": 0.6113
+    },
+    "license_class": "open_license",
+    "retracted": false
+  }
+}

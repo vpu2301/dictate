@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "EvidenceTier": {
+      "description": "Fixed evidence-strength scale per rule SC2.",
+      "enum": [
+        "guideline",
+        "systematic_review",
+        "rct",
+        "observational",
+        "other"
+      ],
+      "title": "EvidenceTier",
+      "type": "string"
+    },
+    "LicenseClass": {
+      "enum": [
+        "public_domain",
+        "open_license",
+        "licensed_redistributable",
+        "licensed_internal",
+        "restricted"
+      ],
+      "title": "LicenseClass",
+      "type": "string"
+    },
+    "SourceAuthority": {
+      "description": "Authority precedence per rule RR3 (tenant > national > international > primary literature).",
+      "enum": [
+        "tenant",
+        "national",
+        "international",
+        "primary_literature",
+        "other"
+      ],
+      "title": "SourceAuthority",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/document@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "canonical_id": {
+      "title": "Canonical Id",
+      "type": "string"
+    },
+    "evidence_tier": {
+      "$ref": "#/$defs/EvidenceTier"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "jurisdiction": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Jurisdiction"
+    },
+    "license_class": {
+      "$ref": "#/$defs/LicenseClass"
+    },
+    "published_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Published At"
+    },
+    "retracted": {
+      "default": false,
+      "title": "Retracted",
+      "type": "boolean"
+    },
+    "source_authority": {
+      "$ref": "#/$defs/SourceAuthority"
+    },
+    "specialty": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Specialty",
+      "type": "array"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "valid_until": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid Until"
+    }
+  },
+  "required": [
+    "id",
+    "canonical_id",
+    "title",
+    "source_authority",
+    "evidence_tier",
+    "license_class"
+  ],
+  "title": "Document",
+  "type": "object",
+  "x-contract-name": "document",
+  "x-contract-version": "1.0"
+}

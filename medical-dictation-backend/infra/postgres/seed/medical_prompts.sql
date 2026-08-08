@@ -1,6 +1,6 @@
--- Sprint 03 — seed `medical_prompts` with 14 Ukrainian / English clinical
--- prompts (2 languages × 7 specialties). Hand-authored by the clinical
--- content lead; each ≤ 224 tokens to fit Whisper's prompt context.
+-- Sprint 03 — seed `medical_prompts` with 21 Ukrainian / English / German
+-- clinical prompts (3 languages × 7 specialties). Hand-authored by the
+-- clinical content lead; each ≤ 224 tokens to fit Whisper's prompt context.
 --
 -- Idempotent: ON CONFLICT DO NOTHING on (language, specialty, is_default).
 -- Run via `make seed-prompts` or include from migration 0008's seed step
@@ -53,6 +53,31 @@ INSERT INTO medical_prompts (language, specialty, prompt_text, version, is_defau
    1, true),
   ('en', 'general',
    'General internal medicine encounter. Chief complaint, past medical history, history of present illness, physical examination, vital signs, blood pressure, heart rate, oxygen saturation. Complete blood count, basic metabolic panel, urinalysis. Symptomatic and etiologic treatment.',
+   1, true),
+
+  -- ── German ─────────────────────────────────────────────────────────
+  -- Added with migration 0066; the same rows are inserted there so a
+  -- migrations-only environment converges to this catalogue.
+  ('de', 'cardiology',
+   'Kardiologische Konsultation. Thoraxschmerz, Dyspnoe, Palpitationen, Synkope. Kardiovaskuläre Risikofaktoren, Blutdruck, Herzfrequenz, Herzauskultation, EKG, Echokardiographie. Troponin, NT-proBNP. NYHA-Klassifikation. Betablocker, ACE-Hemmer, Statine, Thrombozytenaggregationshemmer.',
+   1, true),
+  ('de', 'endocrinology',
+   'Endokrinologische Vorstellung. Diabetes mellitus, Schilddrüsenerkrankung, metabolisches Syndrom, Adipositas. HbA1c, Nüchternglukose, TSH, freies T4, TPO-Antikörper. Metformin, Insulin, Levothyroxin. Dosisanpassung.',
+   1, true),
+  ('de', 'gastroenterology',
+   'Gastroenterologische Konsultation. Bauchschmerzen, Dyspepsie, Übelkeit, Erbrechen, Sodbrennen, veränderter Stuhlgang. Gastroskopie, Koloskopie, Abdomensonographie, Leberwerte, Lipase, Amylase. Diagnosen: Gastritis, Ulkuskrankheit, Refluxkrankheit, Reizdarmsyndrom, Hepatitis.',
+   1, true),
+  ('de', 'neurology',
+   'Neurologische Untersuchung. Kopfschmerz, Schwindel, Parästhesien, Paresen, Krampfanfälle, Ataxie. Hirnnerven, Muskelkraft, Reflexe, Sensibilität. MRT des Schädels, EEG, EMG. Diagnosen: Migräne, Schlaganfall, Epilepsie, Polyneuropathie.',
+   1, true),
+  ('de', 'orthopedics',
+   'Orthopädische Vorstellung. Gelenkschmerzen, Bewegungseinschränkung, Trauma, Arthrose, Osteoporose, Bandscheibenvorfall. Röntgen, MRT, CT, DXA-Osteodensitometrie. NSAR, Chondroprotektiva, Physiotherapie, operative Versorgung.',
+   1, true),
+  ('de', 'pediatrics',
+   'Pädiatrische Untersuchung. Impfstatus, Wachstum und Entwicklungsmeilensteine, Anthropometrie, Körpertemperatur. Akute Atemwegsinfekte, Bronchitis, Pneumonie, Gastroenteritis. Dosierung nach Körpergewicht und Alter.',
+   1, true),
+  ('de', 'general',
+   'Allgemeinmedizinische Konsultation. Aktuelle Beschwerden, Vorerkrankungen, Anamnese, körperliche Untersuchung, Vitalparameter, Blutdruck, Herzfrequenz, Sauerstoffsättigung. Blutbild, Basislabor, Urinstatus. Symptomatische und kausale Therapie.',
    1, true)
 ON CONFLICT DO NOTHING;
 

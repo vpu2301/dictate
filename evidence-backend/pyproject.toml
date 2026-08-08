@@ -1,0 +1,154 @@
+[project]
+name = "evidence-backend"
+version = "0.1.0"
+description = "Evidence AI backend workspace (evidentia) — extension of the Dictate platform"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["libs/*", "services/*"]
+
+[tool.uv.sources]
+evidence-models = { workspace = true }
+evidence-safety = { workspace = true }
+models = { workspace = true }
+# Platform libs consumed as path dependencies (ADR-0001) — one source of
+# truth in ../medical-dictation-backend, never copied.
+db = { path = "../medical-dictation-backend/libs/db", editable = true }
+auth = { path = "../medical-dictation-backend/libs/auth", editable = true }
+audit = { path = "../medical-dictation-backend/libs/audit", editable = true }
+storage = { path = "../medical-dictation-backend/libs/storage", editable = true }
+crypto = { path = "../medical-dictation-backend/libs/crypto", editable = true }
+secret = { path = "../medical-dictation-backend/libs/secret", editable = true }
+observability = { path = "../medical-dictation-backend/libs/observability", editable = true }
+messaging = { path = "../medical-dictation-backend/libs/messaging", editable = true }
+
+[dependency-groups]
+dev = [
+    "evidence-models",
+    "evidence-safety",
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "jsonschema>=4.22",
+    "asyncpg>=0.29",
+]
+
+# Mirrors medical-dictation-backend's ruff/mypy posture so both workspaces
+# review the same way.
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".venv", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["evidence_models", "evidence_safety", "models"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["dist/", ".venv/"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.bandit]
+# scripts/loadtest generates synthetic capacity-test data — stdlib random is
+# deliberate there (B311), nothing cryptographic.
+exclude_dirs = ["tests", ".venv", "scripts/loadtest"]
+skips = ["B101"]
+
+# ── import-linter (rule E1/E2 + the QS1 contract, EVA-S04) ─────────────
+# Run by `make lint-imports`, which `make ci` calls. The QS1 contract is the
+# first of QS1's three layers: layer 2 is the type wall in
+# `evidence_websearch.domain.metasearch` (`build_query` accepts only
+# ClinicalIntent), layer 3 is the runtime taint harness (`make qs1-taint`).
+[tool.importlinter]
+root_packages = [
+    "evidence_models",
+    "evidence_safety",
+    "models",
+    "evidence_ingest",
+    "evidence_retrieval",
+    "evidence_websearch",
+    "evidence_answer",
+]
+
+# `allow_indirect_imports` is required, not a loophole: EVERY module that
+# imports the `evidence_models` package picks up `evidence_models.snapshot`
+# through the package __init__'s re-exports, so an indirect-aware contract
+# here would be unsatisfiable and would have to be deleted. What this
+# contract polices is a *direct* dependency on the snapshot module. The
+# symbol-level half — `from evidence_models import PatientSnapshot` — is
+# caught by `make check-qs1`, which is the layer with teeth.
+[[tool.importlinter.contracts]]
+name = "QS1: the web agent cannot even name a patient snapshot"
+type = "forbidden"
+source_modules = ["evidence_websearch"]
+forbidden_modules = ["evidence_models.snapshot"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "QS1: nothing in the answer pipeline's web path imports snapshots (S04 has no patient mode)"
+type = "forbidden"
+source_modules = ["evidence_answer.domain.stages.plan"]
+forbidden_modules = ["evidence_models.snapshot"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "E2: services never import each other"
+type = "independence"
+modules = [
+    "evidence_ingest",
+    "evidence_retrieval",
+    "evidence_websearch",
+    "evidence_answer",
+]
+
+[[tool.importlinter.contracts]]
+name = "E2: evidence_models is a leaf"
+type = "forbidden"
+source_modules = ["evidence_models"]
+forbidden_modules = [
+    "evidence_safety",
+    "models",
+    "evidence_ingest",
+    "evidence_retrieval",
+    "evidence_websearch",
+    "evidence_answer",
+]
+
+[[tool.importlinter.contracts]]
+name = "E2: evidence_safety is a leaf"
+type = "forbidden"
+source_modules = ["evidence_safety"]
+forbidden_modules = [
+    "evidence_models",
+    "models",
+    "evidence_ingest",
+    "evidence_retrieval",
+    "evidence_websearch",
+    "evidence_answer",
+]
+
+[[tool.importlinter.contracts]]
+name = "E1: evidence_answer layering (routers -> domain -> adapters)"
+type = "layers"
+layers = [
+    "evidence_answer.routers",
+    "evidence_answer.domain",
+    "evidence_answer.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "E1: evidence_websearch layering (routers -> domain -> adapters)"
+type = "layers"
+layers = [
+    "evidence_websearch.routers",
+    "evidence_websearch.domain",
+    "evidence_websearch.adapters",
+]

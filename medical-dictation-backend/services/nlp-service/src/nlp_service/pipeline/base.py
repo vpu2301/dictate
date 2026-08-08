@@ -146,7 +146,7 @@ class ProcessingContext:
     """Per-request immutable context. Stages MUST NOT mutate this."""
 
     tenant_id: UUID
-    language: Literal["uk", "en"]
+    language: Literal["uk", "en", "de"]
     specialty: str | None
     reference_date: date
     is_partial: bool

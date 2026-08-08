@@ -40,6 +40,23 @@ _UNITS_EN = {
     "iu",
     "bpm",
 }
+_UNITS_DE = {
+    "mg",
+    "ml",
+    "cm",
+    "mm",
+    "kg",
+    "g",
+    "l",
+    "µg",
+    "mcg",
+    "mmol",
+    "bpm",
+}
+# Deliberately NOT in the German set: "IE" (internationale Einheiten) is
+# written upper-case, so lower-casing it after a number would be a
+# regression, not a fix.
+_UNITS_BY_LANGUAGE = {"uk": _UNITS_UK, "en": _UNITS_EN, "de": _UNITS_DE}
 _COMPOUND_UK = ["мм рт. ст.", "кг/м²", "м²", "г/л", "мг/кг"]
 _COMPOUND_EN = ["mm hg", "mmhg", "kg/m²", "m²", "g/l", "mg/kg"]
 
@@ -52,7 +69,7 @@ def capitalize_first_letter(text: str) -> str:
     return text[: len(text) - len(s)] + s[0].upper() + s[1:]
 
 
-_SENTENCE_END = re.compile(r"([.!?])\s+([a-zа-яёіїєґ])", re.IGNORECASE | re.UNICODE)
+_SENTENCE_END = re.compile(r"([.!?])\s+([a-zäöüßа-яёіїєґ])", re.IGNORECASE | re.UNICODE)
 
 
 def capitalize_post_punctuation(text: str) -> str:
@@ -65,7 +82,7 @@ def capitalize_post_punctuation(text: str) -> str:
 
 
 _NUMBER_FOLLOWED_BY_WORD = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s+([A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+)",
+    r"(\d+(?:[.,]\d+)?)\s+([A-Za-zÄÖÜäöüßА-Яа-яЁёІіЇїЄєҐґ]+)",
     re.UNICODE,
 )
 
@@ -73,7 +90,7 @@ _NUMBER_FOLLOWED_BY_WORD = re.compile(
 def lowercase_units_after_numbers(text: str, language: str) -> str:
     """If a known unit follows a number, force the unit to its canonical
     lowercase form. ``"120 МГ"`` → ``"120 мг"``."""
-    units = _UNITS_UK if language == "uk" else _UNITS_EN
+    units = _UNITS_BY_LANGUAGE.get(language, _UNITS_EN)
 
     def _conv(match: re.Match[str]) -> str:
         num, word = match.group(1), match.group(2)

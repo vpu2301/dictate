@@ -48,7 +48,7 @@ class AbbreviationOut(_StrictModel):
 
 
 class AbbreviationUpsertIn(_StrictModel):
-    language: Literal["uk", "en"]
+    language: Literal["uk", "en", "de"]
     expanded: str = Field(min_length=1, max_length=200)
     abbreviated: str = Field(min_length=1, max_length=50)
     direction: Literal["expand", "compact", "either"]
@@ -63,7 +63,7 @@ class AbbreviationUpsertIn(_StrictModel):
 )
 async def list_abbreviations(
     claims: Annotated[Claims, Depends(requires("nlp.read.abbreviations", "abbreviation"))],
-    language: Annotated[Literal["uk", "en"] | None, Query()] = None,
+    language: Annotated[Literal["uk", "en", "de"] | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> list[AbbreviationOut]:
     state = get_state()

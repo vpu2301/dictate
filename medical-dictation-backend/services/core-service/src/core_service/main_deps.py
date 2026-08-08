@@ -11,6 +11,7 @@ from audit import AuditWriter
 from auth import JwksCache
 from crypto import Envelope, FileMasterKeyProvider, TenantKekRepository
 from db import create_pool
+from storage import EncryptedObjectStore, S3Client
 
 from .config import settings
 
@@ -29,6 +30,10 @@ class ServiceState:
     # PATIENT_IPN_RAW_ENABLED=true (DPO-gated, default off).
     envelope: Envelope | None = None
     crypto_pool: asyncpg.Pool | None = None
+    # 0065 — patient record attachments. Envelope-encrypted into MinIO; the
+    # table holds only metadata. None when crypto could not be wired, and the
+    # upload surface answers 503 rather than storing a file in the clear.
+    document_store: EncryptedObjectStore | None = None
 
 
 async def build_state() -> ServiceState:
@@ -50,7 +55,13 @@ async def build_state() -> ServiceState:
 
     envelope: Envelope | None = None
     crypto_pool: asyncpg.Pool | None = None
-    if settings.patient_ipn_raw_enabled:
+    document_store: EncryptedObjectStore | None = None
+    # Envelope crypto is wired for raw-ІПН retention (DPO-gated) AND for
+    # patient attachments, which are always on: a file dropped on a patient's
+    # record is PHI and cannot be stored without it. A wiring failure degrades
+    # the upload route to 503 rather than taking the service down — unless
+    # raw-ІПН retention is on, which cannot run without crypto at all.
+    try:
         crypto_pool = await create_pool(
             settings.db_crypto_writer_dsn,
             application_name=f"{settings.service_name}/crypto_writer",
@@ -61,7 +72,26 @@ async def build_state() -> ServiceState:
         await master.startup_self_check()
         kek_repo = TenantKekRepository(pool=crypto_pool, master_key_provider=master)
         envelope = Envelope(master_key_provider=master, kek_repository=kek_repo)
-        logger.info("raw-ІПН retention enabled: envelope crypto wired")
+        document_store = EncryptedObjectStore(
+            s3=S3Client(
+                endpoint_url=settings.s3_endpoint,
+                access_key=settings.s3_access_key,
+                secret_key=settings.s3_secret_key,
+                region=settings.s3_region,
+                use_ssl=settings.s3_use_ssl,
+            ),
+            bucket=settings.s3_patient_docs_bucket,
+            envelope=envelope,
+        )
+        logger.info("envelope crypto wired (patient documents, raw-ІПН)")
+    except Exception as exc:
+        logger.warning(
+            "core.envelope_wiring_failed: patient document upload answers 503 "
+            "until crypto is reachable (%s)",
+            exc,
+        )
+        if settings.patient_ipn_raw_enabled:
+            raise
 
     return ServiceState(
         jwks_cache=jwks_cache,
@@ -70,6 +100,7 @@ async def build_state() -> ServiceState:
         audit_writer=audit_writer,
         envelope=envelope,
         crypto_pool=crypto_pool,
+        document_store=document_store,
     )
 
 

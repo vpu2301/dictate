@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     # Roster list page size ceiling.
     patient_list_max_limit: int = Field(default=200, alias="MDX_PATIENT_LIST_MAX_LIMIT")
 
+    # Bulk roster import (POST /patients/import). One request is one
+    # transaction-per-row loop on a single connection, so the ceiling is
+    # about request time and audit volume, not memory: 500 rows is a
+    # clinic's whole legacy roster in a handful of uploads, and keeps the
+    # worst-case request inside the ingress timeout.
+    patient_import_max_rows: int = Field(
+        default=500, alias="MDX_PATIENT_IMPORT_MAX_ROWS"
+    )
+
     # ── Encounter lifecycle ─────────────────────────────────────────
     # Ending a visit is refused while a dictation session on it is still
     # live. A session stranded by a dead worker keeps a non-terminal status
@@ -168,6 +177,18 @@ class Settings(BaseSettings):
     s3_audio_bucket: str = Field(default="mdx-audio", alias="S3_AUDIO_BUCKET")
     s3_transcripts_bucket: str = Field(default="mdx-transcripts", alias="S3_TRANSCRIPTS_BUCKET")
     s3_dsar_bucket: str = Field(default="mdx-dsar", alias="S3_DSAR_BUCKET")
+    # 0065 — patient record attachments (referrals, lab PDFs, scans).
+    s3_patient_docs_bucket: str = Field(
+        default="mdx-patient-docs", alias="S3_PATIENT_DOCS_BUCKET"
+    )
+
+    # Per-file ceiling for a patient attachment. A referral letter or a lab
+    # PDF is kilobytes; 25 MB leaves room for a scanned multi-page study
+    # without turning the record into an image host. Enforced on the actual
+    # bytes read, not on Content-Length, which a client controls.
+    patient_document_max_bytes: int = Field(
+        default=25 * 1024 * 1024, alias="MDX_PATIENT_DOCUMENT_MAX_BYTES"
+    )
     db_audit_reader_dsn: str = Field(
         default="postgresql://audit_reader:audit_reader@localhost:5432/medical_dictation",
         alias="DB_AUDIT_READER_DSN",

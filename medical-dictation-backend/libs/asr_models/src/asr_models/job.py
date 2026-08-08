@@ -28,7 +28,7 @@ class JobEnqueuePayload(BaseModel):
     tenant_id: UUID
     audio_id: UUID
     prompt_id: UUID
-    language: str = Field(pattern=r"^(uk|en)$")
+    language: str = Field(pattern=r"^(uk|en|de)$")
     model: str = "large-v3"
     requester_sub: UUID
     schema_version: int = 1

@@ -1,0 +1,333 @@
+# Evidence stack — starts SEPARATELY from the platform (ADR-0001) and joins
+# its network. The platform stack must be up first:
+#   (cd ../medical-dictation-backend && make dev-up)   # creates the network
+#   make evidence-up          # infra only
+#   make evidence-up-all      # infra + all five services (the `services` profile)
+#
+# Dev posture on a Mac: opensearch + clamav + the eva-corpus bucket run in
+# containers; the Python services can run either via `make run-*` (uvicorn,
+# fast edit loop) or in compose (the `services` profile, one command).
+#
+# EVA-S04 adds `egress-proxy` + `searxng` to the always-on set: the web agent
+# has no direct network path, so nothing it does works until the proxy is up
+# (`make evidence-up` starts them).
+#
+# ── BUILD CONTEXT ────────────────────────────────────────────────────
+# Every service builds from `../../..` = ~/Desktop/dictate, the parent of BOTH
+# workspaces — NOT from evidence-backend. Evidence consumes the platform libs
+# as path deps into ../medical-dictation-backend/libs/*, which a context
+# rooted at evidence-backend cannot see; `uv pip install` would then quietly
+# resolve `db`/`auth`/`audit` from PyPI and produce an image that builds clean
+# and imports the wrong package at runtime. See services/*/Dockerfile.
+#
+# ── GENERATORS ───────────────────────────────────────────────────────
+# `generator.fast`/`generator.heavy` are deliberately NOT compose services.
+# They run on the host via `make run-generators`, because there is no Metal
+# inside the Docker VM: containerized inference on a Mac is CPU-only, which
+# would put the S04 first-token NFR out of reach for reasons that have
+# nothing to do with the pipeline. The gateway reaches them through
+# host.docker.internal (see evidence-model-gateway below).
+
+name: evidence
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    # analysis-icu is NOT bundled — install on first boot (idempotent); the
+    # prod/on-prem image bakes it instead (ADR-0003).
+    command: >
+      bash -c "./bin/opensearch-plugin list | grep -q analysis-icu ||
+               ./bin/opensearch-plugin install --batch analysis-icu;
+               ./opensearch-docker-entrypoint.sh opensearch"
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ulimits:
+      memlock: {soft: -1, hard: -1}
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks: [mdx]
+
+  clamav:
+    # NB: plain version tags (1.4) ship no arm64 manifest; the -debian variants do.
+    image: clamav/clamav:1.5-debian13-slim
+    ports:
+      - "127.0.0.1:3310:3310"
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --ping 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 180s   # first signature download is slow
+    networks: [mdx]
+
+  # One-shot: create the evidence corpus bucket in the platform's MinIO.
+  minio-init-evidence:
+    image: minio/mc:RELEASE.2024-04-18T16-45-29Z
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/eva-corpus &&
+      echo eva-corpus ready"
+    networks: [mdx]
+
+  evidence-model-gateway:
+    build:
+      context: ../../..
+      dockerfile: evidence-backend/services/evidence-model-gateway/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # The generators live on the HOST (see the header) — Metal is not
+      # reachable from inside the VM. Ports match run_generators.sh.
+      EVA_GATEWAY_GEN_BACKEND: llamacpp
+      EVA_GATEWAY_GEN_FAST_BASE_URL: http://host.docker.internal:8081
+      EVA_GATEWAY_GEN_HEAVY_BASE_URL: http://host.docker.internal:8082
+      # Must stay in step with the context the generators were launched with
+      # (scripts/dev/run_generators.sh) so an over-long prompt is a clean 413
+      # here and never a llama-server error that reads like a prompt bug.
+      EVA_GATEWAY_MAX_PROMPT_CHARS: "40000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # HF_HOME=/models, so the cache lands at /models/hub. Bind-mounting the
+    # host's HF cache rather than using a named volume means a developer who
+    # has already run `make run-model-gateway` (or any eval) does not download
+    # BGE-M3 + the reranker a second time — 6.4 GB and several minutes on a
+    # cold volume, during which /readyz is 503 and the container looks hung.
+    # Read-write because huggingface_hub writes lock files even on a cache hit.
+    # Deployment bakes the weights into the image instead (rule BE6).
+    volumes:
+      - ${HOME}/.cache/huggingface:/models
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/readyz')\" || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 300s
+    ports:
+      - "127.0.0.1:8015:8000"
+    networks: [mdx]
+    profiles: [services]
+
+  evidence-ingest:
+    build:
+      context: ../../..
+      dockerfile: evidence-backend/services/evidence-ingest/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+      AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      EVA_GATEWAY_BASE_URL: http://evidence-model-gateway:8000
+      EVA_OPENSEARCH_URL: http://opensearch:9200
+      EVA_VIRUS_SCAN_ENABLED: "true"
+      EVA_CLAMD_HOST: clamav
+    volumes:
+      - ../../../medical-dictation-backend/infra/dev/master.key:/etc/mdx/master.key:ro
+    ports:
+      - "127.0.0.1:8010:8000"
+    depends_on:
+      opensearch: {condition: service_healthy}
+      minio-init-evidence: {condition: service_completed_successfully}
+    networks: [mdx]
+    profiles: [services]
+
+  # ── EVA-S04: the web agent's network boundary ────────────────────────
+  # THE only egress of the evidence stack (ADR-0005). Deny-by-default with a
+  # mounted allowlist; every denial is logged and alarmed.
+  egress-proxy:
+    image: ubuntu/squid:6.6-24.04_beta
+    volumes:
+      - ./egress-proxy/squid.conf:/etc/squid/squid.conf:ro
+      - ./egress-proxy/allowlist.txt:/etc/squid/allowlist.txt:ro
+    # Deliberately NOT published to the host: nothing outside the compose
+    # network has any business using the proxy.
+    expose:
+      - "3128"
+    healthcheck:
+      test: ["CMD-SHELL", "squid -k check || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [mdx]
+
+  # Self-hosted metasearch (rule LM1/P7: no external search API, ever).
+  # Its own upstream calls leave through the egress proxy.
+  searxng:
+    image: searxng/searxng:2026.8.4-c63835bd2
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080/
+      # SearXNG honours the standard proxy vars for its outgoing requests.
+      HTTP_PROXY: http://egress-proxy:3128
+      HTTPS_PROXY: http://egress-proxy:3128
+      NO_PROXY: localhost,127.0.0.1,postgres,redis,minio,opensearch
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "127.0.0.1:8888:8080"
+    depends_on:
+      egress-proxy: {condition: service_healthy}
+    networks: [mdx]
+
+  evidence-retrieval:
+    build:
+      context: ../../..
+      dockerfile: evidence-backend/services/evidence-retrieval/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      EVA_GATEWAY_BASE_URL: http://evidence-model-gateway:8000
+      EVA_OPENSEARCH_URL: http://opensearch:9200
+      EVA_WEBSEARCH_BASE_URL: http://evidence-websearch:8000
+      # DEV ONLY. The 600 ms default is the RIG target, and on a dev CPU a
+      # BGE-M3 query embedding alone takes ~560-600 ms — so the corpus
+      # connector lands either side of its budget at random. Measured here:
+      # 562 ms -> ok/21 passages, 604 ms -> unavailable/0 passages, same
+      # corpus, same instant.
+      #
+      # Unlike the rerank budget (whose degrade path is documented and
+      # harmless — RRF order, no reranking), blowing THIS one yields zero
+      # evidence, so the answer pipeline correctly deflects and every single
+      # question comes back `insufficient_basis`. It reads as an empty corpus
+      # or a broken model, which is what makes it expensive to diagnose.
+      # The rig keeps 600.
+      EVA_RETRIEVAL_LOCAL_TIMEOUT_MS: "8000"
+    ports:
+      - "127.0.0.1:8011:8000"
+    depends_on:
+      opensearch: {condition: service_healthy}
+      evidence-model-gateway: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/readyz')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [mdx]
+    profiles: [services]
+
+  evidence-websearch:
+    build:
+      context: ../../..
+      dockerfile: evidence-backend/services/evidence-websearch/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+      AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      EVA_GATEWAY_BASE_URL: http://evidence-model-gateway:8000
+      EVA_SEARXNG_URL: http://searxng:8080
+      EVA_EGRESS_PROXY_URL: http://egress-proxy:3128
+    volumes:
+      - ../../../medical-dictation-backend/infra/dev/master.key:/etc/mdx/master.key:ro
+    ports:
+      - "127.0.0.1:8014:8000"
+    depends_on:
+      egress-proxy: {condition: service_healthy}
+      minio-init-evidence: {condition: service_completed_successfully}
+    networks: [mdx]
+    profiles: [services]
+
+  evidence-answer:
+    build:
+      context: ../../..
+      dockerfile: evidence-backend/services/evidence-answer/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+      AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      EVA_GATEWAY_BASE_URL: http://evidence-model-gateway:8000
+      EVA_RETRIEVAL_BASE_URL: http://evidence-retrieval:8000
+    volumes:
+      - ../../../medical-dictation-backend/infra/dev/master.key:/etc/mdx/master.key:ro
+    ports:
+      - "127.0.0.1:8013:8000"
+    # Both hard dependencies are waited for by HEALTH, not by start: this
+    # service's own /readyz asserts a reachable generator and a reachable
+    # retrieval (rule BE6), so starting it earlier just means a container that
+    # is up and 503 — the exact "looks like a crash, is actually an ordering
+    # problem" symptom this compose profile exists to remove.
+    depends_on:
+      minio-init-evidence: {condition: service_completed_successfully}
+      evidence-model-gateway: {condition: service_healthy}
+      evidence-retrieval: {condition: service_healthy}
+    networks: [mdx]
+    profiles: [services]
+
+  # Same image as evidence-ingest, different entrypoint: the queue consumer.
+  evidence-ingest-worker:
+    build:
+      context: ../../..
+      dockerfile: evidence-backend/services/evidence-ingest/Dockerfile
+    command: ["python", "-m", "evidence_ingest.worker"]
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+      DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      EVA_GATEWAY_BASE_URL: http://evidence-model-gateway:8000
+      EVA_OPENSEARCH_URL: http://opensearch:9200
+      EVA_VIRUS_SCAN_ENABLED: "true"
+      EVA_CLAMD_HOST: clamav
+    volumes:
+      - ../../../medical-dictation-backend/infra/dev/master.key:/etc/mdx/master.key:ro
+    depends_on:
+      opensearch: {condition: service_healthy}
+      minio-init-evidence: {condition: service_completed_successfully}
+      evidence-model-gateway: {condition: service_healthy}
+    networks: [mdx]
+    profiles: [services]
+
+volumes:
+  opensearch_data:
+  clamav_data:
+
+networks:
+  mdx:
+    name: medical-dictation_default
+    external: true

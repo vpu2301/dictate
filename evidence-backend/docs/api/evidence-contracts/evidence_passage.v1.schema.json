@@ -1,0 +1,377 @@
+{
+  "$defs": {
+    "ConnectorKind": {
+      "enum": [
+        "local_corpus",
+        "tenant_corpus",
+        "pubmed",
+        "guideline_registry",
+        "web",
+        "drug"
+      ],
+      "title": "ConnectorKind",
+      "type": "string"
+    },
+    "EvidenceTier": {
+      "description": "Fixed evidence-strength scale per rule SC2.",
+      "enum": [
+        "guideline",
+        "systematic_review",
+        "rct",
+        "observational",
+        "other"
+      ],
+      "title": "EvidenceTier",
+      "type": "string"
+    },
+    "LicenseClass": {
+      "enum": [
+        "public_domain",
+        "open_license",
+        "licensed_redistributable",
+        "licensed_internal",
+        "restricted"
+      ],
+      "title": "LicenseClass",
+      "type": "string"
+    },
+    "PassageScores": {
+      "additionalProperties": false,
+      "description": "Per-stage score retention (S03): every stage's contribution stays\nvisible for provenance and eval ablations.",
+      "properties": {
+        "dense": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense"
+        },
+        "final": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final"
+        },
+        "fused": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fused"
+        },
+        "lexical": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lexical"
+        },
+        "rerank": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerank"
+        }
+      },
+      "title": "PassageScores",
+      "type": "object"
+    },
+    "SourceAuthority": {
+      "description": "Authority precedence per rule RR3 (tenant > national > international > primary literature).",
+      "enum": [
+        "tenant",
+        "national",
+        "international",
+        "primary_literature",
+        "other"
+      ],
+      "title": "SourceAuthority",
+      "type": "string"
+    },
+    "WebSourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "accessed_at": {
+          "format": "date-time",
+          "title": "Accessed At",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "snapshot_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Ref"
+        },
+        "trust_tier": {
+          "$ref": "#/$defs/WebTrustTier"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "domain",
+        "trust_tier",
+        "accessed_at"
+      ],
+      "title": "WebSourceRef",
+      "type": "object"
+    },
+    "WebTrustTier": {
+      "enum": [
+        "international_organization",
+        "government",
+        "professional_society",
+        "guideline_registry",
+        "journal",
+        "other"
+      ],
+      "title": "WebTrustTier",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/evidence_passage@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A retrieval result, whatever connector produced it.",
+  "properties": {
+    "char_end": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Char End"
+    },
+    "char_start": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Char Start"
+    },
+    "chunk_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chunk Id"
+    },
+    "connector_id": {
+      "title": "Connector Id",
+      "type": "string"
+    },
+    "document_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Document Id"
+    },
+    "document_version_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Document Version Id"
+    },
+    "evidence_tier": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceTier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "license_class": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LicenseClass"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "published_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Published At"
+    },
+    "retracted": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retracted"
+    },
+    "score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Score"
+    },
+    "scores": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PassageScores"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "section_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Section Path"
+    },
+    "source_authority": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SourceAuthority"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_kind": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConnectorKind"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "web_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WebSourceRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "connector_id",
+    "text"
+  ],
+  "title": "EvidencePassage",
+  "type": "object",
+  "x-contract-name": "evidence_passage",
+  "x-contract-version": "1.0"
+}

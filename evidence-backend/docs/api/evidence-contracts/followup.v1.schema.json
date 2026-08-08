@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "FollowUpAnswerType": {
+      "enum": [
+        "boolean",
+        "choice",
+        "number",
+        "quantity",
+        "text"
+      ],
+      "title": "FollowUpAnswerType",
+      "type": "string"
+    },
+    "FollowUpPriority": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "FollowUpPriority",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/followup@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "answer_type": {
+      "$ref": "#/$defs/FollowUpAnswerType"
+    },
+    "blocking": {
+      "default": false,
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "choices": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Choices"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "priority": {
+      "$ref": "#/$defs/FollowUpPriority"
+    },
+    "question": {
+      "title": "Question",
+      "type": "string"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "why_needed": {
+      "title": "Why Needed",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "question",
+    "why_needed",
+    "priority",
+    "answer_type"
+  ],
+  "title": "FollowUp",
+  "type": "object",
+  "x-contract-name": "followup",
+  "x-contract-version": "1.0"
+}

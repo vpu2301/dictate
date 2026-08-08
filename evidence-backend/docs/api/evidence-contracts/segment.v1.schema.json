@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "passage_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passage Id"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "EvidenceTier": {
+      "description": "Fixed evidence-strength scale per rule SC2.",
+      "enum": [
+        "guideline",
+        "systematic_review",
+        "rct",
+        "observational",
+        "other"
+      ],
+      "title": "EvidenceTier",
+      "type": "string"
+    },
+    "SegmentKind": {
+      "description": "The six segment kinds of rule FE7/RC2. Final; changes go through v2 + ADR.",
+      "enum": [
+        "evidence",
+        "patient_fact",
+        "interpretation",
+        "uncertainty",
+        "missing_info",
+        "next_step"
+      ],
+      "title": "SegmentKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/segment@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "citations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Citation"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/SegmentKind"
+    },
+    "patient_fact_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Patient Fact Refs",
+      "type": "array"
+    },
+    "strength": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceTier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "text"
+  ],
+  "title": "Segment",
+  "type": "object",
+  "x-contract-name": "segment",
+  "x-contract-version": "1.0"
+}

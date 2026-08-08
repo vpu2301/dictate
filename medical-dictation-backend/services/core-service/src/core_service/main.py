@@ -22,6 +22,7 @@ from .routers import (
     encounters,
     health,
     notes,
+    patient_documents,
     patients,
     privacy,
 )
@@ -82,6 +83,7 @@ def create_app() -> FastAPI:
     # prefixes are disjoint so order is not load-bearing here.
     app.include_router(health.router)
     app.include_router(patients.router)
+    app.include_router(patient_documents.router)
     app.include_router(encounters.router)
     app.include_router(notes.router)
     app.include_router(consents.router)

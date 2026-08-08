@@ -28,13 +28,21 @@ RUN pip install --no-cache-dir "huggingface_hub[cli]==0.25.2"
 # against the pinned digest. HF_TOKEN is mounted as a build secret and
 # never persists in any layer; the public Systran repo does not require it,
 # but private mirrors do.
+# Retry on a broken stream: hf_hub resumes from the .incomplete file in this
+# same layer. If every attempt fails, sha256sum -c below still fails closed.
+ENV HF_HUB_DOWNLOAD_TIMEOUT=60
 RUN --mount=type=secret,id=hf_token \
     set -eu; \
     if [ -f /run/secrets/hf_token ]; then HF_TOKEN="$(cat /run/secrets/hf_token)"; export HF_TOKEN; fi; \
-    huggingface-cli download "$MD_ASR_MODEL_REPO" \
-      --revision "$MD_ASR_MODEL_REVISION" \
-      --local-dir /opt/models/whisper \
-      --local-dir-use-symlinks False; \
+    for attempt in 1 2 3 4 5; do \
+      huggingface-cli download "$MD_ASR_MODEL_REPO" \
+        --revision "$MD_ASR_MODEL_REVISION" \
+        --local-dir /opt/models/whisper \
+        --local-dir-use-symlinks False \
+        --max-workers 2 && break; \
+      echo "whisper download attempt ${attempt} failed; resuming in 10s"; \
+      sleep 10; \
+    done; \
     echo "${MD_ASR_MODEL_SHA256}  /opt/models/whisper/model.bin" | sha256sum -c -; \
     echo "model.bin checksum verified against pinned digest"
 

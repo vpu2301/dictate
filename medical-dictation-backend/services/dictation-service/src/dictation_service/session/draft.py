@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 _ROLE_LABELS = {
     "uk": {"doctor": "ЛІКАР", "patient": "ПАЦІЄНТ", None: "НЕВІДОМО"},
     "en": {"doctor": "DOCTOR", "patient": "PATIENT", None: "UNKNOWN"},
+    "de": {"doctor": "ARZT", "patient": "PATIENT", None: "UNBEKANNT"},
+}
+
+_DRAFT_TITLES = {
+    "uk": "Консультація (розмовний режим)",
+    "en": "Consultation (conversation)",
+    "de": "Konsultation (Gesprächsmodus)",
 }
 
 
@@ -100,9 +107,7 @@ async def create_conversation_draft(
         return
 
     segment_ids = [seg["id"] for seg in transcript if seg.get("id")]
-    title = (
-        "Консультація (розмовний режим)" if ctx.language == "uk" else "Consultation (conversation)"
-    )
+    title = _DRAFT_TITLES.get(ctx.language, _DRAFT_TITLES["en"])
     body = {
         "content": {
             "template_id": str(ctx.template_id),

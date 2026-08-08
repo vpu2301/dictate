@@ -25,6 +25,12 @@ PROTOCOL_VERSION_V1: int = 1
 # exactly one version for its whole lifetime. See docs/api/dictation-ws-v2.md.
 PROTOCOL_VERSION_V2: int = 2
 
+# Supported dictation languages. Additive: a new language widens the
+# pattern, so an existing client is unaffected. Must stay in sync with
+# the ``dictation_sessions.language`` CHECK constraint (migration 0066)
+# and with nlp-service's ``ProcessingContext.language``.
+LANGUAGE_PATTERN = "^(uk|en|de)$"
+
 # Anonymous diarization labels (raw clustering output). The doctor/
 # patient interpretation is a SEPARATE, overridable mapping — see
 # SpeakerMappingUpdated / SetSpeakerMapping.
@@ -62,7 +68,7 @@ class SessionStarted(_StrictModel):
     committed_audio_until_ms: NonNegativeInt = 0
     server_time_ms: NonNegativeInt
     model: str
-    language: str = Field(pattern="^(uk|en)$")
+    language: str = Field(pattern=LANGUAGE_PATTERN)
 
 
 class Partial(_StrictModel):
@@ -162,7 +168,7 @@ class StartSession(_StrictModel):
     type: Literal["start_session"] = "start_session"
     protocol_version: int = PROTOCOL_VERSION_V1
     prompt_id: UUID
-    language: str = Field(pattern="^(uk|en)$")
+    language: str = Field(pattern=LANGUAGE_PATTERN)
     target_kind: str = Field(default="generic")
     encounter_id: UUID | None = None
     template_id: UUID | None = None

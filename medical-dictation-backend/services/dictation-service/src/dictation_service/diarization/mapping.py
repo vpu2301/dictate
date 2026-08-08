@@ -52,6 +52,17 @@ _DOCTOR_LEXICON: dict[str, tuple[str, ...]] = {
         "lumbar", "anti-inflammatory", "radiate*", "numbness", "bladder",
         "seat", "brings",
     ),
+    # German: prefix entries cover the inflected verb forms a clinician
+    # actually uses in the consult ("verschreibe/verschreiben/verschrieben")
+    # and the separable-prefix nouns ("Überweisung", "Untersuchung").
+    "de": (
+        "verschreib*", "verordn*", "überweis*", "untersuch*", "empfehl*",
+        "diagnos*", "anamnes*", "befund*", "therapi*", "abhör*",
+        "abtast*", "palpat*", "auskultat*", "blutbild", "blutdruck",
+        "ekg", "röntgen*", "ultraschall", "labor*", "rezept*",
+        "nehmen", "setzen", "erzählen", "beschreiben", "atmen",
+        "beschwerden", "seit",
+    ),
 }
 
 

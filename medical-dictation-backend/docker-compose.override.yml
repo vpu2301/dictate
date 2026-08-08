@@ -89,9 +89,12 @@ services:
         mc mb --ignore-existing local/mdx-audio
         mc mb --ignore-existing local/mdx-transcripts
         mc mb --ignore-existing local/mdx-dsar
+        # 0065 — patient record attachments (referrals, lab PDFs, scans).
+        mc mb --ignore-existing local/mdx-patient-docs
         mc mb --ignore-existing local/mdx-backups
         mc version enable local/mdx-audio || true
         mc version enable local/mdx-transcripts || true
+        mc version enable local/mdx-patient-docs || true
         # S11 deployment (ADR-0028): DSAR packages expire at 7 days —
         # the object-storage backstop under the app-side TTL cron; DB
         # backups expire at 35 days — the erasure completion horizon

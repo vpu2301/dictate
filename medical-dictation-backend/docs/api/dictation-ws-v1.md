@@ -64,7 +64,7 @@ fields are rejected (`extra="forbid"`).
 
 | Type              | Fields                                                         | Notes |
 | ----------------- | -------------------------------------------------------------- | ----- |
-| `start_session`   | `prompt_id`, `language` (`uk`|`en`), `target_kind` (default `generic`), `encounter_id?`, `template_id?`, `resume_session_id?` | First message after upgrade |
+| `start_session`   | `prompt_id`, `language` (`uk`|`en`|`de`), `target_kind` (default `generic`), `encounter_id?`, `template_id?`, `resume_session_id?` | First message after upgrade. Adding a language WIDENS the pattern — no v1 client breaks |
 | `refresh_token`   | `token`                                                        | Replaces the bearer; must have same `sub`+`tid` |
 | `end_session`     | —                                                              | Initiates finalize |
 | `pause`           | —                                                              | Audio frames now rejected with `pause_state_mismatch` |

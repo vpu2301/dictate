@@ -84,6 +84,39 @@
         "title": "AnamnesisOut",
         "type": "object"
       },
+      "Body_upload_document_patients__patient_id__documents_post": {
+        "properties": {
+          "category": {
+            "default": "other",
+            "enum": [
+              "referral",
+              "lab",
+              "imaging",
+              "discharge",
+              "consent",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_patients__patient_id__documents_post",
+        "type": "object"
+      },
       "ConsentCreate": {
         "additionalProperties": false,
         "properties": {
@@ -386,6 +419,92 @@
           "canonical_hash_hex"
         ],
         "title": "ConsentSigningHint",
+        "type": "object"
+      },
+      "DocumentList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "DocumentList",
+        "type": "object"
+      },
+      "DocumentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_size": {
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "uploaded_by": {
+            "format": "uuid",
+            "title": "Uploaded By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "filename",
+          "category",
+          "note",
+          "content_type",
+          "byte_size",
+          "sha256",
+          "uploaded_by",
+          "created_at"
+        ],
+        "title": "DocumentOut",
         "type": "object"
       },
       "DownloadInfo": {
@@ -995,6 +1114,235 @@
           "name"
         ],
         "title": "PatientCreate",
+        "type": "object"
+      },
+      "PatientImportItem": {
+        "additionalProperties": false,
+        "description": "One row of an import \u2014 identical to a single-create body.\n\nSubclassed rather than aliased so the wire contract stays visibly the\nsame one: whatever the create form can express, a file can express too,\nand `extra=\"forbid\"` is inherited.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "dob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dob"
+          },
+          "email": {
+            "default": "",
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "ipn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ipn"
+          },
+          "mrn": {
+            "default": "",
+            "title": "Mrn",
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/NameI18n"
+          },
+          "phone": {
+            "default": "",
+            "maxLength": 32,
+            "title": "Phone",
+            "type": "string"
+          },
+          "sex": {
+            "default": "U",
+            "enum": [
+              "M",
+              "F",
+              "U"
+            ],
+            "title": "Sex",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NameI18n"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PatientImportItem",
+        "type": "object"
+      },
+      "PatientImportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PatientImportItem"
+            },
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "on_duplicate": {
+            "default": "skip",
+            "enum": [
+              "skip",
+              "fail"
+            ],
+            "title": "On Duplicate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PatientImportRequest",
+        "type": "object"
+      },
+      "PatientImportResult": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/PatientImportRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dry_run",
+          "total",
+          "created",
+          "skipped",
+          "failed",
+          "rows"
+        ],
+        "title": "PatientImportResult",
+        "type": "object"
+      },
+      "PatientImportRow": {
+        "additionalProperties": false,
+        "description": "The verdict for one input row, positionally matched to `items`.\n\n`index` is the caller's row number, so a spreadsheet UI can point at the\nline that failed. `code` is the machine-readable reason, reusing the same\nvocabulary the single-create errors already use (`name_required`,\n`phone_invalid`, `email_invalid`, `ipn_invalid`) plus the duplicate codes\n(`mrn_exists`, `ipn_exists`, `duplicate_in_batch`).",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "existing_patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Patient Id"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "valid",
+              "skipped",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "status"
+        ],
+        "title": "PatientImportRow",
         "type": "object"
       },
       "PatientList": {
@@ -2890,6 +3238,65 @@
         ]
       }
     },
+    "/patients/import": {
+      "post": {
+        "operationId": "import_patients_patients_import_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import a batch of patients onto the roster.",
+        "tags": [
+          "patients"
+        ]
+      }
+    },
     "/patients/{patient_id}": {
       "get": {
         "operationId": "get_patient_patients__patient_id__get",
@@ -3416,6 +3823,256 @@
         "summary": "Withdraw a previously-granted consent.",
         "tags": [
           "consents"
+        ]
+      }
+    },
+    "/patients/{patient_id}/documents": {
+      "get": {
+        "operationId": "list_documents_patients__patient_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the files attached to a patient's record.",
+        "tags": [
+          "patient-documents"
+        ]
+      },
+      "post": {
+        "operationId": "upload_document_patients__patient_id__documents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_patients__patient_id__documents_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach a file to a patient's record.",
+        "tags": [
+          "patient-documents"
+        ]
+      }
+    },
+    "/patients/{patient_id}/documents/{document_id}": {
+      "delete": {
+        "operationId": "delete_document_patients__patient_id__documents__document_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove an attachment (object crypto-shredded, then the row).",
+        "tags": [
+          "patient-documents"
+        ]
+      }
+    },
+    "/patients/{patient_id}/documents/{document_id}/content": {
+      "get": {
+        "operationId": "download_document_patients__patient_id__documents__document_id__content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download one attachment (decrypted, authenticated proxy).",
+        "tags": [
+          "patient-documents"
         ]
       }
     },

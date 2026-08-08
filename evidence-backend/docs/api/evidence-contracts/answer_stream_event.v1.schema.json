@@ -1,0 +1,635 @@
+{
+  "$defs": {
+    "AnswerMode": {
+      "description": "Product modes; the DB CHECK on questions.mode carries the same values.",
+      "enum": [
+        "quick_search",
+        "contextual",
+        "deeptrace",
+        "drug"
+      ],
+      "title": "AnswerMode",
+      "type": "string"
+    },
+    "AnswerStatus": {
+      "enum": [
+        "ok",
+        "insufficient_basis",
+        "deflected"
+      ],
+      "title": "AnswerStatus",
+      "type": "string"
+    },
+    "AnswerStreamDone": {
+      "additionalProperties": false,
+      "description": "Terminal event of a successful (or deflected/insufficient) stream.",
+      "properties": {
+        "answer_id": {
+          "format": "uuid",
+          "title": "Answer Id",
+          "type": "string"
+        },
+        "degraded": {
+          "default": false,
+          "title": "Degraded",
+          "type": "boolean"
+        },
+        "detail_count": {
+          "default": 0,
+          "title": "Detail Count",
+          "type": "integer"
+        },
+        "flags": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Flag"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "provenance_ref": {
+          "title": "Provenance Ref",
+          "type": "string"
+        },
+        "source_count": {
+          "default": 0,
+          "title": "Source Count",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/AnswerStatus"
+        },
+        "summary_count": {
+          "default": 0,
+          "title": "Summary Count",
+          "type": "integer"
+        },
+        "triage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageDecision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "answer_id",
+        "status",
+        "provenance_ref"
+      ],
+      "title": "AnswerStreamDone",
+      "type": "object"
+    },
+    "AnswerStreamError": {
+      "additionalProperties": false,
+      "description": "Terminal event of a failed stream. `code` matches the RFC 7807 code the\nequivalent non-streaming problem response would carry (rule BE2).",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "AnswerStreamError",
+      "type": "object"
+    },
+    "AnswerStreamHeader": {
+      "additionalProperties": false,
+      "description": "First event. Everything the client needs to render a shell before a\nsingle token of content exists.",
+      "properties": {
+        "answer_id": {
+          "format": "uuid",
+          "title": "Answer Id",
+          "type": "string"
+        },
+        "contract_version": {
+          "default": "1.0",
+          "pattern": "^\\d+\\.\\d+$",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "degraded": {
+          "default": false,
+          "title": "Degraded",
+          "type": "boolean"
+        },
+        "flags": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Flag"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "late_sources_expected": {
+          "default": false,
+          "title": "Late Sources Expected",
+          "type": "boolean"
+        },
+        "locale": {
+          "title": "Locale",
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/AnswerMode"
+        },
+        "pipeline_version": {
+          "title": "Pipeline Version",
+          "type": "string"
+        },
+        "question_id": {
+          "format": "uuid",
+          "title": "Question Id",
+          "type": "string"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "answer_id",
+        "question_id",
+        "mode",
+        "locale",
+        "pipeline_version"
+      ],
+      "title": "AnswerStreamHeader",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "passage_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passage Id"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "EvidenceTier": {
+      "description": "Fixed evidence-strength scale per rule SC2.",
+      "enum": [
+        "guideline",
+        "systematic_review",
+        "rct",
+        "observational",
+        "other"
+      ],
+      "title": "EvidenceTier",
+      "type": "string"
+    },
+    "Flag": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "requires_ack": {
+          "default": false,
+          "title": "Requires Ack",
+          "type": "boolean"
+        },
+        "severity": {
+          "$ref": "#/$defs/FlagSeverity"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "Flag",
+      "type": "object"
+    },
+    "FlagSeverity": {
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ],
+      "title": "FlagSeverity",
+      "type": "string"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "properties": {
+        "citations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SegmentKind"
+        },
+        "patient_fact_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Patient Fact Refs",
+          "type": "array"
+        },
+        "strength": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceTier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text"
+      ],
+      "title": "Segment",
+      "type": "object"
+    },
+    "SegmentKind": {
+      "description": "The six segment kinds of rule FE7/RC2. Final; changes go through v2 + ADR.",
+      "enum": [
+        "evidence",
+        "patient_fact",
+        "interpretation",
+        "uncertainty",
+        "missing_info",
+        "next_step"
+      ],
+      "title": "SegmentKind",
+      "type": "string"
+    },
+    "SourceAuthority": {
+      "description": "Authority precedence per rule RR3 (tenant > national > international > primary literature).",
+      "enum": [
+        "tenant",
+        "national",
+        "international",
+        "primary_literature",
+        "other"
+      ],
+      "title": "SourceAuthority",
+      "type": "string"
+    },
+    "SourceKind": {
+      "enum": [
+        "corpus",
+        "web",
+        "drug"
+      ],
+      "title": "SourceKind",
+      "type": "string"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "An entry of the envelope's sources[] panel; citations point at these.",
+      "properties": {
+        "document_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document Version Id"
+        },
+        "evidence_tier": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceTier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "source_authority": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceAuthority"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "web": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WebSourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "StreamEventKind": {
+      "enum": [
+        "header",
+        "summary_segment",
+        "detail_segment",
+        "source",
+        "late_source",
+        "done",
+        "error"
+      ],
+      "title": "StreamEventKind",
+      "type": "string"
+    },
+    "TriageDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "classifier_used": {
+          "default": false,
+          "title": "Classifier Used",
+          "type": "boolean"
+        },
+        "contract_version": {
+          "default": "1.0",
+          "pattern": "^\\d+\\.\\d+$",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "matched_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matched Rule"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "outcome": {
+          "$ref": "#/$defs/TriageOutcome"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "outcome"
+      ],
+      "title": "TriageDecision",
+      "type": "object"
+    },
+    "TriageOutcome": {
+      "enum": [
+        "allow",
+        "deflect"
+      ],
+      "title": "TriageOutcome",
+      "type": "string"
+    },
+    "TriageReason": {
+      "description": "Why a question was deflected. Final for v1; new codes are additive.",
+      "enum": [
+        "emergency",
+        "self_harm",
+        "personal_advice",
+        "out_of_scope",
+        "unsafe_request"
+      ],
+      "title": "TriageReason",
+      "type": "string"
+    },
+    "WebSourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "accessed_at": {
+          "format": "date-time",
+          "title": "Accessed At",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "snapshot_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Ref"
+        },
+        "trust_tier": {
+          "$ref": "#/$defs/WebTrustTier"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "domain",
+        "trust_tier",
+        "accessed_at"
+      ],
+      "title": "WebSourceRef",
+      "type": "object"
+    },
+    "WebTrustTier": {
+      "enum": [
+        "international_organization",
+        "government",
+        "professional_society",
+        "guideline_registry",
+        "journal",
+        "other"
+      ],
+      "title": "WebTrustTier",
+      "type": "string"
+    }
+  },
+  "$id": "https://evidentia.contracts/answer_stream_event@1.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Wire union. Exactly one payload field is set, selected by `event`.\n\nSSE framing: the `event:` line carries `event`, the `data:` line carries\nthis model serialized as JSON.",
+  "properties": {
+    "done": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnswerStreamDone"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnswerStreamError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "event": {
+      "$ref": "#/$defs/StreamEventKind"
+    },
+    "header": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnswerStreamHeader"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "segment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Segment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SourceRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "event"
+  ],
+  "title": "AnswerStreamEvent",
+  "type": "object",
+  "x-contract-name": "answer_stream_event",
+  "x-contract-version": "1.0"
+}
