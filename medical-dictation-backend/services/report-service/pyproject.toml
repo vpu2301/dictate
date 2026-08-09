@@ -21,6 +21,7 @@ dependencies = [
     "template_models",
     "report_models",
     "notification_events",
+    "clinical_access",
     "redis>=5.0",
     "secret",
     "medical_kep[pdf]",
@@ -37,6 +38,7 @@ db = { workspace = true }
 template_models = { workspace = true }
 report_models = { workspace = true }
 notification_events = { workspace = true }
+clinical_access = { workspace = true }
 secret = { workspace = true }
 medical_kep = { workspace = true }
 crypto = { workspace = true }

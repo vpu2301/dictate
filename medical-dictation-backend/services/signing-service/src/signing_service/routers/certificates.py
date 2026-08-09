@@ -44,7 +44,9 @@ class CertificateInfo(BaseModel):
 
 @router.get("/certificates", response_model=list[CertificateInfo])
 async def list_certificates(
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    # HOTFIX — signing-adjacent: this enumerates the signing certificates
+    # available to the caller. Only a role that may sign needs it.
+    claims: Annotated[Claims, Depends(requires("report.sign", "report"))],
 ) -> list[CertificateInfo]:
     state = get_state()
     return [

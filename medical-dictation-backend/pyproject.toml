@@ -106,6 +106,7 @@ root_packages = [
     "notification_service",
     "notification_events",
     "generation_service",
+    "clinical_access",
 ]
 
 [[tool.importlinter.contracts]]
@@ -237,6 +238,21 @@ forbidden_modules = [
     "crypto", "storage", "asr_models", "template_models",
 ]
 
+# The treatment-relationship predicate is the single source of truth for
+# "is this principal on this patient's care", shared by report-service and
+# core-service. It takes an already-open, RLS-scoped asyncpg connection and
+# nothing else — no pools, no settings, no claims — which is what lets both
+# services depend on it without either one owning it.
+[[tool.importlinter.contracts]]
+name = "clinical_access is a leaf — it takes a connection and answers a question"
+type = "forbidden"
+source_modules = ["clinical_access"]
+forbidden_modules = [
+    "observability", "secret", "auth", "db", "audit", "messaging",
+    "crypto", "storage", "asr_models", "template_models", "report_models",
+    "notification_events",
+]
+
 [[tool.importlinter.contracts]]
 name = "Libs may not import services"
 type = "forbidden"
@@ -253,6 +269,7 @@ source_modules = [
     "template_models",
     "report_models",
     "notification_events",
+    "clinical_access",
 ]
 forbidden_modules = [
     "template_service",

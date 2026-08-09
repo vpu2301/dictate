@@ -90,6 +90,40 @@ Investigate via the `requestor_ip_hmac` distribution:
   temporarily via `PUBLIC_VERIFY_RATE_PER_MINUTE` and consider WAF
   rules (sprint-16 adds Cloudflare).
 
+### Someone cannot sign / `403 signing_not_permitted`
+
+**Signing is clinician-only.** Applying a qualified electronic signature
+to a clinical record is a clinician's personal legal act under Law
+2155-VIII, so it is gated on `report.sign` (`report.amend` for amending a
+signed report, `consent.sign` for a patient consent) — held by
+`clinician` and by no other role.
+
+Before the hotfix every signing surface gated on `report.write`, which
+`nurse` holds, and the consent surface on `patient.write`, which `nurse`
+and `tenant_admin` both hold. A nurse could sign a clinical report; a
+nurse or an operational admin could sign a consent. If you are chasing a
+signature that "used to work", that is why.
+
+| Who is complaining | What is actually true | What to do |
+|---|---|---|
+| A nurse cannot sign a report they wrote | Correct and intended. They author and finalize (`report.write`); a clinician signs. | Route the report to a clinician. Do **not** grant `report.sign` to `nurse` — that re-opens the defect for every nurse in every tenant. |
+| A tenant_admin cannot sign | Correct and intended. | If they are also a practising doctor, give the **account** the `clinician` role too: `check()` passes on any granting role, so a dual-role person signs normally. |
+| A doctor cannot sign | Their account is missing the `clinician` role. | `PUT /admin/users/{sub}/roles`. Confirm with the `signing.denied_role` audit row, which names their full role list. |
+| A physician-assistant-style role needs to sign | Not modelled. | This is a **new role** decision with `report.sign` granted, plus a `docs/adr/` amendment — never `nurse` widened. |
+
+Every refusal writes `signing.denied_role` at `sec` severity (naming the
+principal and their full role list) and increments
+`mdx_signing_denied_total{role}`. The `SigningDeniedByRoleRepeated` alert
+fires on >5/hour in a tenant — usually either a wrong role assignment or
+a SPA offering a button it should not.
+
+The check is enforced in three places on purpose: the permission matrix
+(`libs/auth/perms.py`), the `requires("report.sign", …)` dependency on
+every signing route, and `assert_may_sign()` in
+`signing_service/signing_authority.py`, which runs in the handler body
+**before** any provider is selected or dispatched to. A future route that
+forgets the dependency still cannot reach the crypto.
+
 ## Operational tunables
 
 | envvar                                | default       | purpose                                             |

@@ -49,6 +49,7 @@ from .. import repository as repo
 from ..config import settings
 from ..deps import get_state, requires
 from ..security import ipn_hmac, new_verification_token
+from ..signing_authority import assert_may_sign
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +100,14 @@ def _problem(code: int, error: str, detail: str) -> HTTPException:
 @router.post("/inline", response_model=InlineSignResponse)
 async def sign_inline(
     body: InlineSignRequest,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    # HOTFIX — the synchronous signing path (file_key/dev_password/mock).
+    # This reaches the crypto directly; clinician-only.
+    claims: Annotated[Claims, Depends(requires("report.sign", "report"))],
 ) -> InlineSignResponse:
+    # Defence in depth before the synchronous signing path touches a
+    # provider — this one reaches the crypto in the same request.
+    await assert_may_sign(claims, resource_kind="report")
+
     state = get_state()
     provider_name = _INLINE_PROVIDERS[body.provider]
 

@@ -29,6 +29,7 @@ from uuid import UUID
 
 import asyncpg
 
+from auth import Claims, can_claims
 from report_models import ReportStatus
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,48 @@ class RevertWindowExceededError(Exception):
 
 class NotPrimaryAuthorError(Exception):
     pass
+
+
+class SigningAuthorityError(Exception):
+    """The principal driving a SIGN/AMEND transition may not sign (hotfix).
+
+    The route guards are the first line, but a state machine that accepts
+    any caller is a hole waiting for the next endpoint: sprint-09 wired
+    the real ``finalized → signed`` write in signing-service, and these
+    hooks sat here unguarded and uncalled for two sprints. Requiring the
+    principal HERE means a future route that reaches for the state
+    machine directly cannot skip the check — it has to pass claims that
+    satisfy it, or not compile.
+    """
+
+    def __init__(self, action: TransitionAction, claims: Claims) -> None:
+        self.action = action
+        self.claims = claims
+        self.roles = list(claims.roles)
+        super().__init__(
+            f"roles={self.roles} may not drive the {action.value!r} transition: "
+            f"signing a clinical report is a clinician-only act"
+        )
+
+
+# The (action, target_kind) each signing transition demands. Mirrors the
+# route guards; both read the same matrix in libs/auth.
+_TRANSITION_PERMISSION: Final[dict[TransitionAction, tuple[str, str]]] = {
+    TransitionAction.SIGN: ("report.sign", "report"),
+    TransitionAction.AMEND: ("report.amend", "report"),
+}
+
+
+def assert_may_drive(action: TransitionAction, claims: Claims) -> None:
+    """Raise :class:`SigningAuthorityError` unless ``claims`` may drive
+    ``action``. A no-op for transitions that carry no signing authority
+    (finalize, cancel, revert) — those are gated by ``report.write``."""
+    required = _TRANSITION_PERMISSION.get(action)
+    if required is None:
+        return
+    permission, target_kind = required
+    if not can_claims(claims, permission, target_kind):
+        raise SigningAuthorityError(action, claims)
 
 
 class FinalizeValidationError(Exception):
@@ -223,8 +266,15 @@ class ReportStateMachine:
         conn: asyncpg.Connection,
         *,
         report_id: UUID,
+        signer: Claims,
     ) -> TransitionResult:
-        """Sprint-09 hook. Not called by sprint-08 paths."""
+        """Sprint-09 hook — ``finalized → signed``.
+
+        ``signer`` is required, not optional: a default would make the
+        authority check skippable by omission, which is precisely the
+        failure mode this exists to prevent.
+        """
+        assert_may_drive(TransitionAction.SIGN, signer)
         to = self.expected_to(ReportStatus.FINALIZED, TransitionAction.SIGN)
         await self._atomic_update_status(
             conn,
@@ -240,8 +290,11 @@ class ReportStateMachine:
         conn: asyncpg.Connection,
         *,
         report_id: UUID,
+        signer: Claims,
     ) -> TransitionResult:
-        """Sprint-09 hook. Called when an amendment is signed."""
+        """Sprint-09 hook — ``signed → amended``, when an amendment is
+        signed. Same authority as SIGN: see :func:`assert_may_drive`."""
+        assert_may_drive(TransitionAction.AMEND, signer)
         to = self.expected_to(ReportStatus.SIGNED, TransitionAction.AMEND)
         await self._atomic_update_status(
             conn,

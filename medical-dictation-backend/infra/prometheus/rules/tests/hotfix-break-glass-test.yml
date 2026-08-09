@@ -1,0 +1,122 @@
+# promtool unit tests for the break-glass anomaly alerts.
+# Run: make check-alert-rules
+#
+# An alert nobody has fired on purpose is an alert nobody knows works.
+# Each rule below is driven past its threshold with a synthetic burst and
+# checked for silence beneath it.
+
+rule_files:
+  - ../hotfix-break-glass.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ── The snooping signature: one principal, many charts, fast ──────
+  - interval: 1m
+    name: break-glass burst by a single principal
+    input_series:
+      # One admin: a grant a minute. Crosses 5-in-15m at t≈6m.
+      - series: 'mdx_break_glass_total{principal="admin-1",role="tenant_admin",tenant_id="t1",reason="quality_review",resource_kind="report"}'
+        values: "0+1x40"
+    alert_rule_test:
+      # Under the threshold — a couple of grants is ordinary use.
+      - eval_time: 3m
+        alertname: BreakGlassBurstByPrincipal
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: BreakGlassBurstByPrincipal
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              principal: admin-1
+              role: tenant_admin
+              tenant_id: t1
+            exp_annotations:
+              summary: "tenant_admin admin-1 broke glass 15 times in 15 minutes"
+              description: >
+                One principal has minted an unusual number of break-glass grants in a short window — the pattern a chart sweep produces. Pull the grants with GET /v1/phi-access-requests?requested_by=admin-1 and read the reason codes and notes. Revoke live grants with POST /v1/phi-access-requests/{id}/revoke. Runbook: docs/runbooks/break-glass.md
+
+  # ── Legitimate use stays silent ───────────────────────────────────
+  - interval: 1m
+    name: occasional legitimate break-glass does not alert
+    input_series:
+      # A clinician covering a ward: 3 grants across 15 minutes, then
+      # nothing. Under every threshold — this is the case the control is
+      # meant to permit, and alerting on it would train people to ignore it.
+      - series: 'mdx_break_glass_total{principal="doc-7",role="clinician",tenant_id="t1",reason="emergency_care",resource_kind="patient"}'
+        values: "0 1 1 2 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3"
+    alert_rule_test:
+      - eval_time: 19m
+        alertname: BreakGlassBurstByPrincipal
+        exp_alerts: []
+      - eval_time: 19m
+        alertname: BreakGlassTenantRateElevated
+        exp_alerts: []
+
+  # ── Tenant-wide elevation: the predicate-regression signal ────────
+  - interval: 1m
+    name: tenant-wide break-glass rate elevated
+    input_series:
+      # Five different clinicians each breaking glass steadily. No single
+      # one trips the per-principal burst rule; together they cross the
+      # tenant threshold — which is what a broken relationship predicate
+      # would look like.
+      - series: 'mdx_break_glass_total{principal="doc-1",role="clinician",tenant_id="t2",reason="care_coordination",resource_kind="patient"}'
+        values: "0+1x90"
+      - series: 'mdx_break_glass_total{principal="doc-2",role="clinician",tenant_id="t2",reason="care_coordination",resource_kind="patient"}'
+        values: "0+1x90"
+      - series: 'mdx_break_glass_total{principal="doc-3",role="clinician",tenant_id="t2",reason="care_coordination",resource_kind="patient"}'
+        values: "0+1x90"
+    alert_rule_test:
+      - eval_time: 80m
+        alertname: BreakGlassTenantRateElevated
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              tenant_id: t2
+            exp_annotations:
+              summary: "Tenant-wide break-glass rate is elevated (180/h)"
+              description: >
+                If this fires across the whole tenant rather than for one principal, suspect the treatment-relationship predicate before suspecting the staff: a regression there makes legitimate clinicians look unrelated to their own patients. Check libs/clinical_access and whether encounters are being written.
+
+  # ── Refused signing attempts ──────────────────────────────────────
+  - interval: 1m
+    name: repeated refused signing attempts
+    input_series:
+      # A nurse repeatedly hitting a signing endpoint. Post-hotfix this is
+      # a 403 every time; the run of them is what needs a human.
+      - series: 'mdx_signing_denied_total{tenant_id="t1",role="nurse",resource_kind="report"}'
+        values: "0+1x90"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: SigningDeniedByRoleRepeated
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: SigningDeniedByRoleRepeated
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              tenant_id: t1
+              role: nurse
+            exp_annotations:
+              summary: "Repeated refused signing attempts in tenant t1"
+              description: >
+                Non-clinicians are hitting signing endpoints. Check the sec-severity audit rows for kind='signing.denied_role' — they name the principal and their roles. If a clinician appears here, their role assignment is wrong; if a nurse does, the SPA is offering them a button it should not.
+
+  # ── Step-up outage looks like refusals, not misuse ────────────────
+  - interval: 1m
+    name: break-glass refusals elevated
+    input_series:
+      - series: 'mdx_phi_access_rejected_total{cause="bad_ticket"}'
+        values: "0+1x90"
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: BreakGlassRefusalsElevated
+        exp_alerts:
+          - exp_labels:
+              severity: warn
+              cause: bad_ticket
+            exp_annotations:
+              summary: "Break-glass requests are being refused at an elevated rate (cause=bad_ticket)"
+              description: >
+                cause=bad_ticket in volume means step-up tickets are failing — check auth-service and Keycloak reachability before assuming misuse, because a broken step-up silently closes the only door an admin has to a patient record.

@@ -185,8 +185,8 @@ nurse,stats.read,tenant,false,nurses read the real lists; no stripped mode neede
 auditor,stats.read,tenant,false,"audit reach is the audit log, not usage aggregates"
 service,stats.read,tenant,false,no S2S dashboard surface
 tenant_admin,phi_access.request,phi_access_request,true,"S14 — break-glass: reason + password re-entry mints a time-limited, single-report grant"
-clinician,phi_access.request,phi_access_request,false,clinicians already hold report.read — nothing to break glass for
-nurse,phi_access.request,phi_access_request,false,nurses already hold report.read — nothing to break glass for
+clinician,phi_access.request,phi_access_request,false,"2026-08-09 — reverted: standing patient.read_full is once again the whole answer for a clinical role (the relationship is audited, not required), so a clinician has no break-glass door left to walk through and must not hold the power to mint grants"
+nurse,phi_access.request,phi_access_request,false,"2026-08-09 — see clinician: standing clinical read is not relationship-scoped, so break-glass is not a nurse's path either"
 auditor,phi_access.request,phi_access_request,false,"audit role reads the trail of grants, never the reports themselves"
 service,phi_access.request,phi_access_request,false,break-glass is a human act with a human justification
 tenant_admin,phi_access.read,phi_access_request,true,S14 — oversight of who broke glass on what and why
@@ -311,3 +311,21 @@ nurse,evidence.ops.read,evidence,false,not granted (EVA-S01)
 auditor,evidence.ops.read,evidence,true,reads evidence pipeline/ops surfaces, no clinical use
 service,evidence.ops.read,evidence,false,not granted (EVA-S01)
 knowledge_admin,evidence.ops.read,evidence,false,not granted (EVA-S01)
+clinician,report.sign,report,true,"HOTFIX — applying a КЕП to a clinical report is a clinician's legal act (Law 2155-VIII); this is the only role that holds it"
+tenant_admin,report.sign,report,false,"HOTFIX — an operational admin signing a clinical report is a compliance breach; admin ⟂ PHI already denies report.write, this denies the act itself"
+nurse,report.sign,report,false,"HOTFIX — a nurse prepares and finalizes (report.write) but may not apply a clinical signature; this was the live defect"
+auditor,report.sign,report,false,read-only role — no clinical acts
+service,report.sign,report,false,"a signature is a human legal act; signing-service S2S reads the report (report.read) but never initiates on its own authority"
+knowledge_admin,report.sign,report,false,corpus curation role only (EVA-S01)
+clinician,report.amend,report,true,"HOTFIX — amending a signed report re-signs it; same clinical act, same authority"
+tenant_admin,report.amend,report,false,HOTFIX — see report.sign
+nurse,report.amend,report,false,HOTFIX — see report.sign
+auditor,report.amend,report,false,read-only role — no clinical acts
+service,report.amend,report,false,human legal act
+knowledge_admin,report.amend,report,false,corpus curation role only (EVA-S01)
+clinician,consent.sign,consent,true,"HOTFIX — КЕП attestation of a patient consent is a clinical act; recording that a consent exists stays under patient.write"
+tenant_admin,consent.sign,consent,false,"HOTFIX — tenant_admin holds patient.write and so could sign consents; that was the live defect"
+nurse,consent.sign,consent,false,"HOTFIX — a nurse may capture the consent (patient.write) but not sign it"
+auditor,consent.sign,consent,false,read-only role — no clinical acts
+service,consent.sign,consent,false,human legal act
+knowledge_admin,consent.sign,consent,false,corpus curation role only (EVA-S01)

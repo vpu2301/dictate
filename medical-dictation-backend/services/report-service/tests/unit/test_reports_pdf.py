@@ -113,6 +113,26 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     monkeypatch.setattr(reports_pdf, "tenant_connection", _fake_tenant_conn)
 
+    # The break-glass guard now resolves a treatment relationship before
+    # serving any report content. These tests are about PDF rendering, not
+    # about access control, so the caller is stubbed as the author — the
+    # ordinary clinical path. The relationship predicate itself is tested
+    # in libs/clinical_access, and the access branches in
+    # test_phi_access_break_glass.
+    from report_service.routers import _phi_access_guard
+
+    @contextlib.asynccontextmanager
+    async def _guard_conn(pool, tenant_id):  # noqa: ANN001
+        yield None
+
+    async def _related(conn, *, user_sub, report_id):  # noqa: ANN001
+        from clinical_access import Relationship, RelationshipBasis
+
+        return Relationship(basis=RelationshipBasis.AUTHOR)
+
+    monkeypatch.setattr(_phi_access_guard, "tenant_connection", _guard_conn)
+    monkeypatch.setattr(_phi_access_guard, "relationship_with_report", _related)
+
     app = create_app()
     app.dependency_overrides[deps.current_user] = _clinician_claims
     c = TestClient(app)

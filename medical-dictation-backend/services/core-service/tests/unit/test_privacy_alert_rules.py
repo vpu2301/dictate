@@ -1,8 +1,14 @@
 """S11 step 08 — privacy alert rules stay loadable and on-contract.
 
-Mirrors the S10 method: the YAML parses, the four contract rule names
-exist with fixed severities, and every referenced metric is one the
-emitters actually produce (the S10 root-cause was exactly this drift).
+Mirrors the S10 method: the YAML parses, the contract rule names exist
+with fixed severities, and every referenced metric is one the emitters
+actually produce (the S10 root-cause was exactly this drift).
+
+NOTE (hotfix): `DsarExportFailed` was added to the rules file in S16-17
+but never added to ``EXPECTED``, so this test had been failing since
+then — unnoticed, because core-service was missing from the ``make test``
+target. Both are corrected: the rule is listed below, and core-service
+now runs in CI.
 """
 
 from __future__ import annotations
@@ -24,6 +30,7 @@ EXPECTED = {
     "ErasureRequestStuckExecuting": "page",
     "ErasureApprovedOverdue": "page",
     "DsarExportSlow": "warn",
+    "DsarExportFailed": "warn",
     "ErasureExecutionError": "warn",
 }
 
@@ -34,7 +41,7 @@ def _rules() -> list[dict]:
     return group["rules"]
 
 
-def test_four_rules_with_fixed_names_and_severities() -> None:
+def test_contract_rules_have_fixed_names_and_severities() -> None:
     rules = {r["alert"]: r for r in _rules()}
     assert set(rules) == set(EXPECTED)
     for name, severity in EXPECTED.items():

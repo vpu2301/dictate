@@ -23,6 +23,7 @@ dependencies = [
     "secret",
     "crypto",
     "storage",
+    "clinical_access",
 ]
 
 [tool.uv.sources]
@@ -33,6 +34,7 @@ db = { workspace = true }
 secret = { workspace = true }
 crypto = { workspace = true }
 storage = { workspace = true }
+clinical_access = { workspace = true }
 
 [project.optional-dependencies]
 dev = [

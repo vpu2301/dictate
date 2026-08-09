@@ -19,6 +19,12 @@ Failure modes:
   - GPU OOM               → ``error_kind='gpu_oom'``, no retry; releases CUDA cache.
   - Inference timeout     → ``error_kind='timeout'``, no retry.
   - Other exceptions      → ``error_kind='unhandled'``; consumer.fail() retries.
+
+Cancellation is checked at four points, because ``DELETE /asr/jobs/{id}``
+on a RUNNING job can only ask: it sets ``cancel_requested`` and leaves the
+status alone, so nothing stops unless the worker looks. It looks before
+claiming the job, after decoding the audio, between inference chunks, and
+once more before the transcript is stored.
 """
 
 from __future__ import annotations
@@ -27,6 +33,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -40,6 +47,7 @@ from messaging import Message
 from . import audit_kinds
 from .audio_io import AudioDecodeError, decode_to_pcm
 from .config import settings
+from .inference import TranscriptionCancelledError
 from .main_deps import WorkerState
 from .notifications import emit_transcription_completed, emit_transcription_failed
 
@@ -105,6 +113,12 @@ async def run_forever(state: WorkerState) -> None:
                 # Bubble up to consumer.fail() so retries + DLQ are handled.
                 logger.exception("processor.unhandled", exc_info=exc)
                 await consumer.fail(msg, error_kind="unhandled")
+
+
+# How often the engine may ask the database whether the clinician has
+# cancelled. Between VAD chunks, so the real granularity is whichever is
+# coarser — one chunk, or one second.
+_CANCEL_POLL_SECONDS = 1.0
 
 
 class _NonRetryableError(Exception):
@@ -208,9 +222,19 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
                     language=payload.language,
                     prompt=prompt_text,
                     prompt_id=payload.prompt_id,
+                    # Cancel is a request, not a status: DELETE /asr/jobs/{id}
+                    # on a RUNNING job only sets `cancel_requested`, and it is
+                    # the worker that has to act on it. Before this it never
+                    # looked again after inference started, so pressing Cancel
+                    # on a job that was already transcribing did nothing at
+                    # all — the job ran to completion and came back `complete`.
+                    should_cancel=_cancel_poller(state, tenant_id, job_id),
                 ),
                 timeout=max_infer,
             )
+        except TranscriptionCancelledError:
+            await _mark_cancelled(state, tenant_id, job_id)
+            return
         except TimeoutError:
             await _mark_failed(
                 state,
@@ -239,6 +263,14 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
         if audio_seconds > 0:
             _realtime_factor.record(audio_seconds / max(infer_seconds, 1e-6))
         _gpu_memory_peak.record(output.metadata.peak_gpu_mem_mb)
+
+        # Last look before the transcript becomes a fact. A cancel that
+        # landed during the final chunk, or while the audio was being
+        # decoded, must not be overwritten by a `complete` — the clinician
+        # asked for this job to stop, and a stored transcript is not stopping.
+        if await _is_cancelled(state, tenant_id, job_id):
+            await _mark_cancelled(state, tenant_id, job_id)
+            return
 
         result_key = f"{tenant_id}/{job_id}.json.enc"
         body = output.model_dump_json().encode("utf-8")
@@ -316,6 +348,30 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
             _release_cuda_cache()
             raise _NonRetryableError("gpu_oom", str(exc)) from exc
         raise
+
+
+def _cancel_poller(
+    state: WorkerState, tenant_id: UUID, job_id: UUID
+) -> Callable[[], Awaitable[bool]]:
+    """`should_cancel` for the engine, rate-limited to one query a second.
+
+    VAD can cut a long consultation into hundreds of speech runs, and a
+    round trip per run would spend more time asking whether to stop than
+    stopping saves. A second of extra inference is not worth a query storm.
+    """
+    last = 0.0
+    answer = False
+
+    async def poll() -> bool:
+        nonlocal last, answer
+        now = time.monotonic()
+        if answer or now - last < _CANCEL_POLL_SECONDS:
+            return answer
+        last = now
+        answer = await _is_cancelled(state, tenant_id, job_id)
+        return answer
+
+    return poll
 
 
 async def _is_cancelled(state: WorkerState, tenant_id: UUID, job_id: UUID) -> bool:

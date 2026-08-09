@@ -280,6 +280,11 @@
             "title": "Audio Id",
             "type": "string"
           },
+          "cancel_requested": {
+            "default": false,
+            "title": "Cancel Requested",
+            "type": "boolean"
+          },
           "error_detail": {
             "anyOf": [
               {

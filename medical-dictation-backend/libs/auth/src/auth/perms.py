@@ -41,6 +41,7 @@ KNOWN_TARGET_KINDS: Final[frozenset[str]] = frozenset(
         "template",
         "report",
         "patient",
+        "consent",
         "note",
         "notification",
         "phrase",
@@ -136,6 +137,42 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("nurse", "report.write", "report"): True,
     ("nurse", "report.read", "report"): True,
     ("service", "report.read", "report"): True,
+    # ── Signing authority — CLINICIAN ONLY (hotfix) ───────────────────
+    # Applying a qualified electronic signature to a clinical document is
+    # a clinician's personal legal act under Law 2155-VIII. It is NOT an
+    # aspect of "being able to write the document", which is what
+    # `report.write` means and which nurses legitimately hold: a nurse
+    # prepares and finalizes, a clinician signs.
+    #
+    # Before this hotfix every signing surface — the report sign route,
+    # the signing-service session initiation, the local-KEP upload, the
+    # certificate enumeration, the inline signer, and the consent sign
+    # route — gated on `report.write`/`patient.write`. Both are held by
+    # `nurse`; `patient.write` is additionally held by `tenant_admin`.
+    # Signing authority therefore had no representation in this matrix at
+    # all. These three actions give it one.
+    #
+    #   report.sign    — finalized → signed. The signature itself.
+    #   report.amend   — signed → amended. Amending a signed clinical
+    #                    report re-signs it, so it is the same act.
+    #   consent.sign   — КЕП on a patient consent. A nurse may still
+    #                    RECORD that a consent exists (`patient.write`
+    #                    on POST /consents); attesting to it with a
+    #                    qualified signature is the clinical act.
+    #
+    # `report.finalize` deliberately does NOT appear here. Finalize is
+    # the structural draft → finalized transition — it validates required
+    # sections and ICD-10 codes and freezes the version for signature. It
+    # applies no signature and advances nothing towards one, so it stays
+    # under `report.write` and nurses keep it.
+    #
+    # If a site employs physician-assistant-style staff who legally sign,
+    # that is a NEW role with `report.sign` granted — never `nurse`
+    # widened, which would silently re-open this hole for every nurse in
+    # every tenant.
+    ("clinician", "report.sign", "report"): True,
+    ("clinician", "report.amend", "report"): True,
+    ("clinician", "consent.sign", "consent"): True,
     # ── Sprint 11: patients (clinical/EHR core-service) ──────────────
     # Patient roster + the per-patient record (encounters, consents,
     # anamnesis, privacy). Two tiers since S15:
@@ -221,6 +258,22 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # `sec` severity and — for reports — the authors are notified.
     # `phi_access.read` is the oversight surface — who broke glass, on
     # what, and why.
+    #
+    # Admin-only, and back to being so (2026-08-09). The
+    # treatment-relationship hotfix had briefly made a clinical role's
+    # standing read relationship-scoped, which sent the covering doctor
+    # and the corridor consult through this door too — so the capability
+    # was extended to them. That gate is gone: `patient.read_full` and
+    # `report.read` are once again the whole answer for a clinical role,
+    # with the relationship recorded in the audit event rather than
+    # required (see the guards in core-service / report-service).
+    #
+    # Which makes this a capability a clinician can no longer spend. A
+    # permission with no reachable use is not harmless — it is a live
+    # grant-minting power sitting on the role that least needs it, and a
+    # modal the UI would have to keep alive for a door nobody walks
+    # through. So it goes back to the administrator, who genuinely holds
+    # no clinical read and for whom break-glass is the ONLY way in.
     ("tenant_admin", "phi_access.request", "phi_access_request"): True,
     ("tenant_admin", "phi_access.read", "phi_access_request"): True,
     ("auditor", "phi_access.read", "phi_access_request"): True,
