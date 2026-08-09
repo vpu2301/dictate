@@ -100,7 +100,11 @@ async def sign_report(
     report_id: UUID,
     body: SignRequest,
     request: Request,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    # HOTFIX — signing is clinician-only. This used to gate on
+    # `report.write`, which nurses hold: a nurse could apply a qualified
+    # electronic signature to a clinical report. Preparing a report and
+    # signing it are different authorities (see libs/auth/perms.py).
+    claims: Annotated[Claims, Depends(requires("report.sign", "report"))],
 ):
     state = get_state()
 

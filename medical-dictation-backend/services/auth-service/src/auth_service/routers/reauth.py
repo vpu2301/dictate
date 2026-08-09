@@ -28,6 +28,27 @@ Why a ticket table rather than "just send the fresh access token":
 
 The password itself never leaves this module: it goes straight to
 Keycloak and is not logged, audited, or stored in any form.
+
+── Second factor (hotfix) ─────────────────────────────────────────────
+
+A password proves a secret the account holder knows; break-glass is
+worth a second factor when there is one to demand. So: if the principal
+has completed TOTP enrolment (sprint-16, ADR-0039), the step-up ALSO
+requires a current code, and the ticket records ``{password, totp}``.
+If they have not, the password alone still mints a ticket recording
+``{password}``.
+
+Conditional rather than mandatory because MFA is deliberately off in the
+pilot (``MDX_REQUIRE_MFA=false``) and most accounts have no enrolment.
+Demanding TOTP unconditionally would not have strengthened break-glass;
+it would have removed it, for exactly the 2am legal-deadline case the
+door was built for. Enrolled users get the stronger control immediately,
+nobody gets locked out, and the ``factors`` column makes which one
+applied an auditable fact rather than a guess about rollout dates.
+
+The enrolment lookup is what decides, NOT the caller's `mfa` claim: a
+token minted before enrolment would otherwise downgrade its own holder's
+step-up.
 """
 
 from __future__ import annotations
@@ -46,7 +67,7 @@ from audit import Severity
 from auth import Claims
 from db import tenant_connection
 
-from .. import audit_kinds
+from .. import audit_kinds, totp
 from ..config import settings
 from ..deps import current_user, get_state
 from ..keycloak_client import KeycloakError
@@ -72,6 +93,11 @@ class ReauthRequest(BaseModel):
 
     password: str = Field(min_length=1, max_length=512)
     purpose: ReauthPurpose = "phi_access_request"
+    # Required when — and only when — the principal has completed TOTP
+    # enrolment. Optional in the schema because the client cannot know
+    # which case it is in until it asks; omitting it when enrolled comes
+    # back as 401 `totp_required`, which is the SPA's cue to prompt.
+    totp_code: str | None = Field(default=None, min_length=6, max_length=8)
 
 
 class ReauthResponse(BaseModel):
@@ -80,10 +106,52 @@ class ReauthResponse(BaseModel):
     reauth_ticket: str
     expires_in: int
     purpose: str
+    # What this ticket actually proves. The consumer records it on the
+    # grant, so a compliance review can tell a second-factor break-glass
+    # from a password-only one without reconstructing rollout history.
+    factors: list[str]
 
 
 def _hash_ticket(ticket: str) -> bytes:
     return hashlib.sha256(ticket.encode("utf-8")).digest()
+
+
+async def _totp_secret_if_enrolled(state: object, claims: Claims) -> str | None:
+    """The principal's TOTP secret, or ``None`` if they are not enrolled.
+
+    Reads Keycloak rather than the token: a session opened before the
+    user enrolled carries ``mfa=false``, and trusting it would let the
+    holder of an old token skip the second factor for as long as it
+    lives.
+
+    A Keycloak or crypto failure raises rather than returning ``None``.
+    Falling back to "not enrolled" would turn an outage into a silent
+    downgrade of the strongest control in the system — the opposite of
+    fail-safe.
+    """
+    from .. import totp
+
+    try:
+        rep = await state.keycloak.get_user(claims.sub)  # type: ignore[attr-defined]
+    except KeycloakError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="cannot determine MFA enrolment for step-up",
+        ) from exc
+
+    attrs = rep.get("attributes")
+    packed: str | None = None
+    if isinstance(attrs, dict):
+        val = attrs.get("totp_secret_enc")
+        if isinstance(val, list) and val and isinstance(val[0], str) and val[0]:
+            packed = val[0]
+    if packed is None:
+        return None
+
+    envelope = await state.get_envelope()  # type: ignore[attr-defined]
+    return await totp.decrypt_secret(
+        envelope, packed=packed, tenant_id=claims.tid, sub=claims.sub
+    )
 
 
 async def _resolve_username(state: object, claims: Claims) -> str | None:
@@ -143,20 +211,52 @@ async def reauth(
             headers={"WWW-Authenticate": 'Bearer realm="medical-dictation"'},
         ) from exc
 
+    # ── Second factor, when the principal has one ────────────────────
+    factors = ["password"]
+    secret = await _totp_secret_if_enrolled(state, claims)
+    if secret is not None:
+        if not body.totp_code:
+            _reauth_counter.add(1, {"result": "totp_missing", "purpose": body.purpose})
+            # Not an audit event: the password was correct and the user
+            # simply has not been prompted yet. The SPA turns this code
+            # into the TOTP field and retries.
+            exc_missing = HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="this account is enrolled in MFA; a current TOTP code is required",
+            )
+            exc_missing.problem_extras = {  # type: ignore[attr-defined]
+                "code": "totp_required",
+            }
+            raise exc_missing
+        if not totp.verify_code(secret, body.totp_code):
+            _reauth_counter.add(1, {"result": "invalid_totp", "purpose": body.purpose})
+            await _audit(
+                state,
+                claims,
+                kind=audit_kinds.AUTH_REAUTH_FAILED,
+                payload={"purpose": body.purpose, "factor": "totp"},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="invalid TOTP code",
+            )
+        factors.append("totp")
+
     ticket = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + timedelta(seconds=settings.reauth_ticket_ttl_seconds)
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         await conn.execute(
             """
             INSERT INTO auth_reauth_tickets
-                (tenant_id, subject_sub, ticket_hash, purpose, expires_at)
-            VALUES ($1, $2, $3, $4, $5)
+                (tenant_id, subject_sub, ticket_hash, purpose, expires_at, factors)
+            VALUES ($1, $2, $3, $4, $5, $6)
             """,
             claims.tid,
             claims.sub,
             _hash_ticket(ticket),
             body.purpose,
             expires_at,
+            factors,
         )
         # Opportunistic sweep of this tenant's dead tickets. They carry no
         # PHI and no authority, so there is nothing to retain, and folding
@@ -170,17 +270,25 @@ async def reauth(
             """
         )
 
-    _reauth_counter.add(1, {"result": "success", "purpose": body.purpose})
+    _reauth_counter.add(
+        1,
+        {
+            "result": "success",
+            "purpose": body.purpose,
+            "factors": "+".join(factors),
+        },
+    )
     await _audit(
         state,
         claims,
         kind=audit_kinds.AUTH_REAUTH_SUCCEEDED,
-        payload={"purpose": body.purpose},
+        payload={"purpose": body.purpose, "factors": factors},
     )
     return ReauthResponse(
         reauth_ticket=ticket,
         expires_in=settings.reauth_ticket_ttl_seconds,
         purpose=body.purpose,
+        factors=factors,
     )
 
 

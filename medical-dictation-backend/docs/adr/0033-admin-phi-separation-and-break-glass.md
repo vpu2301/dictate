@@ -1,6 +1,7 @@
 # ADR-0033 — Administrators are separated from PHI; break-glass is the door
 
-- **Status:** Accepted (amended 2026-08-02 — see the S15 amendment below)
+- **Status:** Accepted (amended 2026-08-02 and 2026-08-09 — see the
+  amendments below)
 - **Date:** 2026-07-24
 - **Supersedes in part:** ADR-0006 (the permission matrix's original
   "tenant_admin is a superset of clinician" shape)
@@ -208,3 +209,102 @@ the record and find the report in the timeline, then break glass on the
 *report* to read its content. Two grants, two reasons, two audit
 trails — deliberate, for the same reason a report grant never spread to
 the whole patient in the original decision.
+
+
+## Amendment (hotfix, 2026-08-09) — the relationship, not the role, opens the chart
+
+### The defect
+
+Both the original decision and the S15 amendment framed break-glass as an
+*administrator's* door, and drew the wall around the `tenant_admin` role.
+That framing had a hole in it the size of the clinical staff.
+
+`report.read` and `patient.read_full` are held by every clinician and
+every nurse in the tenant. Nothing downstream asked whether the caller
+had anything to do with the patient. So while an administrator was
+walled off from a chart and had to give a reason, re-enter a password
+and accept a `sec`-severity audit row, any clinician in the building
+opened the same chart with no reason, no step-up, and an `info`-level
+view event. The sprint-08 read-purpose gate asked non-authors for a
+`?purpose=` query string, but a free string with no vocabulary, no
+step-up and no distinct audit kind is a formality, not a control.
+
+The premise of this ADR is minimum-necessary access. A role-shaped wall
+cannot express that, because "minimum necessary" is a fact about the
+relationship between a clinician and a patient, not about a job title.
+
+### What changed
+
+- **A treatment relationship is now required for standing clinical
+  reads.** `libs/clinical_access` holds the single definition, used
+  identically by report-service and core-service: primary author or
+  co-author of a report for the patient, or the clinician who opened one
+  of the patient's encounters. Deliberately excluded: role (an
+  administrator cannot acquire one, a clinician does not get one for
+  free), tenant membership (RLS already scopes that), and prior access
+  (circular — a break-glass read would mint the relationship that makes
+  the next one routine).
+- **Standing permission and relationship are now separate questions.**
+  `report.read` / `patient.read_full` answer "may you open charts at
+  all"; the relationship answers "is this chart yours". Both are
+  required, and failing the second lands in exactly the same break-glass
+  flow an administrator uses.
+- **`phi_access.request` is granted to `clinician` and `nurse`.** It had
+  been admin-only on the reasoning that clinicians "already hold
+  `report.read`, so a grant would be meaningless" — reasoning that dies
+  with the relationship check. Withholding it would have made the
+  relationship a wall in precisely the situations medicine needs a door:
+  a covering shift, a corridor consult, a patient who collapses in the
+  waiting room.
+- **Four clinical reason codes** (`emergency_care`, `care_coordination`,
+  `patient_request`, `technical_support`, migration 0074) join the S14
+  administrative seven. Folding clinical break-glass into `other` would
+  have made the oversight log unreadable at exactly the moment it got
+  busier.
+- **The step-up gains a second factor when there is one to demand.**
+  `POST /auth/reauth` requires a current TOTP code from principals
+  enrolled under ADR-0039, and the ticket records the factors proven
+  (`{password}` or `{password,totp}`). Conditional, not mandatory:
+  `MDX_REQUIRE_MFA` is off in the pilot and most accounts have no
+  enrolment, so an unconditional requirement would not have strengthened
+  break-glass — it would have deleted it, for the 2am legal-deadline
+  case the door was built for. The enrolment is read from Keycloak, not
+  from the caller's `mfa` claim, so a token minted before enrolment
+  cannot downgrade its own holder's step-up.
+- **An anomaly signal.** `mdx_break_glass_total{reason,resource_kind,
+  role,principal,tenant_id}` plus alerts on per-principal burst,
+  per-principal sustained use, and tenant-wide elevation
+  (`infra/prometheus/rules/hotfix-break-glass.yml`). A door that is
+  loud only in a log nobody reads is not loud.
+
+### Consequences
+
+The ordinary clinical day is unchanged: your own patients open exactly
+as before, because authorship and encounters are what the schema already
+records about who is looking after whom.
+
+The cost is a database round trip on every single-record read that
+previously short-circuited on a permission check alone. It is one
+indexed query and it buys the control its own premise.
+
+The visible change is that a clinician can now be challenged on a chart,
+which is new and will surprise people. Two mitigations: the refusal
+carries `phi_access_required` and the resource id, so the SPA opens the
+request dialog on the record they were reaching for; and a sustained
+pattern of one clinician breaking glass is treated as a **workflow**
+finding first — the relationship is probably real and simply not being
+recorded, which means encounters are not being opened — and a conduct
+finding second. `BreakGlassTenantRateElevated` exists to make a
+predicate regression look like a predicate regression rather than an
+outbreak of snooping.
+
+### Not changed
+
+Report **search** still returns snippets across the tenant to any holder
+of `report.read`, without a relationship check. This is deliberate and is
+the same reasoning that keeps the admin's redacted roster: search is the
+discovery surface you use to *find* the record to break glass on, and
+gating it would make the door unfindable. Search results are already
+audited (`search_audit_buffer`) and carry snippets rather than full
+content. Narrowing what a snippet may contain is a separate, worthwhile
+piece of work and is not attempted here.

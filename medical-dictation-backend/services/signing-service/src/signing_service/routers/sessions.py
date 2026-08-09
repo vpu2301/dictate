@@ -22,6 +22,7 @@ from db import tenant_connection
 from .. import audit_kinds
 from .. import repository as repo
 from ..deps import get_state, requires
+from ..signing_authority import assert_may_sign
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +87,16 @@ _CANCELLABLE_FROM = ("awaiting_user", "initiating")
 @router.post("/sessions", response_model=InitiateSessionResponse)
 async def initiate(
     body: InitiateSessionRequest,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    # HOTFIX — initiating a signing session IS the signing act: the next
+    # line dispatches to a КЕП provider. Gated on `report.write` this was
+    # reachable by any nurse. See libs/auth/perms.py.
+    claims: Annotated[Claims, Depends(requires("report.sign", "report"))],
 ) -> InitiateSessionResponse:
+    # Defence in depth: re-assert before ANY provider is selected or
+    # invoked, so a future route that forgets the dependency above still
+    # cannot reach the crypto. Emits `signing.denied_role` at `sec`.
+    await assert_may_sign(claims, resource_kind="report")
+
     state = get_state()
 
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -218,7 +227,9 @@ async def get_session(
 @router.delete("/sessions/{session_id}", response_model=CancelSessionResponse)
 async def cancel_session(
     session_id: UUID,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    # HOTFIX — cancelling someone else's in-flight signature is part of
+    # the signing workflow, not report authorship.
+    claims: Annotated[Claims, Depends(requires("report.sign", "report"))],
 ) -> CancelSessionResponse:
     """Cancel an in-flight signing session (M1·B2).
 

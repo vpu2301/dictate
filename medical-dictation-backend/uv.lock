@@ -17,6 +17,7 @@ members = [
     "auth",
     "auth-service",
     "autocomplete-service",
+    "clinical-access",
     "core-service",
     "crypto",
     "db",
@@ -996,6 +997,29 @@ wheels = [
 ]
 
 [[package]]
+name = "clinical-access"
+version = "0.1.0"
+source = { editable = "libs/clinical_access" }
+dependencies = [
+    { name = "asyncpg" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "asyncpg", specifier = ">=0.29" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-asyncio", specifier = ">=0.23" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1012,6 +1036,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "audit" },
     { name = "auth" },
+    { name = "clinical-access" },
     { name = "crypto" },
     { name = "db" },
     { name = "fastapi" },
@@ -1042,6 +1067,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "audit", editable = "libs/audit" },
     { name = "auth", editable = "libs/auth" },
+    { name = "clinical-access", editable = "libs/clinical_access" },
     { name = "crypto", editable = "libs/crypto" },
     { name = "db", editable = "libs/db" },
     { name = "fastapi", specifier = ">=0.111.0" },
@@ -3820,6 +3846,7 @@ dependencies = [
     { name = "audit" },
     { name = "auth" },
     { name = "cachetools" },
+    { name = "clinical-access" },
     { name = "crypto" },
     { name = "db" },
     { name = "fastapi" },
@@ -3856,6 +3883,7 @@ requires-dist = [
     { name = "audit", editable = "libs/audit" },
     { name = "auth", editable = "libs/auth" },
     { name = "cachetools", specifier = ">=5.3.3" },
+    { name = "clinical-access", editable = "libs/clinical_access" },
     { name = "crypto", editable = "libs/crypto" },
     { name = "db", editable = "libs/db" },
     { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.23" },

@@ -64,11 +64,28 @@ _rejected_counter = _meter.create_counter(
     description="Break-glass requests refused, by cause",
     unit="1",
 )
+# The anomaly signal (hotfix). Distinct from the S14 counter above, which
+# stays for the existing dashboards: this one carries the labels the
+# snooping alert needs — one principal opening many charts in a short
+# window is the signature, and a metric without a principal label cannot
+# express it.
+#
+# On cardinality: break-glass is rare by construction, and a series is
+# only created the first time a given principal actually breaks glass. A
+# clinic where three of fifty staff ever use the door produces three
+# series. If that stops being true, the door is being used as a routine
+# read and the cardinality is the least of the problems.
+_break_glass_counter = _meter.create_counter(
+    "mdx_break_glass_total",
+    description="Break-glass grants minted, by reason, resource kind, role and principal",
+    unit="1",
+)
 
-# Mirrors the CHECK on `phi_access_requests.reason_code` (migration 0056).
-# A member here without a matching CHECK value is an INSERT that fails at
-# runtime, so the two move together.
+# Mirrors the CHECK on `phi_access_requests.reason_code` (migrations 0056
+# + 0074). A member here without a matching CHECK value is an INSERT that
+# fails at runtime, so the two move together.
 ReasonCode = Literal[
+    # Administrative cases (0056) — the admin-only era.
     "patient_complaint",
     "legal_request",
     "billing_dispute",
@@ -76,6 +93,15 @@ ReasonCode = Literal[
     "care_continuity",
     "data_correction",
     "other",
+    # Clinical cases (0074) — a clinician with no treatment relationship
+    # to this patient. Distinct codes rather than folding them into
+    # `other`, because "an unrelated clinician opened this chart" and
+    # "the reason was an emergency" are separate facts and a review needs
+    # to filter on the second.
+    "emergency_care",
+    "care_coordination",
+    "patient_request",
+    "technical_support",
 ]
 
 # `other` is the escape hatch and must not become the way to skip the
@@ -176,12 +202,51 @@ _REASONS: tuple[ReasonOption, ...] = (
         label_en="Data correction",
         requires_note=False,
     ),
+    # ── Clinical cases (0074) ────────────────────────────────────────
+    # A clinician who is not on this patient's care. Ordered before
+    # `other` so the dropdown reads administrative → clinical → escape
+    # hatch. `emergency_care` is deliberately note-free: demanding prose
+    # from someone mid-resuscitation is how a control gets routed around.
+    ReasonOption(
+        code="emergency_care",
+        label_uk="Невідкладна допомога",
+        label_en="Emergency care",
+        requires_note=False,
+    ),
+    ReasonOption(
+        code="care_coordination",
+        label_uk="Координація допомоги",
+        label_en="Care coordination",
+        requires_note=False,
+    ),
+    ReasonOption(
+        code="patient_request",
+        label_uk="Запит пацієнта",
+        label_en="Patient request",
+        requires_note=False,
+    ),
+    ReasonOption(
+        code="technical_support",
+        label_uk="Технічна підтримка",
+        label_en="Technical support",
+        # The one clinical-era code that demands prose: "support" covers
+        # everything from a rendering bug to reading a whole chart, and
+        # the difference has to be written down.
+        requires_note=True,
+    ),
     ReasonOption(
         code="other",
         label_uk="Інше (вкажіть причину)",
         label_en="Other (state the reason)",
         requires_note=True,
     ),
+)
+
+# Codes that demand a written justification, derived from the catalogue
+# above so the two can never disagree. `other` was the only such code
+# before the hotfix and the check was written against it by name.
+_NOTE_REQUIRED_CODES: frozenset[str] = frozenset(
+    opt.code for opt in _REASONS if opt.requires_note
 )
 
 
@@ -240,11 +305,11 @@ async def create_request(
     ],
 ) -> PhiAccessOut:
     note = body.reason_note.strip()
-    if body.reason_code == "other" and len(note) < _OTHER_MIN_NOTE_CHARS:
+    if body.reason_code in _NOTE_REQUIRED_CODES and len(note) < _OTHER_MIN_NOTE_CHARS:
         _rejected_counter.add(1, {"cause": "note_too_short"})
         raise _http_error(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            f"reason_code 'other' requires a note of at least "
+            f"reason_code {body.reason_code!r} requires a note of at least "
             f"{_OTHER_MIN_NOTE_CHARS} characters explaining the access",
             code="reason_note_required",
             min_chars=_OTHER_MIN_NOTE_CHARS,
@@ -326,6 +391,20 @@ async def create_request(
         )
 
     _granted_counter.add(1, {"reason_code": body.reason_code})
+    _break_glass_counter.add(
+        1,
+        {
+            "tenant_id": str(claims.tid),
+            "reason": body.reason_code,
+            "resource_kind": body.resource_kind,
+            # The role they were acting under. Since the hotfix this is no
+            # longer always `tenant_admin` — an unrelated clinician breaks
+            # glass too, and "which population is using this door" is the
+            # first thing a review wants to split on.
+            "role": (claims.roles[0] if claims.roles else "unknown"),
+            "principal": str(claims.sub),
+        },
+    )
 
     # The audit row carries the reason NOTE — it is the justification, it
     # is written by staff about staff conduct, and the chain is where a

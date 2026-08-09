@@ -53,6 +53,14 @@ class TranscriptionJobView(BaseModel):
     finished_at: datetime | None = None
     attempts: int = 0
 
+    # A cancel that has been ASKED FOR but not yet acted on. DELETE on a
+    # queued job cancels it outright; on a running one it can only set this
+    # flag, and the worker acts on it at its next checkpoint. Without it on
+    # the wire a client had no way to tell "still running" from "stopping",
+    # so the Cancel button looked broken: pressed, acknowledged, nothing
+    # visibly changed.
+    cancel_requested: bool = False
+
     # ── S14: whose dictation this is ─────────────────────────────────
     # Resolved through audio_files.encounter_id → encounters → patients,
     # the same join the patient timeline uses. Populated for callers with

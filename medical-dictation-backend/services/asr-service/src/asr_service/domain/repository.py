@@ -249,6 +249,7 @@ def _row_to_view(row: asyncpg.Record) -> TranscriptionJobView:
         started_at=row["started_at"],
         finished_at=row["finished_at"],
         attempts=int(row["attempts"]),
+        cancel_requested=bool(row.get("cancel_requested") or False),
         # Present only on the list projection, which joins them in.
         patient_id=row.get("patient_id"),
         patient_name_uk=row.get("patient_name_uk"),

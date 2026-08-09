@@ -908,7 +908,11 @@
               "quality_review",
               "care_continuity",
               "data_correction",
-              "other"
+              "other",
+              "emergency_care",
+              "care_coordination",
+              "patient_request",
+              "technical_support"
             ],
             "title": "Reason Code",
             "type": "string"

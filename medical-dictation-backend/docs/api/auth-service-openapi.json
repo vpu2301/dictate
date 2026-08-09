@@ -314,6 +314,19 @@
             "default": "phi_access_request",
             "title": "Purpose",
             "type": "string"
+          },
+          "totp_code": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "minLength": 6,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totp Code"
           }
         },
         "required": [
@@ -329,6 +342,13 @@
             "title": "Expires In",
             "type": "integer"
           },
+          "factors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Factors",
+            "type": "array"
+          },
           "purpose": {
             "title": "Purpose",
             "type": "string"
@@ -341,7 +361,8 @@
         "required": [
           "reauth_ticket",
           "expires_in",
-          "purpose"
+          "purpose",
+          "factors"
         ],
         "title": "ReauthResponse",
         "type": "object"

@@ -34,6 +34,7 @@ from .. import repository as repo
 from ..config import settings
 from ..deps import get_state, requires
 from ..security import ipn_hmac, new_verification_token
+from ..signing_authority import assert_may_sign
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +65,15 @@ def _invalid(detail: str) -> HTTPException:
 @router.post("/sessions/{session_id}/upload", response_model=LocalUploadResponse)
 async def upload_signed_pdf(
     session_id: UUID,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    # HOTFIX — this COMPLETES a signature: it accepts a locally-signed
+    # PAdES PDF and binds it to the report. Clinician-only.
+    claims: Annotated[Claims, Depends(requires("report.sign", "report"))],
     file: Annotated[UploadFile, File(description="Locally-signed PAdES PDF.")],
 ) -> LocalUploadResponse:
+    # Defence in depth: this COMPLETES a signature by binding an
+    # externally-signed PAdES PDF to the report.
+    await assert_may_sign(claims, resource_kind="report")
+
     state = get_state()
 
     # ── 1. Session lookup + state gate (no DB writes yet) ───────────

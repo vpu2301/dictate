@@ -35,6 +35,7 @@ from ..deps import get_state, requires
 from ..domain import consents_repository, patients_repository
 from ..domain.consent_canonical import canonical_consent
 from ..domain.consent_texts import consent_text_sha256
+from ._phi_access_guard import PatientAccess, patient_record_access
 
 logger = logging.getLogger(__name__)
 
@@ -199,8 +200,18 @@ async def _post_signing(
 )
 async def list_consents(
     patient_id: UUID,
-    claims: Annotated[Claims, Depends(requires("patient.read", "patient"))],
+    # `patient_record_access`, not `patient.read` (2026-08-09). `patient.read`
+    # is the ROSTER permission — an administrator holds it so they can find a
+    # patient to break glass on, and it returns them redacted rows. This
+    # endpoint returns no such thing: a consent names the patient, the clinical
+    # act they agreed to, how they agreed to it and which clinician attested
+    # it. That is the record, and every other part of the record — timeline,
+    # encounters, anamnesis, documents — is behind this guard. Consents were
+    # the one door left ajar, so an admin could read a patient's consent
+    # history without a grant, a reason, or a `sec` audit event.
+    access: Annotated[PatientAccess, Depends(patient_record_access)],
 ) -> list[ConsentOut]:
+    claims = access.claims
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         rows = await consents_repository.list_for_patient(conn, patient_id=patient_id)
@@ -280,7 +291,12 @@ async def sign_consent(
     consent_id: UUID,
     body: ConsentSignRequest,
     request: Request,
-    claims: Annotated[Claims, Depends(requires("patient.write", "patient"))],
+    # HOTFIX — applying a КЕП to a consent is a clinical attestation, not
+    # patient-record bookkeeping. `patient.write` is held by BOTH nurse
+    # and tenant_admin, so this route let an operational admin sign a
+    # clinical consent. Recording that a consent exists (POST /consents)
+    # keeps `patient.write`; signing it is clinician-only.
+    claims: Annotated[Claims, Depends(requires("consent.sign", "consent"))],
 ):
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:

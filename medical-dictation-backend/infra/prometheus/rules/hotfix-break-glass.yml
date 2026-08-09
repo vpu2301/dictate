@@ -1,0 +1,101 @@
+# Break-glass anomaly alerting (signing-authority + break-glass hotfix).
+#
+# Break-glass is designed to be rare, reasoned and reviewed. These rules
+# watch for the two ways that breaks down:
+#
+#   * VOLUME — one principal opening many charts in a short window. That
+#     is the snooping signature: a legitimate break-glass is one chart for
+#     one stated reason, not a sweep.
+#   * REFUSALS — repeated denied signing or denied PHI access. Someone is
+#     probing a boundary, or a role assignment is wrong and a clinician
+#     cannot do their job. Both need a human to look.
+#
+# Every threshold below is deliberately LOW. The cost of a false positive
+# is a compliance officer reading an audit row that turns out to be fine;
+# the cost of a false negative is an undetected chart sweep.
+groups:
+  - name: hotfix-break-glass
+    rules:
+      # ── Volume: the snooping signature ──────────────────────────────
+      - alert: BreakGlassBurstByPrincipal
+        # 5 grants in 15 minutes by one person. A clinician covering a
+        # ward legitimately breaks glass a few times a shift; five inside
+        # a quarter of an hour is a sweep, not care.
+        expr: sum by (principal, role, tenant_id) (increase(mdx_break_glass_total[15m])) > 5
+        for: 0m
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $labels.role }} {{ $labels.principal }} broke glass {{ $value | printf \"%.0f\" }} times in 15 minutes"
+          description: >
+            One principal has minted an unusual number of break-glass grants
+            in a short window — the pattern a chart sweep produces. Pull the
+            grants with GET /v1/phi-access-requests?requested_by={{ $labels.principal }}
+            and read the reason codes and notes. Revoke live grants with
+            POST /v1/phi-access-requests/{id}/revoke. Runbook:
+            docs/runbooks/break-glass.md
+
+      - alert: BreakGlassSustainedByPrincipal
+        # The slow version — 20 in a day stays under the burst threshold
+        # but is still nobody's normal week.
+        expr: sum by (principal, role, tenant_id) (increase(mdx_break_glass_total[24h])) > 20
+        for: 10m
+        labels:
+          severity: warn
+        annotations:
+          summary: "{{ $labels.role }} {{ $labels.principal }} broke glass {{ $value | printf \"%.0f\" }} times in 24h"
+          description: >
+            Sustained break-glass use by one principal. Either a genuine
+            workflow problem (their treatment relationships are not being
+            recorded — check whether encounters are being opened) or misuse.
+            Both need investigating. Runbook: docs/runbooks/break-glass.md
+
+      - alert: BreakGlassTenantRateElevated
+        # Tenant-wide: catches a group doing individually-unremarkable
+        # volumes, and catches a relationship-predicate regression, which
+        # would show up as everyone suddenly needing the door.
+        expr: sum by (tenant_id) (increase(mdx_break_glass_total[1h])) > 25
+        for: 15m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Tenant-wide break-glass rate is elevated ({{ $value | printf \"%.0f\" }}/h)"
+          description: >
+            If this fires across the whole tenant rather than for one
+            principal, suspect the treatment-relationship predicate before
+            suspecting the staff: a regression there makes legitimate
+            clinicians look unrelated to their own patients. Check
+            libs/clinical_access and whether encounters are being written.
+
+      # ── Refusals: someone is on the wrong side of a boundary ────────
+      - alert: SigningDeniedByRoleRepeated
+        # Emitted alongside the `signing.denied_role` audit row by
+        # signing-service's assert_may_sign — a principal without
+        # report.sign reached a signing surface. One is a UI bug or a
+        # confused nurse; a run of them is probing or a broken role
+        # assignment.
+        expr: sum by (tenant_id, role) (increase(mdx_signing_denied_total[1h])) > 5
+        for: 5m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Repeated refused signing attempts in tenant {{ $labels.tenant_id }}"
+          description: >
+            Non-clinicians are hitting signing endpoints. Check the sec-severity
+            audit rows for kind='signing.denied_role' — they name the principal
+            and their roles. If a clinician appears here, their role assignment
+            is wrong; if a nurse does, the SPA is offering them a button it
+            should not.
+
+      - alert: BreakGlassRefusalsElevated
+        expr: sum by (cause) (increase(mdx_phi_access_rejected_total[1h])) > 10
+        for: 5m
+        labels:
+          severity: warn
+        annotations:
+          summary: "Break-glass requests are being refused at an elevated rate (cause={{ $labels.cause }})"
+          description: >
+            cause=bad_ticket in volume means step-up tickets are failing —
+            check auth-service and Keycloak reachability before assuming
+            misuse, because a broken step-up silently closes the only door
+            an admin has to a patient record.

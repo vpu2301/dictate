@@ -228,3 +228,157 @@ def test_check_empty_roles_is_deny():
     claims = _make_claims(roles=[])
     with pytest.raises(AuthzDeniedError):
         check(claims, action="tenant.read", target_kind="tenant")
+
+
+# ── HOTFIX: signing authority is clinician-only ─────────────────────────
+#
+# The defect: every signing surface in the system gated on `report.write`
+# (report sign route, signing-service session initiation, local-KEP
+# upload, certificate enumeration, inline signer) or `patient.write`
+# (consent sign route). `nurse` holds both; `tenant_admin` holds
+# `patient.write`. Signing authority had no representation in the matrix
+# at all, so a nurse could apply a qualified electronic signature to a
+# clinical report and a nurse or an operational admin could apply one to
+# a patient consent.
+#
+# These tests are the matrix half of the closure. They are written as an
+# enumeration over KNOWN_ROLES rather than a list of asserts so that a
+# role added later cannot quietly default into signing authority: a new
+# role is denied here until someone deliberately adds it to _MAY_SIGN.
+
+_SIGNING_ACTIONS: tuple[tuple[str, str], ...] = (
+    ("report.sign", "report"),
+    ("report.amend", "report"),
+    ("consent.sign", "consent"),
+)
+
+_MAY_SIGN: frozenset[str] = frozenset({"clinician"})
+
+
+def test_signing_actions_are_clinician_only():
+    """No role but `clinician` may sign, amend, or sign a consent."""
+    granted: dict[tuple[str, str], set[str]] = {}
+    for action, target in _SIGNING_ACTIONS:
+        granted[(action, target)] = {
+            role for role in KNOWN_ROLES if can(role, action, target)
+        }
+    unexpected = {
+        key: sorted(roles - _MAY_SIGN)
+        for key, roles in granted.items()
+        if roles - _MAY_SIGN
+    }
+    assert not unexpected, f"non-clinician roles hold signing authority: {unexpected}"
+    missing = {
+        key: sorted(_MAY_SIGN - roles)
+        for key, roles in granted.items()
+        if _MAY_SIGN - roles
+    }
+    assert not missing, f"clinician is missing signing authority: {missing}"
+
+
+def test_signing_actions_deny_each_non_clinician_role_explicitly():
+    """The same fact, spelled out per role — this is the readable slice a
+    compliance reviewer is pointed at."""
+    for action, target in _SIGNING_ACTIONS:
+        assert can("clinician", action, target) is True
+        for role in ("tenant_admin", "nurse", "auditor", "service", "knowledge_admin"):
+            assert can(role, action, target) is False, (
+                f"{role} must not hold {action} on {target}"
+            )
+
+
+def test_signing_authority_is_not_implied_by_write():
+    """The precise shape of the defect: holding the write permission on a
+    resource must not carry the authority to sign it."""
+    # A nurse authors, edits and finalizes reports…
+    assert can("nurse", "report.write", "report") is True
+    # …and still cannot sign one.
+    assert can("nurse", "report.sign", "report") is False
+    assert can("nurse", "report.amend", "report") is False
+    # A nurse and an admin both record that a consent exists…
+    assert can("nurse", "patient.write", "patient") is True
+    assert can("tenant_admin", "patient.write", "patient") is True
+    # …and neither may attest to it with a qualified signature.
+    assert can("nurse", "consent.sign", "consent") is False
+    assert can("tenant_admin", "consent.sign", "consent") is False
+
+
+def test_finalize_is_not_a_signing_act():
+    """`report.finalize` is deliberately absent from the signing actions.
+
+    Finalize is the structural draft → finalized transition: it validates
+    required sections and ICD-10 codes and freezes the version so that it
+    *can* be signed. It applies no signature, so it stays under
+    `report.write` and nurses keep it. If a future change makes finalize
+    itself sign, this test is the reminder that it must move.
+    """
+    assert ("report.finalize", "report") not in _SIGNING_ACTIONS
+    assert can("nurse", "report.write", "report") is True
+
+
+def test_check_rejects_non_clinician_signing():
+    """The runtime gate, not just the table."""
+    for role in ("tenant_admin", "nurse", "auditor", "service"):
+        claims = _make_claims(roles=[role])
+        for action, target in _SIGNING_ACTIONS:
+            with pytest.raises(AuthzDeniedError):
+                check(claims, action=action, target_kind=target)
+    clinician = _make_claims(roles=["clinician"])
+    for action, target in _SIGNING_ACTIONS:
+        check(clinician, action=action, target_kind=target)  # no raise
+
+
+def test_dual_role_clinician_admin_may_still_sign():
+    """The matrix is over ROLES, not people. A practising doctor who also
+    administers the tenant holds both roles, and `check()` passes on any
+    granting role — the hotfix must not strip their clinical authority."""
+    both = _make_claims(roles=["tenant_admin", "clinician"])
+    for action, target in _SIGNING_ACTIONS:
+        check(both, action=action, target_kind=target)  # no raise
+
+
+# ── break-glass is the ADMINISTRATOR's door ────────────────────────────
+
+
+def test_break_glass_is_admin_only():
+    """The one role with no clinical read at all is the one that needs it.
+
+    Briefly (the treatment-relationship hotfix) this was extended to the
+    clinical roles, because their standing read had been narrowed to
+    patients they already had a relationship with. That narrowing was
+    reverted on 2026-08-09 — `patient.read_full` / `report.read` are once
+    again the whole answer for a clinician or a nurse, with the
+    relationship recorded in the audit event instead of required — so the
+    clinical break-glass door leads nowhere and the grant-minting power
+    that came with it is withdrawn.
+
+    Service tokens never get one either: break-glass is a human act with a
+    human justification.
+    """
+    assert can("tenant_admin", "phi_access.request", "phi_access_request") is True
+    assert can("clinician", "phi_access.request", "phi_access_request") is False
+    assert can("nurse", "phi_access.request", "phi_access_request") is False
+    assert can("service", "phi_access.request", "phi_access_request") is False
+    assert can("auditor", "phi_access.request", "phi_access_request") is False
+
+
+def test_clinical_roles_keep_standing_patient_access():
+    """The other half of the same revert, stated positively: a clinical
+    role opens a chart on its standing permission, full stop. If this ever
+    goes back to requiring a relationship, the covering doctor and the
+    corridor consult are blocked again — which is what made the control
+    fire on the normal case."""
+    for role in ("clinician", "nurse"):
+        assert can(role, "patient.read_full", "patient") is True, role
+        assert can(role, "report.read", "report") is True, role
+    # …and the boundary that must NOT move: an admin holds neither.
+    assert can("tenant_admin", "patient.read_full", "patient") is False
+    assert can("tenant_admin", "report.read", "report") is False
+
+
+def test_break_glass_oversight_is_admin_and_auditor_only():
+    """Reading the grant log is oversight, not clinical work."""
+    assert can("tenant_admin", "phi_access.read", "phi_access_request") is True
+    assert can("auditor", "phi_access.read", "phi_access_request") is True
+    assert can("clinician", "phi_access.read", "phi_access_request") is False
+    assert can("nurse", "phi_access.read", "phi_access_request") is False

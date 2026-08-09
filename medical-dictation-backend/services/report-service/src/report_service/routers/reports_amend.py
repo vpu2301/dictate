@@ -65,7 +65,10 @@ class AmendResponse(BaseModel):
 async def amend_report(
     report_id: UUID,
     body: AmendRequest,
-    claims: Annotated[Claims, Depends(requires("report.write", "report"))],
+    # HOTFIX — amending a SIGNED report is a clinical act: the amendment
+    # is itself signed and it moves the report signed → amended. Gating
+    # it on `report.write` let a nurse alter a doctor's signed record.
+    claims: Annotated[Claims, Depends(requires("report.amend", "report"))],
 ) -> AmendResponse:
     state = get_state()
     async with tenant_connection(state.app_pool, claims.tid) as conn:

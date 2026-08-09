@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -25,6 +26,16 @@ from asr_models import Segment, TranscriptionMetadata, TranscriptionOutput, Word
 
 from .config import settings
 from .vad import SpeechSegment, detect_speech
+
+
+class TranscriptionCancelledError(Exception):
+    """The job was cancelled while inference was running.
+
+    Not a failure: the clinician asked for it. The processor turns this
+    into ``status='cancelled'`` rather than ``'failed'``, and no
+    transcript is stored.
+    """
+
 
 logger = logging.getLogger(__name__)
 
@@ -138,13 +149,18 @@ class WhisperEngine:
         language: str,
         prompt: str | None,
         prompt_id: Any | None = None,
+        should_cancel: Callable[[], Awaitable[bool]] | None = None,
     ) -> TranscriptionOutput:
         """Run VAD + Whisper on the full audio.
 
         ``audio_pcm`` is mono 16 kHz float32 in [-1, 1].
         Offloads the (blocking) Whisper call to a thread so the asyncio
-        loop stays responsive — important because the processor also
-        polls the DB for cancellation between chunks.
+        loop stays responsive — which is what makes ``should_cancel``
+        possible: it is awaited between chunks, so a clinician who
+        presses Cancel on a running job stops it rather than waiting for
+        a transcript nobody will read. Raises :class:`TranscriptionCancelledError`
+        when it returns true; without the callback the run is
+        uninterruptible, which is what it used to be.
         """
         if not self._loaded:
             raise RuntimeError("WhisperEngine.load() must be called before transcribe()")
@@ -160,6 +176,11 @@ class WhisperEngine:
             ]  # ms → samples (16 samples/ms @ 16kHz)
             if chunk.size == 0:
                 continue
+            # Between chunks, not inside one: a chunk is a VAD speech run,
+            # short enough that the wait is bounded, and stopping mid-chunk
+            # would leave the model half-fed.
+            if should_cancel is not None and await should_cancel():
+                raise TranscriptionCancelledError
             segs = await loop.run_in_executor(
                 None,
                 self._run_chunk,
