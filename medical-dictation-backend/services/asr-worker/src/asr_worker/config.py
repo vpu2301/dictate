@@ -5,6 +5,8 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from secret import Secret
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -116,6 +118,19 @@ class Settings(BaseSettings):
     s3_use_ssl: bool = Field(default=False, alias="S3_USE_SSL")
 
     master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
+
+    # ── Master-key provider (sprint 16, ADR-0011 KMS swap) ───────────────
+    # 'file' (dev default — behaviour identical to pre-sprint-16) or
+    # 'vault' (Vault Transit; fail-closed startup probe). With 'vault', the
+    # file at master_key_path — if present — stays live as a read-only
+    # fallback for rows not yet re-wrapped (scripts/kms/rewrap-tenant-keks.py).
+    master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
+    vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
+    vault_token: Secret[str] = Field(
+        default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
+    )
+    vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")
+    vault_transit_mount: str = Field(default="transit", alias="MDX_VAULT_TRANSIT_MOUNT")
 
     ffmpeg_path: str = Field(default="ffmpeg", alias="MD_ASR_FFMPEG_PATH")
     ffmpeg_timeout_seconds: float = Field(default=30.0, alias="MD_ASR_FFMPEG_TIMEOUT_SECONDS")

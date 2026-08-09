@@ -127,6 +127,24 @@ class SessionManager:
         self._sessions: dict[UUID, SessionContext] = {}
         self._lock = asyncio.Lock()
         self._max_sessions = max_sessions
+        # Sprint 16 deployment: scale-in drain. When True the worker
+        # admits NOTHING new; live sessions run to completion. Set by
+        # the preStop hook (POST /internal/drain) — Kubernetes then
+        # waits (terminationGracePeriodSeconds) until active sessions
+        # hit zero before the pod dies. One-way by design: a draining
+        # pod is already condemned by the autoscaler.
+        self._draining = False
+
+    @property
+    def draining(self) -> bool:
+        return self._draining
+
+    def begin_drain(self) -> None:
+        self._draining = True
+        logger.warning(
+            "session_manager.draining",
+            extra={"active": self.active_count, "total_weight": self.total_weight},
+        )
 
     @property
     def active_count(self) -> int:
@@ -144,10 +162,16 @@ class SessionManager:
         return sum(s.capacity_weight for s in self._sessions.values())
 
     def fits(self, weight: int) -> bool:
+        if self._draining:
+            return False
         return self.total_weight + weight <= self._max_sessions
 
     async def register(self, ctx: SessionContext) -> None:
         async with self._lock:
+            if self._draining:
+                # Same client semantics as gpu_full: this worker has no
+                # room — reconnect and land on another pod.
+                raise CapacityError("worker is draining for scale-in; no new sessions")
             if self.total_weight + ctx.capacity_weight > self._max_sessions:
                 raise CapacityError(
                     f"worker at capacity (weight {self.total_weight}"

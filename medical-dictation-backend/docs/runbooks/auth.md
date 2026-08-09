@@ -43,21 +43,48 @@ cache expires.
 ## MFA reset for a locked-out user
 
 **Signal:** A user calls support saying they've lost their phone /
-authenticator. (Sprint 02 ships MFA disabled by feature flag, so this
-runbook entry applies when `MDX_REQUIRE_MFA=true`.)
+authenticator. (Applies when MFA is on: `MDX_MFA_ENROLMENT_ENABLED` +
+`MDX_REQUIRE_MFA=true` — ADR-0039.)
 
 **Steps:**
 1. Verify the user's identity by an out-of-band channel. **Do not** do
    this over chat.
 2. As a `tenant_admin` for the user's tenant, call:
    ```
-   POST /admin/users/{sub}/reset-mfa
+   DELETE /auth/mfa/{sub}
    ```
-   *(Sprint 16+ endpoint — for sprint 02 perform the equivalent action
-    in the Keycloak admin console: clear the user's TOTP credential and
-    the `mfa_enrolled_at` attribute.)*
+   This wipes the envelope-encrypted TOTP attributes, clears
+   `users.mfa_enrolled_at`, and revokes the user's live Keycloak
+   sessions (a reset without revocation would leave a live `mfa=true`
+   session usable by whoever holds it).
 3. Audit row appears under `kind=user.reset_mfa`, severity `sec`.
-4. Tell the user to log in; they'll be prompted to re-enrol TOTP.
+4. Tell the user to log in (password only works again) and re-enrol:
+   `POST /auth/mfa/enrol` → scan the QR → `POST /auth/mfa/verify`.
+
+**Enrolment support notes:** an enrolled user's login needs the `otp`
+field — the SPA shows the code prompt on the 401 `otp_required` machine
+code; `otp_invalid` is a wrong code; `otp_unavailable` means the secret
+store (master key / Vault) is down — check `docs/runbooks/kms.md`, the
+login fails CLOSED on purpose.
+
+---
+
+## Session revocation (sprint 16, ADR-0040)
+
+With `MDX_SESSION_REVOCATION_ENABLED=true` (fleet-wide env), logout /
+deactivation / refresh-replay push the token's `sid` (or the user's
+`sub`) onto the Redis denylist, and every service's `current_user`
+rejects denylisted tokens — logout means logged out immediately, not
+after 15 minutes.
+
+- **Kill one user's access now:** `POST /admin/users/{sub}/deactivate`
+  (pushes the sub-level deny). Reactivation clears it.
+- **Redis down?** Checks fail OPEN with a
+  `session_denylist.check_failed_fail_open` WARNING — the fleet
+  degrades to the pre-sprint-16 15-minute window, never worse. Restore
+  Redis; nothing to replay.
+- **Caveat:** a logout performed in the Keycloak admin console does NOT
+  hit the denylist — use the platform API.
 
 ---
 

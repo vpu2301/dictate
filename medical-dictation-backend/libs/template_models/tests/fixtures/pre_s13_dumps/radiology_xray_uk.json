@@ -64,7 +64,7 @@
       "min_chars": 10,
       "name": "Висновок",
       "order": 3,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "висновок",

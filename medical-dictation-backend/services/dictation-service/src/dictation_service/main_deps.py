@@ -10,7 +10,7 @@ import redis.asyncio as aioredis
 from asr_worker.inference import WhisperEngine
 from audit import AuditWriter
 from auth import JwksCache
-from crypto import Envelope, FileMasterKeyProvider, TenantKekRepository
+from crypto import Envelope, TenantKekRepository, build_master_key_provider
 from db import create_pool
 from storage import EncryptedObjectStore, S3Client
 
@@ -72,7 +72,14 @@ async def build_state() -> ServiceState:
         max_size=2,
     )
 
-    master = FileMasterKeyProvider(path=settings.master_key_path)
+    master = build_master_key_provider(
+        provider=settings.master_key_provider,
+        file_path=settings.master_key_path,
+        vault_addr=settings.vault_addr,
+        vault_token=settings.vault_token,
+        vault_transit_key=settings.vault_transit_key,
+        vault_transit_mount=settings.vault_transit_mount,
+    )
     await master.startup_self_check()
     kek_repo = TenantKekRepository(pool=crypto_pool, master_key_provider=master)
     envelope = Envelope(master_key_provider=master, kek_repository=kek_repo)
@@ -94,7 +101,9 @@ async def build_state() -> ServiceState:
     )
 
     engine = WhisperEngine()
-    engine.load()
+    if not settings.warm_in_background:
+        # Pre-sprint-16 behaviour (dev default): block startup on the load.
+        engine.load()
 
     inference_queue = InferenceQueue(
         transcribe_window_fn=engine.transcribe_window,
@@ -121,7 +130,14 @@ async def build_state() -> ServiceState:
     # loading inside its first window. Warmup failure is non-fatal — the
     # worker still serves dictation — but /readyz then advertises no
     # conversation capacity (sprint-14 deployment).
-    if settings.diar_warm_at_startup:
+    #
+    # Sprint 16 (MDX_WARM_IN_BACKGROUND): with large-v3 the combined
+    # warmup can exceed the 60 s a probing orchestrator tolerates — the
+    # sprint-03 retro's cold-start finding. The background path moves BOTH
+    # loads to a lifespan task so /healthz answers immediately while
+    # /readyz stays 503 until `engine.is_loaded` — the LB sends no traffic
+    # before ready, and liveness never kills a merely-cold pod.
+    if settings.diar_warm_at_startup and not settings.warm_in_background:
         await diarization_engine.warm_up()
     nlp_client = NlpClient(
         config=NlpClientConfig(

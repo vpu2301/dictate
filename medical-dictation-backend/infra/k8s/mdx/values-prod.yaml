@@ -1,0 +1,114 @@
+# ── mdx chart — PRODUCTION overrides ─────────────────────────────────
+#
+# Renders the production posture. What still needs the human's hosting
+# decision before `helm install` can run for real is listed in
+# docs/deploy/hosting-gap.md (cluster, GPU nodes, operators, WAF brand,
+# domain/DNS, Vault endpoint). Rendering + the config gates run on THIS
+# file in CI so drift is caught before any cluster exists.
+
+global:
+  environment: production
+  imageRegistry: registry.mdx.internal/mdx   # registry close to the cluster
+
+stateful:
+  # Operator-managed / external stores (CloudNativePG, Redis operator,
+  # MinIO operator — or managed equivalents per hosting choice).
+  inCluster: false
+
+observability:
+  # kube-prometheus-stack owns prod metrics (docs/deploy/observability.md).
+  otelCollector: {enabled: true, image: otel/opentelemetry-collector-contrib:0.100.0}
+  prometheus: {enabled: false}
+
+keda:
+  enabled: true
+  prometheusAddress: http://prometheus-operated.monitoring:9090
+  targetUtilisation: "0.75"
+  minReplicas: 2
+  maxReplicas: 12
+  scaleDownStabilizationSeconds: 600
+
+edge:
+  enabled: true
+  serviceType: LoadBalancer
+
+certManager:
+  enabled: true
+  issuer: letsencrypt-prod
+  domain: mdx.example.invalid   # REPLACE: the real public domain (todo.md)
+
+externalSecrets:
+  enabled: true
+  secretStore: mdx-vault
+  vaultPath: mdx
+
+commonEnv:
+  ENVIRONMENT: production
+  LOG_LEVEL: INFO
+  AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+  AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+  CORS_ALLOWED_ORIGINS: https://app.mdx.example.invalid   # REPLACE with the SPA origin
+  DB_APP_ROLE_DSN: postgresql://app_role@postgres:5432/medical_dictation
+  DB_AUDIT_WRITER_DSN: postgresql://audit_writer@postgres:5432/medical_dictation
+  # ── Sprint-16 backend hardening — ON in production ─────────────────
+  MDX_REQUIRE_MFA: "true"
+  MDX_MFA_ENROLMENT_ENABLED: "true"
+  MDX_SESSION_REVOCATION_ENABLED: "true"
+  MDX_MASTER_KEY_PROVIDER: vault
+  MDX_VAULT_ADDR: http://vault.vault:8200
+  MDX_BACKGROUND_JOBS: "true"
+  MDX_TELEMETRY_COLD_ARCHIVE_ENABLED: "true"
+  MDX_WARM_IN_BACKGROUND: "true"
+  MDX_PREWARM_ENABLED: "true"
+
+apps:
+  auth-service:
+    replicas: 2
+    hpa: {enabled: true, minReplicas: 2, maxReplicas: 6, cpuUtilisation: 70}
+  nlp-service:
+    replicas: 2
+    hpa: {enabled: true, minReplicas: 2, maxReplicas: 6, cpuUtilisation: 70}
+  asr-worker:
+    gpu: true
+    replicas: 2
+    resources:
+      requests: {cpu: "2", memory: 6Gi, nvidia.com/gpu: 1}
+      limits: {cpu: "6", memory: 10Gi, nvidia.com/gpu: 1}
+    env:
+      MD_ASR_DEVICE: cuda
+      MD_ASR_COMPUTE_TYPE: float16
+      # Baked model dir — NEVER a bare HF id in offline images (CLAUDE.md).
+      MD_ASR_MODEL: /opt/models/whisper-large-v3
+  dictation-service:
+    gpu: true
+    replicas: 2
+    resources:
+      # One worker pod per GPU (device plugin); capacity math per
+      # sprint-14 measurements (weight budget MDX_PER_WORKER_MAX_SESSIONS).
+      requests: {cpu: "2", memory: 6Gi, nvidia.com/gpu: 1}
+      limits: {cpu: "6", memory: 10Gi, nvidia.com/gpu: 1}
+    env:
+      MD_ASR_DEVICE: cuda
+      MD_ASR_COMPUTE_TYPE: float16
+      MD_ASR_MODEL: /opt/models/whisper-large-v3
+      MDX_CONVERSATION_ENABLED: "true"
+      MDX_DIAR_WARM_AT_STARTUP: "true"
+  generation-service:
+    env:
+      MDX_LAYER_C_ENABLED: "true"
+      MDX_GEN_BASE_URL: http://llama-server:8080
+  signing-service:
+    env:
+      ENABLE_MOCK_PROVIDER: "false"
+      MDX_HMAC_KEYS_FROM_VAULT: "true"
+      MDX_VAULT_ADDR: http://vault.vault:8200
+    secretEnv: [mdx-hmac-keys]
+
+jobs:
+  migrate:
+    databaseUrl: postgresql://postgres@postgres:5432/medical_dictation
+  seed:
+    enabled: false   # production NEVER seeds dev tenants/users
+
+stateful_llama:   # documented: Layer C backend runs on the GPU pool
+  enabled: true

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -54,6 +55,34 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     state = await build_state()
     app.state.svc = state
     install_state(state)
+    # Sprint 16: idle-draft cleanup hosted in-process (ADR-0041). Off by
+    # default in dev; production flips MDX_BACKGROUND_JOBS. The job is
+    # idempotent and also runs as a CLI for external cron.
+    jobs: list[asyncio.Task[None]] = []
+    if settings.background_jobs_enabled and not settings.testing:
+        from datetime import timedelta
+
+        from observability import run_periodic
+
+        from .jobs import idle_draft_cleanup
+
+        async def _idle_draft_iteration() -> dict[str, int]:
+            return await idle_draft_cleanup.run_for_all_tenants(
+                app_pool=state.app_pool,
+                audit_writer=state.audit_writer,
+                idle_for=timedelta(days=settings.idle_draft_days),
+            )
+
+        jobs.append(
+            asyncio.create_task(
+                run_periodic(
+                    job_name="idle_draft_cleanup",
+                    interval_seconds=settings.background_jobs_interval_s,
+                    fn=_idle_draft_iteration,
+                ),
+                name="idle-draft-cleanup",
+            )
+        )
     logger.info(
         "report-service.started",
         extra={"service": settings.service_name, "env": settings.environment},
@@ -61,6 +90,10 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        for task in jobs:
+            task.cancel()
+        if jobs:
+            await asyncio.gather(*jobs, return_exceptions=True)
         await teardown_state(state)
         logger.info("report-service.stopped")
 

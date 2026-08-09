@@ -1,0 +1,71 @@
+{{- /*
+Dictation autoscaling — the sprint-16 IOU pair:
+
+- "HPA on mdx_dictation_active_sessions" (dictation runbook) upgraded to
+- "mode-weighted capacity" (sprint 14): scale on WEIGHT, not headcount.
+
+KEDA's Prometheus scaler queries the sprint-14 gauges (the collector
+exports gauges with a `_ratio` suffix). Target: fleet utilisation
+used/budget ≤ 0.75. Scale-in is drain-safe by construction: KEDA only
+lowers the replica count; the pod that terminates runs the preStop drain
+(apps.yaml) and Kubernetes waits out live sessions inside
+terminationGracePeriodSeconds — a busy pod is held, not killed.
+
+Plain CPU HPA for the stateless CPU services (per-app values flag).
+*/ -}}
+{{- if .Values.keda.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: dictation-weighted-capacity
+spec:
+  scaleTargetRef:
+    name: dictation-service
+  minReplicaCount: {{ .Values.keda.minReplicas }}
+  maxReplicaCount: {{ .Values.keda.maxReplicas }}
+  cooldownPeriod: {{ .Values.keda.scaleDownStabilizationSeconds }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.keda.scaleDownStabilizationSeconds }}
+          policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 300   # at most one pod retired per 5 min
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.keda.prometheusAddress }}
+        # Fleet-weighted utilisation: sum of admitted session weights over
+        # the sum of per-worker budgets. Above the threshold KEDA adds pods.
+        query: |
+          sum(mdx_dictation_capacity_weight_used_ratio)
+            /
+          clamp_min(sum(mdx_dictation_capacity_weight_max_ratio), 1)
+        threshold: {{ .Values.keda.targetUtilisation | quote }}
+{{- end }}
+{{- range $name, $app := .Values.apps }}
+{{- if and $app.hpa $app.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicas: {{ $app.hpa.minReplicas }}
+  maxReplicas: {{ $app.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $app.hpa.cpuUtilisation }}
+{{- end }}
+{{- end }}

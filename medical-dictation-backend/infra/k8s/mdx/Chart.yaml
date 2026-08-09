@@ -1,0 +1,11 @@
+apiVersion: v2
+name: mdx
+description: >-
+  Medical-dictation backend — production topology (sprint 16 deployment).
+  Renders every compose service's cluster counterpart: 11 app services,
+  in-cluster stateful set for staging (external/operator-managed in prod),
+  one-shot migrate/seed jobs, the three ops CronJobs, the public edge, the
+  KEDA weighted-capacity scaler, and default-deny NetworkPolicies.
+type: application
+version: 0.16.0
+appVersion: "sprint-16"

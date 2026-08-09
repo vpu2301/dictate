@@ -10,6 +10,7 @@ TEMPLATE_UPDATED: Final = "template.updated"  # cosmetic edit
 TEMPLATE_VERSIONED: Final = "template.versioned"  # structural edit → new row
 TEMPLATE_DEPRECATED: Final = "template.deprecated"  # soft-delete
 TEMPLATE_VIEWED_FULL: Final = "template.viewed_full"  # GET /templates/{id}
+TEMPLATE_REBOUND: Final = "template.rebound"  # sprint-17: draft moved to successor
 
 # Sprint-08: reports slice.
 REPORT_CREATED: Final = "report.created"
@@ -69,3 +70,7 @@ SEARCH_EXPANDED: Final = "search.expanded"
 SYNONYM_GROUP_CREATED: Final = "synonym.group.created"
 SYNONYM_GROUP_UPDATED: Final = "synonym.group.updated"
 SYNONYM_GROUP_DELETED: Final = "synonym.group.deleted"
+
+# ── Sprint 16 — scheduler runs ──────────────────────────────────────────
+SCHEDULER_JOB_COMPLETED: Final = "scheduler.job.completed"
+SCHEDULER_JOB_FAILED: Final = "scheduler.job.failed"

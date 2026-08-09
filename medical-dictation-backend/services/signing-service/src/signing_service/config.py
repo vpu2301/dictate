@@ -7,6 +7,8 @@ from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from secret import Secret
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -75,9 +77,21 @@ class Settings(BaseSettings):
     # Redis (rate limiter for /verify).
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
-    # System HMAC keys (rotated yearly; sprint-17 will rotate via KMS).
+    # System HMAC keys (rotated yearly). Sprint 16: when
+    # MDX_HMAC_KEYS_FROM_VAULT=true the lifespan fetches both values from
+    # Vault KV (fields `signer_ipn_hmac_key` / `public_verify_ip_hmac_key`
+    # at MDX_VAULT_HMAC_KV_PATH) and overrides these env placeholders —
+    # fail-closed if Vault is unreachable. Default off: dev behaviour and
+    # env-file sourcing are unchanged.
     signer_ipn_hmac_key_hex: str = Field(default="00" * 32, alias="SIGNER_IPN_HMAC_KEY")
     public_verify_ip_hmac_key_hex: str = Field(default="11" * 32, alias="PUBLIC_VERIFY_IP_HMAC_KEY")
+    hmac_keys_from_vault: bool = Field(default=False, alias="MDX_HMAC_KEYS_FROM_VAULT")
+    vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
+    vault_token: Secret[str] = Field(
+        default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
+    )
+    vault_hmac_kv_path: str = Field(default="mdx/signing", alias="MDX_VAULT_HMAC_KV_PATH")
+    vault_kv_mount: str = Field(default="secret", alias="MDX_VAULT_KV_MOUNT")
 
     # Trust store directory (PEM bundles).
     trust_store_dir: Path = Field(default=Path("infra/trust-store"), alias="TRUST_STORE_DIR")
@@ -140,6 +154,14 @@ class Settings(BaseSettings):
                 "(see docs/adr/0026 and the sprint-09 revision spec)."
             )
         return self
+
+    # ── Session revocation check (sprint 16) ────────────────────────────
+    # When on, current_user rejects tokens whose sid/sub is on the Redis
+    # denylist that auth-service pushes on logout/deactivation. Fail-OPEN
+    # on Redis outage (ADR-0040). Same env name across the fleet; off in dev.
+    session_revocation_enabled: bool = Field(
+        default=False, alias="MDX_SESSION_REVOCATION_ENABLED"
+    )
 
 
 settings = Settings()

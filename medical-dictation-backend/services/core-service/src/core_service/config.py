@@ -107,6 +107,19 @@ class Settings(BaseSettings):
     )
     master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
 
+    # ── Master-key provider (sprint 16, ADR-0011 KMS swap) ───────────────
+    # 'file' (dev default — behaviour identical to pre-sprint-16) or
+    # 'vault' (Vault Transit; fail-closed startup probe). With 'vault', the
+    # file at master_key_path — if present — stays live as a read-only
+    # fallback for rows not yet re-wrapped (scripts/kms/rewrap-tenant-keks.py).
+    master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
+    vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
+    vault_token: Secret[str] = Field(
+        default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
+    )
+    vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")
+    vault_transit_mount: str = Field(default="transit", alias="MDX_VAULT_TRANSIT_MOUNT")
+
     # ── Consent signing (S11 step 03) ────────────────────────────────
     signing_service_base_url: str = Field(
         default="http://localhost:8008", alias="SIGNING_SERVICE_BASE_URL"
@@ -116,6 +129,11 @@ class Settings(BaseSettings):
     consent_texts_dir: str = Field(
         default="infra/seeds/consents", alias="MDX_CONSENT_TEXTS_DIR"
     )
+
+    # ── MFA gate (sprint 16) — erasure approval + DSAR export ──────────
+    # Same flag name as auth-service; production sets it true for the
+    # whole fleet, dev keeps it off. Enforced by deps.requires_mfa().
+    require_mfa: bool = Field(default=False, alias="MDX_REQUIRE_MFA")
 
     # ── Erasure workflow (S11 step 04) ───────────────────────────────
     # Grace period between approval and the engine being ALLOWED to
@@ -199,6 +217,23 @@ class Settings(BaseSettings):
         default="postgresql://mdx_erasure:mdx_erasure@localhost:5432/medical_dictation",
         alias="DB_ERASURE_DSN",
     )
+
+    # ── In-process scheduler (sprint 16, ADR-0041) ──────────────────────
+    # Hosts the erasure backup-horizon notifier. Off in dev; production
+    # flips MDX_BACKGROUND_JOBS. Idempotent — interval choice is free.
+    background_jobs_enabled: bool = Field(default=False, alias="MDX_BACKGROUND_JOBS")
+    background_jobs_interval_s: float = Field(
+        default=86400.0, alias="MDX_BACKGROUND_JOBS_INTERVAL_S"
+    )
+
+    # ── Session revocation check (sprint 16) ────────────────────────────
+    # When on, current_user rejects tokens whose sid/sub is on the Redis
+    # denylist that auth-service pushes on logout/deactivation. Fail-OPEN
+    # on Redis outage (ADR-0041). Same env name across the fleet; off in dev.
+    session_revocation_enabled: bool = Field(
+        default=False, alias="MDX_SESSION_REVOCATION_ENABLED"
+    )
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
 
 settings = Settings()

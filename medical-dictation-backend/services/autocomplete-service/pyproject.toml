@@ -20,6 +20,9 @@ dependencies = [
     "audit",
     "db",
     "secret",
+    # Sprint 16: telemetry cold-archive writes through EncryptedObjectStore.
+    "crypto",
+    "storage",
 ]
 
 [tool.uv.sources]
@@ -28,6 +31,8 @@ auth = { workspace = true }
 audit = { workspace = true }
 db = { workspace = true }
 secret = { workspace = true }
+crypto = { workspace = true }
+storage = { workspace = true }
 
 [project.optional-dependencies]
 dev = [

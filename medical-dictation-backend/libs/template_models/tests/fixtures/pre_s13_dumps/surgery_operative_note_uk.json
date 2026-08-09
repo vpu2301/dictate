@@ -18,7 +18,7 @@
       "min_chars": 10,
       "name": "Передопераційний діагноз",
       "order": 0,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "передопераційний діагноз",
@@ -78,7 +78,7 @@
       "min_chars": 10,
       "name": "Післяопераційний діагноз",
       "order": 4,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "післяопераційний діагноз",

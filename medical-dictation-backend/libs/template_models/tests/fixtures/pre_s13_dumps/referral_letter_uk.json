@@ -77,7 +77,7 @@
       "min_chars": 10,
       "name": "Попередній діагноз",
       "order": 4,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "діагноз",

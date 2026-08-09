@@ -21,6 +21,7 @@ from auth.perms import KNOWN_ROLES
 from db import tenant_connection
 
 from .. import audit_kinds
+from ..config import settings
 from ..deps import get_state, requires, requires_mfa
 from ..keycloak_client import KeycloakError
 
@@ -156,6 +157,29 @@ async def deactivate_user(
             "admin.deactivate.kc_partial_failure",
             extra={"sub": str(sub), "kc_status": exc.status, "body": exc.body},
         )
+
+    # 3b. Sprint 16: kill the user's outstanding ACCESS tokens too —
+    # Keycloak logout only stops refreshes; without this, issued tokens
+    # stay valid up to 15 more minutes.
+    if state.denylist is not None:
+        try:
+            await state.denylist.revoke_sub(
+                str(sub), ttl_seconds=settings.revoked_sub_ttl_seconds
+            )
+            await state.audit_writer.write_event(
+                tenant_id=tenant_id,
+                kind=audit_kinds.AUTH_SESSION_REVOKED,
+                actor_sub=claims.sub,
+                target_kind="user",
+                target_id=str(sub),
+                payload={"reason": "user.deactivated"},
+                severity=Severity.SEC,
+            )
+        except Exception as push_exc:  # noqa: BLE001 — deactivation already done
+            logger.warning(
+                "admin.deactivate.denylist_push_failed",
+                extra={"sub": str(sub), "error": str(push_exc)},
+            )
 
     # 4. Audit (severity sec — deactivation is sensitive).
     await state.audit_writer.write_event(
@@ -295,6 +319,17 @@ async def reactivate_user(
             "admin.reactivate.kc_partial_failure",
             extra={"sub": str(sub), "kc_status": exc.status, "body": exc.body},
         )
+
+    # Sprint 16: lift the deactivation's sub-level deny so the user's next
+    # login isn't rejected by a still-live denylist entry.
+    if state.denylist is not None:
+        try:
+            await state.denylist.clear_sub(str(sub))
+        except Exception as push_exc:  # noqa: BLE001
+            logger.warning(
+                "admin.reactivate.denylist_clear_failed",
+                extra={"sub": str(sub), "error": str(push_exc)},
+            )
 
     # Audit (severity sec — re-granting access is sensitive).
     await state.audit_writer.write_event(

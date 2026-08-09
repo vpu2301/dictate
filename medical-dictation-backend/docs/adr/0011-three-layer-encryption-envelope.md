@@ -74,5 +74,30 @@ tenant KEK which doesn't change.
 
 ## Trigger conditions for revisiting
 
-- Sprint 16 KMS migration completes and the re-wrap script runs cleanly.
+- ~~Sprint 16 KMS migration completes and the re-wrap script runs cleanly.~~ Done — see amendment.
 - A new regulator requires per-object KMS attestation (sprint 18+).
+
+## Amendment (sprint 16) — the promised swap, as built
+
+`KmsMasterKeyProvider` is implemented against **Vault Transit**
+(self-hostable in-jurisdiction, ADR-0006 residency posture); the master
+KEK never leaves Vault, `master_key_id = vault:{mount}:{key}`, and the
+≤60 s tenant-KEK cache keeps Transit load at one call per tenant per
+TTL, exactly as designed above. Two refinements over the original
+sketch:
+
+- The "1-line swap" is `crypto.build_master_key_provider(...)` —
+  settings-gated (`MDX_MASTER_KEY_PROVIDER=file|vault` + `MDX_VAULT_*`),
+  used at every composition site. Dev default stays `file`.
+- Because the re-wrap runs row-by-row, the migration window has mixed
+  masters; `CompositeMasterKeyProvider` routes `unwrap` by the stored
+  `kek_master_id` (vault primary, file fallback **iff the key file is
+  still present**), so every old row keeps decrypting mid-migration and
+  removing the file finishes the cutover.
+
+The re-wrap procedure above is `scripts/kms/rewrap-tenant-keks.py`
+(transactional per row, resumable, `--dry-run`, verifies the new
+wrapping round-trips before commit, audits `kms.rewrap.completed` sec).
+Fail-closed startup: vault selected + unreachable → the service refuses
+to start (`docs/runbooks/kms.md`). The signing-service system HMAC keys
+ride the same trust root via Vault KV (`MDX_HMAC_KEYS_FROM_VAULT`).

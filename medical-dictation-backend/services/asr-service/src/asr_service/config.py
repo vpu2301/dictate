@@ -5,6 +5,8 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from secret import Secret
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -87,6 +89,19 @@ class Settings(BaseSettings):
     # ── Master key (envelope crypto) ────────────────────────────────────
     master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
 
+    # ── Master-key provider (sprint 16, ADR-0011 KMS swap) ───────────────
+    # 'file' (dev default — behaviour identical to pre-sprint-16) or
+    # 'vault' (Vault Transit; fail-closed startup probe). With 'vault', the
+    # file at master_key_path — if present — stays live as a read-only
+    # fallback for rows not yet re-wrapped (scripts/kms/rewrap-tenant-keks.py).
+    master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
+    vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
+    vault_token: Secret[str] = Field(
+        default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
+    )
+    vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")
+    vault_transit_mount: str = Field(default="transit", alias="MDX_VAULT_TRANSIT_MOUNT")
+
     # ── Upload validation ───────────────────────────────────────────────
     max_upload_mb: int = Field(default=100, alias="MD_ASR_MAX_UPLOAD_MB")
     max_duration_seconds: int = Field(default=30 * 60, alias="MD_ASR_MAX_DURATION_SECONDS")
@@ -109,6 +124,14 @@ class Settings(BaseSettings):
     nlp_enrich_enabled: bool = Field(default=True, alias="MD_ASR_NLP_ENRICH_ENABLED")
     nlp_base_url: str = Field(default="http://localhost:8005", alias="MD_ASR_NLP_BASE_URL")
     nlp_timeout_seconds: float = Field(default=10.0, alias="MD_ASR_NLP_TIMEOUT_SECONDS")
+
+    # ── Session revocation check (sprint 16) ────────────────────────────
+    # When on, current_user rejects tokens whose sid/sub is on the Redis
+    # denylist that auth-service pushes on logout/deactivation. Fail-OPEN
+    # on Redis outage (ADR-0040). Same env name across the fleet; off in dev.
+    session_revocation_enabled: bool = Field(
+        default=False, alias="MDX_SESSION_REVOCATION_ENABLED"
+    )
 
 
 settings = Settings()

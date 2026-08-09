@@ -107,7 +107,7 @@ async def list_phrases(
 ) -> list[asyncpg.Record]:
     sql_parts = [
         "SELECT id, phrase, language, specialty, section_hint, source, "
-        "impression_count, acceptance_count, enabled, created_at "
+        "impression_count, acceptance_count, last_accepted_at, enabled, created_at "
         "FROM autocomplete_phrases WHERE enabled = TRUE"
     ]
     args: list[Any] = []
@@ -155,6 +155,30 @@ async def fetch_snippet(
         trigger,
         language,
     )
+
+
+async def list_snippets(
+    conn: asyncpg.Connection,
+    *,
+    language: str | None,
+    source: str | None,
+    limit: int,
+) -> list[asyncpg.Record]:
+    sql_parts = [
+        "SELECT id, trigger, expansion, cursor_position, language, source, "
+        "enabled, created_at "
+        "FROM autocomplete_snippets WHERE enabled = TRUE"
+    ]
+    args: list[Any] = []
+    if language:
+        args.append(language)
+        sql_parts.append(f"AND language = ${len(args)}")
+    if source:
+        args.append(source)
+        sql_parts.append(f"AND source = ${len(args)}::autocomplete_source")
+    args.append(limit)
+    sql_parts.append(f"ORDER BY updated_at DESC LIMIT ${len(args)}")
+    return list(await conn.fetch(" ".join(sql_parts), *args))
 
 
 async def insert_snippet(

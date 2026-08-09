@@ -65,10 +65,11 @@ class LoginResponse(BaseModel):
     token_type: str = "Bearer"
 
 
-async def _extract_credentials(request: Request) -> tuple[str, str]:
+async def _extract_credentials(request: Request) -> tuple[str, str, str | None]:
     """Parse login credentials from either a JSON body or an
     application/x-www-form-urlencoded form (the SPA sends form). Accepts the
-    identifier under `email` or `username`. Raises 422 on a missing field."""
+    identifier under `email` or `username`, plus an optional `otp` (TOTP
+    code — sprint 16). Raises 422 on a missing required field."""
     content_type = request.headers.get("content-type", "")
     data: dict[str, Any]
     if "application/json" in content_type:
@@ -83,12 +84,13 @@ async def _extract_credentials(request: Request) -> tuple[str, str]:
 
     identifier = (data.get("email") or data.get("username") or "").strip()
     password = data.get("password") or ""
+    otp = (data.get("otp") or "").strip() or None
     if not identifier or not password:
         raise HTTPException(
             status_code=422,
             detail="login requires `password` and one of `email`/`username`",
         )
-    return identifier, password
+    return identifier, password, otp
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str, max_age: int) -> None:
@@ -146,7 +148,7 @@ async def _audit_login(state: Any, *, access_token: str, kind: str, severity: Se
 )
 async def login(request: Request, response: Response) -> LoginResponse:
     state = get_state()
-    username, password = await _extract_credentials(request)
+    username, password, otp = await _extract_credentials(request)
     try:
         tok = await state.keycloak.password_grant(username=username, password=password)
     except KeycloakError as exc:
@@ -176,6 +178,15 @@ async def login(request: Request, response: Response) -> LoginResponse:
             headers={"WWW-Authenticate": 'Bearer realm="medical-dictation"'},
         ) from exc
 
+    # ── Sprint 16: second factor for enrolled users ─────────────────────
+    # The password grant succeeded, but the token is NOT released until an
+    # enrolled user's TOTP code validates. Keycloak isn't publicly exposed
+    # in the production topology, so this proxy check is the enforcement
+    # point (ADR-0039). Enrolment status comes from the token's own
+    # `mfa_enrolled` claim (attribute-mapped), so the check costs no extra
+    # Keycloak round-trip for the unenrolled majority.
+    await _enforce_totp_if_enrolled(state, access_token=tok.access_token, otp=otp)
+
     _set_refresh_cookie(response, tok.refresh_token, tok.refresh_expires_in)
     _login_counter.add(1, {"result": "success"})
 
@@ -189,6 +200,78 @@ async def login(request: Request, response: Response) -> LoginResponse:
     )
 
     return LoginResponse(access_token=tok.access_token, expires_in=tok.expires_in)
+
+
+async def _enforce_totp_if_enrolled(state: Any, *, access_token: str, otp: str | None) -> None:
+    """Reject the login (401) when the user is TOTP-enrolled and ``otp``
+    is missing or wrong. No-op for unenrolled users.
+
+    Machine codes for the SPA: ``otp_required`` (ask for the code) and
+    ``otp_invalid`` (wrong code — retry).
+    """
+    try:
+        claims = await verify_token(
+            access_token,
+            expected_audience=settings.auth_audience,
+            expected_issuer=settings.auth_issuer,
+            jwks_cache=state.jwks_cache,
+        )
+    except Exception as exc:
+        # We just minted this token via Keycloak; if we cannot verify it,
+        # the JWKS path is broken — log loudly, don't invent an MFA state.
+        logger.warning(
+            "auth.login.mfa_check_verify_failed",
+            extra={"error": str(exc), "error_class": type(exc).__name__},
+        )
+        return
+    if not claims.mfa_enrolled:
+        return
+
+    def _reject(code: str, detail: str) -> HTTPException:
+        _login_counter.add(1, {"result": code})
+        exc = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=detail,
+            headers={"WWW-Authenticate": 'MFA realm="medical-dictation"'},
+        )
+        exc.problem_extras = {"code": code}  # type: ignore[attr-defined]
+        return exc
+
+    if not otp:
+        raise _reject("otp_required", "TOTP code required for this account")
+
+    from crypto import CryptoError, MasterKeyError
+
+    from .. import totp as totp_mod
+    from .mfa import ATTR_SECRET, _attr_first
+
+    try:
+        envelope = await state.get_envelope()
+        rep = await state.keycloak.get_user(claims.sub)
+        packed = _attr_first(rep, ATTR_SECRET)
+        if packed is None:
+            # Claim says enrolled but no stored secret — a half-reset.
+            # Fail closed and point at the admin reset path.
+            raise _reject(
+                "otp_unavailable",
+                "MFA state is inconsistent; ask an administrator to reset MFA",
+            )
+        secret = await totp_mod.decrypt_secret(
+            envelope, packed=packed, tenant_id=claims.tid, sub=claims.sub
+        )
+    except HTTPException:
+        raise
+    except (MasterKeyError, CryptoError, KeycloakError) as exc:
+        logger.error(
+            "auth.login.mfa_secret_unavailable",
+            extra={"error": str(exc), "error_class": type(exc).__name__},
+        )
+        # Fail closed: an enrolled account never logs in without the
+        # second factor, even when the secret store is down.
+        raise _reject("otp_unavailable", "MFA verification unavailable; try again") from exc
+
+    if not totp_mod.verify_code(secret, otp):
+        raise _reject("otp_invalid", "invalid TOTP code")
 
 
 @router.post(
@@ -259,6 +342,28 @@ async def refresh(
                         "auth.refresh_replay.revoke_failed",
                         extra={"sub": str(sub), "error": str(logout_exc)},
                     )
+                # Sprint 16: a replayed refresh means the token chain may be
+                # in hostile hands — kill every outstanding ACCESS token of
+                # the user too, not just the Keycloak sessions.
+                if state.denylist is not None:
+                    try:
+                        await state.denylist.revoke_sub(
+                            str(sub),
+                            ttl_seconds=settings.revoked_sub_ttl_seconds,
+                        )
+                        if tid is not None:
+                            await state.audit_writer.write_event(
+                                tenant_id=tid,
+                                kind=audit_kinds.AUTH_SESSION_REVOKED,
+                                actor_sub=sub,
+                                payload={"reason": "refresh_replay"},
+                                severity=Severity.SEC,
+                            )
+                    except Exception as push_exc:  # noqa: BLE001
+                        logger.warning(
+                            "auth.refresh_replay.denylist_push_failed",
+                            extra={"error": str(push_exc)},
+                        )
             _clear_refresh_cookie(response)
             replay_exc = HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -309,11 +414,10 @@ async def logout(
     # refresh token's sub (unverified) for log-line correlation only.
     tid_for_audit = None
     sub_for_audit = None
+    bearer_claims = None
     raw_auth = request.headers.get("Authorization", "") or (authorization or "")
     if raw_auth.startswith("Bearer "):
         try:
-            from auth import verify_token
-
             claims = await verify_token(
                 raw_auth[len("Bearer ") :],
                 expected_audience=settings.auth_audience,
@@ -322,8 +426,31 @@ async def logout(
             )
             tid_for_audit = claims.tid
             sub_for_audit = claims.sub
+            bearer_claims = claims
         except Exception as exc:
             logger.info("auth.logout.bearer_invalid", extra={"error": str(exc)})
+
+    # ── Sprint 16: close the 15-minute window ───────────────────────────
+    # The refresh token dies at Keycloak below, but the ACCESS token would
+    # stay signature-valid until `exp`. Denylist its sid so the very next
+    # request anywhere in the fleet is rejected. TTL = remaining lifetime.
+    if bearer_claims is not None and state.denylist is not None:
+        import time as _time
+
+        ttl = max(int(bearer_claims.exp - _time.time()), 1)
+        try:
+            await state.denylist.revoke_sid(bearer_claims.sid, ttl_seconds=ttl)
+            await state.audit_writer.write_event(
+                tenant_id=bearer_claims.tid,
+                kind=audit_kinds.AUTH_SESSION_REVOKED,
+                actor_sub=bearer_claims.sub,
+                payload={"reason": "logout", "sid": bearer_claims.sid},
+                severity=Severity.INFO,
+            )
+        except Exception as push_exc:  # noqa: BLE001 — logout must still succeed
+            logger.warning(
+                "auth.logout.denylist_push_failed", extra={"error": str(push_exc)}
+            )
 
     if refresh_token:
         try:

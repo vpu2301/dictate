@@ -68,7 +68,7 @@
       "min_chars": 10,
       "name": "Діагноз",
       "order": 3,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "Сформулюй неврологічний діагноз із зазначенням локалізації та коду МКХ-10, якщо названо.",
       "voice_aliases": [
         "діагноз",

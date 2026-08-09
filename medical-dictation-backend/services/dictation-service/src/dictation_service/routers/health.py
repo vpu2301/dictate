@@ -89,7 +89,14 @@ async def readyz(response: Response) -> ReadyResponse:
 
     # Whisper is the hard requirement: without it this worker serves
     # nothing. The diarizer is NOT — a dictation-only worker is healthy.
-    ok = db_ok == "ok" and redis_ok == "ok" and model_loaded
+    # Draining (sprint-16 scale-in) also flips readiness: the Service
+    # must stop routing NEW connections while live sessions finish.
+    ok = (
+        db_ok == "ok"
+        and redis_ok == "ok"
+        and model_loaded
+        and not state.session_manager.draining
+    )
     response.status_code = status.HTTP_200_OK if ok else status.HTTP_503_SERVICE_UNAVAILABLE
     return ReadyResponse(
         status="ready" if ok else "not_ready",

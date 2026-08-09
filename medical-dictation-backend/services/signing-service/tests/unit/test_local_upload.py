@@ -22,7 +22,7 @@ def _admin_claims() -> Claims:
     return Claims(
         sub=uuid4(),
         tid=uuid4(),
-        roles=["tenant_admin"],
+        roles=["clinician"],
         sid="s",
         iss="https://test/issuer",
         aud="mdx",

@@ -5,6 +5,8 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from secret import Secret
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -76,6 +78,45 @@ class Settings(BaseSettings):
     background_jobs_enabled: bool = Field(default=True, alias="MDX_BACKGROUND_JOBS")
     background_jobs_interval_s: float = Field(
         default=86400.0, alias="MDX_BACKGROUND_JOBS_INTERVAL_S"
+    )
+
+    # ── Telemetry cold-archive (sprint 16 — pays the sprint-10 IOU) ────
+    # When on, partition rotation ARCHIVES a >90-day telemetry partition
+    # to encrypted object storage BEFORE dropping it; an archive failure
+    # blocks the drop (retention becomes non-destructive). Off in dev —
+    # the pre-sprint-16 destructive drop stays the default until ops
+    # provisions the bucket + envelope wiring below.
+    telemetry_cold_archive_enabled: bool = Field(
+        default=False, alias="MDX_TELEMETRY_COLD_ARCHIVE_ENABLED"
+    )
+    s3_endpoint: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT")
+    s3_region: str = Field(default="us-east-1", alias="S3_REGION")
+    s3_access_key: str = Field(default="minioadmin", alias="S3_ACCESS_KEY")
+    s3_secret_key: str = Field(default="minioadmin", alias="S3_SECRET_KEY")
+    s3_use_ssl: bool = Field(default=False, alias="S3_USE_SSL")
+    s3_telemetry_archive_bucket: str = Field(
+        default="mdx-telemetry-archive", alias="S3_TELEMETRY_ARCHIVE_BUCKET"
+    )
+    # Envelope wiring (archives are encrypted at rest, rule 3/4).
+    db_crypto_writer_dsn: str = Field(
+        default="postgresql://crypto_writer:crypto_writer@localhost:5432/medical_dictation",
+        alias="DB_CRYPTO_WRITER_DSN",
+    )
+    master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
+    master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
+    vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
+    vault_token: Secret[str] = Field(
+        default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
+    )
+    vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")
+    vault_transit_mount: str = Field(default="transit", alias="MDX_VAULT_TRANSIT_MOUNT")
+
+    # ── Session revocation check (sprint 16) ────────────────────────────
+    # When on, current_user rejects tokens whose sid/sub is on the Redis
+    # denylist that auth-service pushes on logout/deactivation. Fail-OPEN
+    # on Redis outage (ADR-0040). Same env name across the fleet; off in dev.
+    session_revocation_enabled: bool = Field(
+        default=False, alias="MDX_SESSION_REVOCATION_ENABLED"
     )
 
 

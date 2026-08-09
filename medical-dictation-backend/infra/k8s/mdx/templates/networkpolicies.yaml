@@ -1,0 +1,69 @@
+{{- /*
+Default-deny ingress for the whole namespace, then narrow allows:
+
+- app pods accept traffic only from OTHER pods in this namespace
+  (service-to-service calls) — never from outside the namespace;
+- the edge is the only pod that accepts from outside the cluster
+  (LoadBalancer), and the only sanctioned path to signing/generation
+  from the edge tier;
+- stateful stores accept only from app/job pods in-namespace.
+
+The sprint-09 public-path discipline carries over: nothing but the edge
+is reachable from the internet, and the edge only proxies the three
+allowlisted paths.
+*/ -}}
+{{- if .Values.networkPolicies.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-from-namespace
+spec:
+  podSelector:
+    matchLabels: {mdx-tier: app}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        # Same-namespace traffic only. namespaceSelector on the standard
+        # metadata.name label rather than a bare podSelector — identical
+        # semantics, and it also matches source pods whose labels the
+        # policy controller hasn't indexed (job pods, kubectl-run debug).
+        - namespaceSelector:
+            matchLabels: {"kubernetes.io/metadata.name": {{ .Release.Namespace | quote }}}
+      ports:
+        - {port: 8000, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: stateful-from-namespace
+spec:
+  podSelector:
+    matchLabels: {mdx-tier: stateful}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {"kubernetes.io/metadata.name": {{ .Release.Namespace | quote }}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-from-anywhere
+spec:
+  podSelector:
+    matchLabels: {mdx-tier: edge}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - {port: 8080, protocol: TCP}
+        - {port: 8443, protocol: TCP}
+{{- end }}

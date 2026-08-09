@@ -183,6 +183,90 @@
         "title": "PhraseDTO",
         "type": "object"
       },
+      "PhraseListItemDTO": {
+        "additionalProperties": false,
+        "description": "Row of the sprint-17 admin listing (GET). Distinct from PhraseDTO:\nthe listing carries the roll-up counters + timestamps the console\nshows; the POST echo never has real counter values.",
+        "properties": {
+          "acceptance_count": {
+            "title": "Acceptance Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "impression_count": {
+            "title": "Impression Count",
+            "type": "integer"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "last_accepted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Accepted At"
+          },
+          "phrase": {
+            "title": "Phrase",
+            "type": "string"
+          },
+          "section_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Hint"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          }
+        },
+        "required": [
+          "id",
+          "phrase",
+          "language",
+          "specialty",
+          "section_hint",
+          "source",
+          "impression_count",
+          "acceptance_count",
+          "last_accepted_at",
+          "created_at"
+        ],
+        "title": "PhraseListItemDTO",
+        "type": "object"
+      },
       "SnippetDTO": {
         "additionalProperties": false,
         "properties": {
@@ -221,6 +305,52 @@
           "source"
         ],
         "title": "SnippetDTO",
+        "type": "object"
+      },
+      "SnippetListItemDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cursor_position": {
+            "title": "Cursor Position",
+            "type": "integer"
+          },
+          "expansion": {
+            "title": "Expansion",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trigger",
+          "expansion",
+          "cursor_position",
+          "language",
+          "source",
+          "created_at"
+        ],
+        "title": "SnippetListItemDTO",
         "type": "object"
       },
       "SuggestRequest": {
@@ -465,6 +595,128 @@
   "openapi": "3.1.0",
   "paths": {
     "/autocomplete/phrases": {
+      "get": {
+        "description": "Admin corpus listing. Visibility is the RLS policy's (system +\nown-tenant + own-user rows); a read needs no audit event.",
+        "operationId": "list_phrases_autocomplete_phrases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "uk",
+                    "en"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "specialty",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Specialty"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "system",
+                    "tenant",
+                    "user"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PhraseListItemDTO"
+                  },
+                  "title": "Response List Phrases Autocomplete Phrases Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Phrases",
+        "tags": [
+          "autocomplete"
+        ]
+      },
       "post": {
         "operationId": "create_phrase_autocomplete_phrases_post",
         "parameters": [
@@ -576,6 +828,110 @@
       }
     },
     "/autocomplete/snippets": {
+      "get": {
+        "operationId": "list_snippets_autocomplete_snippets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "uk",
+                    "en"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "system",
+                    "tenant",
+                    "user"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnippetListItemDTO"
+                  },
+                  "title": "Response List Snippets Autocomplete Snippets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Snippets",
+        "tags": [
+          "autocomplete"
+        ]
+      },
       "post": {
         "operationId": "create_snippet_autocomplete_snippets_post",
         "parameters": [

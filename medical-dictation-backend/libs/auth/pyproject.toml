@@ -8,6 +8,8 @@ dependencies = [
     "httpx>=0.27.0",
     "pydantic>=2.7.0",
     "fastapi>=0.111.0",
+    # Sprint 16: session-revocation denylist (auth.revocation).
+    "redis>=5.0",
 ]
 
 [project.optional-dependencies]

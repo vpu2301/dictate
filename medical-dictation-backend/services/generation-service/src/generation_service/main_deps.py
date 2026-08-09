@@ -39,6 +39,10 @@ class ServiceState:
     shown_audit: ShownAuditBuffer
     inline_latency_metric: Any
     completions_metric: Any
+    # Sprint 16 pre-warm: readiness gates on this when MDX_PREWARM_ENABLED
+    # (set false at startup by the lifespan, flipped true after the
+    # 1-token warm completion lands).
+    warmed: bool = True
 
 
 async def build_state() -> ServiceState:

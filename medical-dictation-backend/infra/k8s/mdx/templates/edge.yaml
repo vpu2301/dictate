@@ -1,0 +1,133 @@
+{{- /*
+The public edge — cluster counterpart of compose's `public-edge` (S15).
+Same allowlist discipline: exactly three public paths; everything else
+404s at the edge and never reaches a Service. The WAF capability rides
+here (nginx rate zones tripping BEFORE app limits, method allowlists,
+body-size caps); a provider WAF/CDN (e.g. Cloudflare) in front of the
+LoadBalancer adds bot filtering + geo alerting — hand-off in
+docs/deploy/hosting-gap.md, since the provider follows the hosting
+choice. The nginx.conf here is derived from infra/edge/nginx.conf.template
+with cluster upstreams and is drift-checked by eye at review (the
+template's envsubst mechanism is replaced by Helm values).
+*/ -}}
+{{- if .Values.edge.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mdx-edge-conf
+data:
+  default.conf: |
+    limit_req_zone $binary_remote_addr zone=edge_verify:10m     rate=2r/s;
+    limit_req_zone $binary_remote_addr zone=edge_callback:10m   rate=5r/s;
+    limit_req_zone $binary_remote_addr zone=edge_completion:10m rate=5r/s;
+    limit_req_status 429;
+
+    server {
+        listen 8080 default_server;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 8443 ssl default_server;
+        http2 on;
+
+        ssl_certificate     /etc/nginx/certs/tls.crt;
+        ssl_certificate_key /etc/nginx/certs/tls.key;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+
+        # App-side HSTS (sprint 09) must not be stripped; the edge sets it
+        # too so even edge-served 404s carry it.
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+
+        # Nothing is public unless explicitly allowlisted below.
+        location / {
+            return 404;
+        }
+
+        location = /signing/callbacks/diia {
+            limit_req zone=edge_callback burst=20 nodelay;
+            limit_except POST { deny all; }
+            proxy_pass http://signing-service:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto https;
+            client_max_body_size 5m;
+        }
+
+        location /verify/ {
+            limit_req zone=edge_verify burst=10 nodelay;
+            limit_except GET { deny all; }
+            proxy_pass http://signing-service:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto https;
+        }
+
+        location = /v1/completions/inline {
+            limit_req zone=edge_completion burst=8 nodelay;
+            limit_except POST { deny all; }
+            proxy_pass http://generation-service:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto https;
+            client_max_body_size 64k;
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: public-edge
+  labels: {app: public-edge, mdx-tier: edge}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: public-edge}}
+  template:
+    metadata:
+      labels: {app: public-edge, mdx-tier: edge}
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.edge.image }}
+          ports:
+            - {containerPort: 8080, name: http}
+            - {containerPort: 8443, name: https}
+          volumeMounts:
+            - {name: conf, mountPath: /etc/nginx/conf.d, readOnly: true}
+            - {name: certs, mountPath: /etc/nginx/certs, readOnly: true}
+          readinessProbe:
+            tcpSocket: {port: https}
+            periodSeconds: 5
+      volumes:
+        - name: conf
+          configMap: {name: mdx-edge-conf}
+        - name: certs
+          secret: {secretName: {{ .Values.edge.tlsSecret }}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: public-edge
+  labels: {app: public-edge}
+spec:
+  type: {{ .Values.edge.serviceType }}
+  selector: {app: public-edge}
+  ports:
+    - {port: 80, targetPort: http, name: http}
+    - {port: 443, targetPort: https, name: https}
+{{- end }}
+{{- if .Values.certManager.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mdx-edge
+spec:
+  secretName: {{ .Values.edge.tlsSecret }}
+  issuerRef:
+    name: {{ .Values.certManager.issuer }}
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ .Values.certManager.domain }}
+{{- end }}

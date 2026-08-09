@@ -48,6 +48,10 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0036  | [Layer C inline completion — local Gemma behind a provider seam](0036-layer-c-inline-completion-local-gemma.md) | Accepted |
 | 0037  | [Audio replay — clip-on-demand over the GCM envelope, token-streamed](0037-audio-replay-clip-pipeline.md) | Accepted |
 | 0038  | [Search query expansion — synonym dictionary over `simple` FTS](0038-search-query-expansion.md) | Accepted |
+| 0039  | [MFA/TOTP — auth-service proxy enforcement, envelope-encrypted secret in Keycloak attributes](0039-mfa-totp-auth-service-proxy.md) | Accepted |
+| 0040  | [Session revocation — auth-service-pushed Redis denylist, fail-open checks](0040-session-revocation-denylist.md) | Accepted |
+| 0041  | [Scheduled jobs — shared in-process runner per service, CLI twin for cron](0041-in-process-scheduler-pattern.md) | Accepted |
+| 0042  | [HTTP/2 POST streaming fallback — closed with data, not built](0042-http2-post-fallback-closed.md) | Accepted |
 
 ## Template
 

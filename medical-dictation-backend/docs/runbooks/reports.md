@@ -76,7 +76,13 @@ The advisory lock should make this impossible. If observed:
 
 ### Stuck draft (> 30 days)
 
-Idle-draft cleanup auto-archives at 30 days (sprint-16 scheduler).
+Idle-draft cleanup auto-archives at 30 days (`MDX_IDLE_DRAFT_DAYS`).
+Since sprint 16 it runs in-process when `MDX_BACKGROUND_JOBS=true`
+(interval `MDX_BACKGROUND_JOBS_INTERVAL_S`, default daily; ADR-0041),
+or on demand:
+`uv run --project services/report-service python -m report_service.jobs.idle_draft_cleanup`.
+Each run audits `scheduler.job.completed` (global tenant) and
+`report.cancelled` per archived draft.
 For an urgent manual archive:
 
 ```sql

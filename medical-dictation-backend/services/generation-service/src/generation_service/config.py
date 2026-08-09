@@ -105,5 +105,20 @@ class Settings(BaseSettings):
     # Aggregated layer_c.completion.shown audit flush interval.
     shown_audit_flush_s: float = Field(default=600.0, alias="MDX_GEN_SHOWN_AUDIT_FLUSH_S")
 
+    # ── Startup pre-warm (sprint 16 — sprint-03 retro cold-start) ───────
+    # When on, the lifespan fires a 1-token completion at the inference
+    # backend and /readyz stays 503 until it lands. Off in dev (llama.cpp
+    # on a laptop warms in seconds; the dance isn't worth it there).
+    prewarm_enabled: bool = Field(default=False, alias="MDX_PREWARM_ENABLED")
+    prewarm_retry_seconds: float = Field(default=5.0, alias="MDX_PREWARM_RETRY_SECONDS")
+
+    # ── Session revocation check (sprint 16) ────────────────────────────
+    # When on, current_user rejects tokens whose sid/sub is on the Redis
+    # denylist that auth-service pushes on logout/deactivation. Fail-OPEN
+    # on Redis outage (ADR-0040). Same env name across the fleet; off in dev.
+    session_revocation_enabled: bool = Field(
+        default=False, alias="MDX_SESSION_REVOCATION_ENABLED"
+    )
+
 
 settings = Settings()

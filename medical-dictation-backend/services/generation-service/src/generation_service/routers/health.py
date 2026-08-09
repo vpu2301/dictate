@@ -43,4 +43,20 @@ async def readyz(request: Request, response: Response) -> dict[str, object]:
             "layer_c_enabled": True,
             "reason": "inference backend unreachable",
         }
-    return {"status": "ready", "layer_c_enabled": True, "model": settings.gen_model}
+    # Sprint 16 pre-warm: a reachable backend that hasn't produced its
+    # first token yet is not ready — the LB must not send traffic that
+    # would pay the residency cost inline.
+    if not getattr(state, "warmed", True):
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "unready",
+            "layer_c_enabled": True,
+            "reason": "model warming",
+            "warmed": False,
+        }
+    return {
+        "status": "ready",
+        "layer_c_enabled": True,
+        "model": settings.gen_model,
+        "warmed": True,
+    }

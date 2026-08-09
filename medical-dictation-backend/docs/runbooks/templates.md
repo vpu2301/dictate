@@ -46,15 +46,22 @@ auto-update.
 
 ### § tenant-deprecation-blocked-by-fk
 
-`DELETE /templates/{id}` returns 409 with `detail: "templates referenced by reports cannot be deprecated; ..."`.
+`DELETE /templates/{id}` returns 409 with `detail: "templates referenced by draft reports cannot be deprecated; ..."`.
 
-Tenant has reports that reference this template. Until sprint-17
-admin UI ships a re-bind flow, the workaround is: tenant cannot
-deprecate this template. They can still:
-- Create a new template (cosmetic edit creates a new row; clinicians
-  pick the new one on next session).
-- Mark the old row's `status='draft'` to hide from listings (note:
-  RLS allows UPDATE; status check is application-level).
+The tenant has **draft** reports still bound to this template
+(finalized/signed/amended/cancelled reports never block — they keep
+their historical binding). Since sprint-17 the resolution is the
+admin-console re-bind flow:
+
+1. `GET /templates/{id}/bound-reports` — PHI-free list
+   (`report_id`, `status`, timestamps) of everything referencing the
+   template; requires `template.update`.
+2. For each `status='draft'` row:
+   `POST /templates/{id}/rebind` with
+   `{"report_id": ..., "to_template_id": <successor>}`. Guards: target
+   must be visible, not deprecated, same language; only drafts move.
+   Audited as `template.rebound` (ids only).
+3. Re-run `DELETE /templates/{id}` — succeeds once no drafts remain.
 
 ### § wer-regression-on-a-template
 

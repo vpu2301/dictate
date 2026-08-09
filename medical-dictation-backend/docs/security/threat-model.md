@@ -36,7 +36,7 @@ trust boundary is the Postgres role + RLS combo, not the network.
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Forged JWT (no signature)                         | RS256-only allowlist in `libs/auth.verifier`. `alg=none` rejected. Test: `test_alg_none_fails_closed` |
 | Algorithm-confusion (HS256 with public key)       | Same — only RS256 alg is accepted from the JWKS                                                  |
-| Stolen access token, replay                       | Short-lived (15 min). No mitigation in-window — accepted risk; sprint 16 adds session-revocation listener |
+| Stolen access token, replay                       | Short-lived (15 min) **plus, since sprint 16, the revocation denylist (ADR-0040)**: logout/deactivation/replay push the sid/sub to Redis and `current_user` rejects it fleet-wide (`MDX_SESSION_REVOCATION_ENABLED`). Fail-open on Redis outage — degraded mode equals the old 15-min window |
 | Stolen refresh, replay                            | Rotation on every refresh + Keycloak server-side single-use tracking. Replay → `auth.refresh_replay_detected` audit (sec); sessions force-revoked |
 | Refresh cookie exfiltrated by XSS                 | HttpOnly cookie. Sprint-16 frontend adds CSP                                                     |
 | CSRF on refresh / logout                          | Refresh cookie path-restricted to `/auth/*`; access token in Authorization header — no double-submit needed |
@@ -87,15 +87,22 @@ trust boundary is the Postgres role + RLS combo, not the network.
 
 ## Cross-cutting risks (sprint-02 specific)
 
-- **MFA disabled in pilot.** Documented in ADR-N/A (pilot deployment
-  decision). Re-enable: set `MDX_REQUIRE_MFA=true`, build TOTP enrolment
-  endpoints (sprint 16), add `requires_mfa()` to all sensitive routes.
+- **MFA built in sprint 16 (ADR-0039), still off by default in dev.**
+  TOTP enrolment endpoints live on auth-service; `requires_mfa()` (with
+  the 403 `mfa_enrolment_required` grace flow) guards role management,
+  user lifecycle, tenant CRUD, erasure approval and DSAR export.
+  Production enables `MDX_MFA_ENROLMENT_ENABLED` + `MDX_REQUIRE_MFA`.
+  Residual: the dev-only `mdx-dev-cli` client could reach Keycloak's
+  token endpoint directly inside the network, bypassing the proxy OTP
+  check — the production realm must not ship it.
 - **Dev credentials hard-coded** in `infra/keycloak/realm-export.json`
   (`dev-secret-change-in-prod-*`). Production deployments must
   regenerate every client secret via `kc.sh` import-realm.
-- **No session-aware access-token revocation.** Access tokens stay valid
-  for their full 15-min lifespan even after logout. Risk window
-  bounded; sprint 16 considers a session-revocation listener.
+- **Session-aware access-token revocation shipped in sprint 16**
+  (ADR-0040): logout means logged out when
+  `MDX_SESSION_REVOCATION_ENABLED` is on. Completeness rests on the
+  invariant that every session-ending path runs through auth-service —
+  a Keycloak-console logout does NOT hit the denylist.
 - **DBA superuser has unrestricted DB access.** The chain catches
   tampering after-the-fact; we don't prevent it. Operational control:
   DBA action is logged at the Postgres-log level + reviewed weekly.

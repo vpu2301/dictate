@@ -115,7 +115,15 @@ class MockProvider(SigningProvider):
             raise InvalidCallbackError(f"mock callback body not JSON: {exc}") from exc
 
         # Mock signature: HMAC over body with a static dev key.
-        provided_sig = callback_headers.get("X-Mock-Signature", "")
+        # Case-insensitive lookup — the HTTP route passes
+        # dict(request.headers), and Starlette lowercases header names, so
+        # an exact-case get() silently missed and every mock callback
+        # failed signature verification (found live in S16D staging).
+        provided_sig = (
+            callback_headers.get("X-Mock-Signature")
+            or callback_headers.get("x-mock-signature")
+            or ""
+        )
         expected_sig = _hmac_hex(b"mock-callback-key", callback_body)
         if not _consteq(provided_sig, expected_sig):
             raise InvalidCallbackError("invalid mock callback signature")

@@ -1,0 +1,336 @@
+# ── mdx chart — STAGING defaults (k3d / CPU-only dev cluster) ─────────
+#
+# These values stand up the full product on a local k3d cluster with the
+# locally-built compose images. Production overrides live in
+# values-prod.yaml (GPU pools, external stateful stores, ExternalSecrets,
+# measured resources). The hosting decision (UA-resident cluster) is the
+# human's — docs/deploy/hosting-gap.md names what changes per choice.
+
+global:
+  environment: staging
+  imageRegistry: ""            # staging: local images imported into k3d
+  imagePullPolicy: IfNotPresent
+  otlpEndpoint: http://otel-collector:4317
+
+# ── Stateful stores ─────────────────────────────────────────────────
+# staging: simple single-replica in-cluster workloads with PVCs.
+# prod (values-prod.yaml): inCluster=false — operator-managed
+# (CloudNativePG / Redis operator / MinIO operator) or managed services
+# per the hosting choice; endpoints below then point at those.
+stateful:
+  inCluster: true
+  postgres:
+    # pgvector build — init.sql runs CREATE EXTENSION vector (evidence
+    # embeddings, migration 0067+). Plain postgres:16 aborts first-boot
+    # init at that line and leaves a half-initialised store (found live).
+    image: pgvector/pgvector:pg16
+    storage: 10Gi
+    host: postgres
+  redis:
+    image: redis:7.2-alpine
+    host: redis
+  minio:
+    image: minio/minio:RELEASE.2024-04-18T19-09-19Z
+    mcImage: minio/mc:RELEASE.2024-04-18T16-45-29Z
+    storage: 20Gi
+    host: minio
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    host: keycloak
+  mailpit:
+    enabled: true
+    image: axllent/mailpit:v1.20
+  llamaServer:
+    # S15 Layer C backend. Disabled in staging (no model blob in-cluster;
+    # generation-service answers 204s with layer_c disabled).
+    enabled: false
+    image: ghcr.io/ggml-org/llama.cpp:server
+
+observability:
+  # staging: minimal otel-collector + Prometheus (KEDA needs Prometheus).
+  # prod: kube-prometheus-stack (docs/deploy/observability.md) with the
+  # repo dashboards/alerts mounted; these two then disable.
+  otelCollector:
+    enabled: true
+    image: otel/opentelemetry-collector-contrib:0.100.0
+  prometheus:
+    enabled: true
+    image: prom/prometheus:v2.54.1
+    host: prometheus
+
+keda:
+  # Dictation autoscaling on the sprint-14 weighted-capacity metric.
+  # (KEDA itself is installed cluster-wide: helm install keda kedacore/keda.)
+  enabled: false               # staging flips true once KEDA is installed
+  prometheusAddress: http://prometheus.mdx-staging:9090
+  # Scale to keep used/budget ≤ 0.75 fleet-wide.
+  targetUtilisation: "0.75"
+  minReplicas: 1
+  maxReplicas: 8
+  # Sessions are long-lived: no flapping, and never evict a busy pod —
+  # eviction safety is the preStop drain + terminationGracePeriodSeconds.
+  scaleDownStabilizationSeconds: 600
+
+networkPolicies:
+  # Default-deny + narrow allows. NAMED GAP (verified live, S16D): k3s
+  # v1.35/k3d enforces the default-deny (kube-router REJECT) but fails
+  # to honor the allow rules — even a same-namespace, correctly-labelled
+  # source pod gets connection-refused. The policies use only standard
+  # v1 NetworkPolicy semantics and MUST be enabled on the production CNI
+  # (Calico/Cilium per hosting choice) where they behave; staging k3d
+  # runs with them off. docs/deploy/hosting-gap.md carries the item.
+  enabled: false
+
+edge:
+  enabled: true
+  image: nginx:1.27-alpine
+  # TLS keypair Secret (edge.crt/edge.key). Staging: self-signed via
+  # scripts/k8s/staging-up.sh; prod: cert-manager Certificate (see
+  # templates/certificate.yaml + values-prod.yaml).
+  tlsSecret: mdx-edge-tls
+  serviceType: LoadBalancer    # k3d maps this to the host via servicelb
+
+certManager:
+  # prod: cert-manager issues the edge certificate (Let's Encrypt or org
+  # CA). Staging keeps the self-signed secret.
+  enabled: false
+  issuer: letsencrypt-prod
+  domain: mdx.example.invalid  # set to the real public domain (todo.md)
+
+externalSecrets:
+  # prod only: External Secrets Operator → Vault (same trust root as the
+  # ADR-0011 KMS choice). Staging uses plain Secrets created by
+  # scripts/k8s/staging-up.sh from dev material.
+  enabled: false
+  secretStore: mdx-vault
+  vaultPath: mdx
+
+# Secret names every app can reference (created by ESO in prod, by the
+# staging-up script in staging). NEVER inline secret VALUES in values files.
+secretRefs:
+  keycloakClients: mdx-keycloak-clients   # KEYCLOAK_LOGIN/ADMIN_CLIENT_SECRET
+  masterKey: mdx-master-key               # /etc/mdx/master.key
+  hmacKeys: mdx-hmac-keys                 # SIGNER_IPN_HMAC_KEY etc. (prod)
+
+# ── Shared environment (mirrors the compose x-anchors) ──────────────
+commonEnv:
+  ENVIRONMENT: staging
+  LOG_LEVEL: INFO
+  AUTH_ISSUER: http://keycloak:8080/realms/medical-dictation
+  AUTH_JWKS_URL: http://keycloak:8080/realms/medical-dictation/protocol/openid-connect/certs
+  CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000,https://vpu2301.github.io
+  DB_APP_ROLE_DSN: postgresql://app_role:app_role@postgres:5432/medical_dictation
+  DB_AUDIT_WRITER_DSN: postgresql://audit_writer:audit_writer@postgres:5432/medical_dictation
+
+# ── Application services ────────────────────────────────────────────
+# One entry per compose service; the generic templates render a
+# Deployment + Service (port 8000) for each. Resource requests come from
+# the measured envelopes (docs/deploy/resource-envelopes.md); limits are
+# headroom above the measured peaks, not folklore.
+apps:
+  auth-service:
+    image: medical-dictation-auth-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+    env:
+      DB_TENANT_WRITER_DSN: postgresql://tenant_writer:tenant_writer@postgres:5432/medical_dictation
+      DB_AUDIT_READER_DSN: postgresql://audit_reader:audit_reader@postgres:5432/medical_dictation
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: medical-dictation
+      REDIS_URL: redis://redis:6379/0
+    secretEnv: [mdx-keycloak-clients]
+    hpa: {enabled: false, minReplicas: 2, maxReplicas: 6, cpuUtilisation: 70}
+
+  asr-service:
+    image: medical-dictation-asr-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 192Mi}
+      limits: {cpu: "1", memory: 768Mi}
+    env:
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      MD_ASR_NLP_BASE_URL: http://nlp-service:8000
+    masterKey: true
+
+  asr-worker:
+    image: medical-dictation-asr-worker:latest
+    replicas: 1
+    service: false             # Redis-stream consumer — no HTTP surface
+    probes: false
+    gpu: false                 # prod: true (values-prod.yaml)
+    resources:
+      requests: {cpu: 500m, memory: 3Gi}
+      limits: {cpu: "4", memory: 5Gi}
+    env:
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      MD_ASR_DEVICE: cpu
+      MD_ASR_COMPUTE_TYPE: int8
+      MD_ASR_MAX_INFERENCE_SECONDS_MULTIPLIER: "40.0"
+    masterKey: true
+
+  dictation-service:
+    image: medical-dictation-dictation-service:latest
+    replicas: 1
+    gpu: false                 # prod: true — one pod per GPU (device plugin)
+    # Long-lived sessions: preStop drains (stop accepting → wait for the
+    # last session → cap 30 min). The autoscaler can NEVER kill a busy pod.
+    drain: true
+    terminationGracePeriodSeconds: 1830
+    # §tmpfs-pressure fix: dedicated per-POD 2 GiB RAM-backed mount for
+    # the session rings (compose shared the host tmpfs across workers).
+    tmpfs:
+      path: /run/dictation
+      size: 2Gi
+    resources:
+      requests: {cpu: 500m, memory: 3Gi}
+      limits: {cpu: "4", memory: 5Gi}
+    env:
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      MDX_TMPFS_ROOT: /run/dictation
+      MD_ASR_DEVICE: cpu
+      MD_ASR_COMPUTE_TYPE: int8
+      MDX_CONVERSATION_ENABLED: "false"   # staging CPU; prod: true on GPU
+      MDX_WS_ALLOWED_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173","http://localhost:4173","http://127.0.0.1:4173","http://localhost:3000","https://vpu2301.github.io"]'
+      NLP_BASE_URL: http://nlp-service:8000
+      REPORT_BASE_URL: http://report-service:8000
+    masterKey: true
+    # MDX_WORKER_ID must be unique per pod — the generic template maps it
+    # from metadata.name via the downward API when workerId: true.
+    workerId: true
+
+  nlp-service:
+    image: medical-dictation-nlp-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 250m, memory: 1Gi}
+      limits: {cpu: "2", memory: 2Gi}
+    env:
+      # Idempotence cache (sprint 05) — readiness checks the connection.
+      REDIS_URL: redis://redis:6379/0
+    hpa: {enabled: false, minReplicas: 2, maxReplicas: 6, cpuUtilisation: 70}
+
+  report-service:
+    image: medical-dictation-report-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 192Mi}
+      limits: {cpu: "1", memory: 768Mi}
+    env:
+      SIGNING_SERVICE_BASE_URL: http://signing-service:8000
+      ASR_SERVICE_BASE_URL: http://asr-service:8000
+      REDIS_URL: redis://redis:6379/0
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+    masterKey: true
+
+  core-service:
+    image: medical-dictation-core-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 192Mi}
+      limits: {cpu: "1", memory: 768Mi}
+    env:
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      DB_AUDIT_READER_DSN: postgresql://audit_reader:audit_reader@postgres:5432/medical_dictation
+      DSAR_PACKAGE_TTL_DAYS: "7"
+      S3_ENDPOINT: http://minio:9000
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+      SIGNING_SERVICE_BASE_URL: http://signing-service:8000
+      MDX_CONSENT_TEXTS_DIR: /etc/mdx/consents
+      REDIS_URL: redis://redis:6379/0
+    masterKey: true
+    consents: true
+
+  autocomplete-service:
+    image: medical-dictation-autocomplete-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 160Mi}
+      limits: {cpu: "1", memory: 512Mi}
+    env:
+      REDIS_URL: redis://redis:6379/0
+
+  generation-service:
+    image: medical-dictation-generation-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+    env:
+      REDIS_URL: redis://redis:6379/0
+      MDX_LAYER_C_ENABLED: "false"   # staging: no llama backend in-cluster
+      MDX_GEN_BACKEND: llamacpp
+      MDX_GEN_BASE_URL: http://llama-server:8080
+      MDX_GEN_MODEL: gemma3:1b
+
+  notification-service:
+    image: medical-dictation-notification-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+    env:
+      REDIS_URL: redis://redis:6379/0
+      MDX_APP_BASE_URL: http://localhost:5173
+      MDX_EMAIL_PROVIDER: smtp
+      MDX_SMTP_HOST: mailpit
+      MDX_SMTP_PORT: "1025"
+      MDX_EMAIL_FROM: noreply@medical-dictation.local
+    # Consumer name must be unique per replica (pending-entries lists).
+    workerId: true
+    workerIdEnv: MDX_NOTIFICATION_CONSUMER_NAME
+
+  signing-service:
+    image: medical-dictation-signing-service:latest
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+    env:
+      DB_PUBLIC_VERIFY_DSN: postgresql://app_public_verify:app_public_verify@postgres:5432/medical_dictation
+      DB_CALLBACK_WRITER_DSN: postgresql://app_callback_writer:app_callback_writer@postgres:5432/medical_dictation
+      REDIS_URL: redis://redis:6379/0
+      ENABLE_MOCK_PROVIDER: "true"    # prod: false
+      TRUST_STORE_DIR: /etc/mdx/trust-store
+      TRUST_STORE_INCLUDE_TEST_CA: "true"   # mock envelopes chain to the test CA; prod: false
+    trustStore: true
+    # Staging-only: pin the mock provider's test CA so every pod signs
+    # under the SAME (trusted) chain instead of generating an ephemeral
+    # CA per pod. Secret mdx-mock-test-ca is created by staging-up.sh.
+    mockTestCa: true
+
+# ── One-shot jobs & CronJobs ────────────────────────────────────────
+jobs:
+  migrate:
+    image: medical-dictation-migrate:latest
+    databaseUrl: postgresql://postgres:postgres@postgres:5432/medical_dictation
+  seed:
+    enabled: true                # staging only — prod NEVER seeds dev users
+    image: medical-dictation-seed:latest
+
+cronJobs:
+  enabled: true
+  # The three host crons from infra/compose/cron/, migrated in-cluster.
+  # Scripts ship in the chart (files/jobs/, drift-gated against
+  # scripts/jobs/ by check-k8s-cron-scripts) and run on the core-service
+  # image, which carries every lib they import.
+  image: medical-dictation-core-service:latest
+  erasureScheduler:
+    schedule: "*/15 * * * *"
+    databaseUrl: postgresql://postgres:postgres@postgres:5432/medical_dictation
+  dsarPackageCleanup:
+    schedule: "30 3 * * *"
+  nightlyVerify:
+    schedule: "0 2 * * *"
