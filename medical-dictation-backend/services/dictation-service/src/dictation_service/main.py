@@ -24,7 +24,7 @@ from .config import settings
 from .deps import install_state
 from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
-from .routers import health, sessions, ws
+from .routers import health, internal, sessions, ws
 from .session.reaper import reaper_loop
 from .session.resume import heartbeat_worker
 
@@ -45,6 +45,30 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     state = await build_state()
     app.state.svc = state
     install_state(state)
+
+    # Sprint 16 (MDX_WARM_IN_BACKGROUND): warm Whisper (+ diarizer) off
+    # the startup path. faster-whisper's loader holds the GIL, so it runs
+    # in a thread; /readyz gates on engine.is_loaded meanwhile.
+    warm_task: asyncio.Task[None] | None = None
+    if settings.warm_in_background:
+
+        async def _warm_models() -> None:
+            try:
+                await asyncio.to_thread(state.engine.load)
+                logger.info(
+                    "warmup.whisper_ready",
+                    extra={"warmup_seconds": state.engine.warmup_seconds},
+                )
+            except Exception:  # noqa: BLE001 — stay alive; readyz stays 503
+                logger.exception("warmup.whisper_failed")
+                return
+            if settings.diar_warm_at_startup:
+                try:
+                    await state.diarization_engine.warm_up()
+                except Exception:  # noqa: BLE001 — dictation-only worker is fine
+                    logger.exception("warmup.diarizer_failed")
+
+        warm_task = asyncio.create_task(_warm_models(), name="model-warmup")
 
     # Inference queue runs as a background task.
     await state.inference_queue.__aenter__()
@@ -99,6 +123,10 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        if warm_task is not None:
+            warm_task.cancel()
+            with suppress(asyncio.CancelledError, Exception):
+                await warm_task
         hb_stop.set()
         gauge_stop.set()
         reaper_stop.set()
@@ -142,6 +170,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(internal.router)
     app.include_router(sessions.router)
     app.include_router(ws.router)
     FastAPIInstrumentor.instrument_app(app)

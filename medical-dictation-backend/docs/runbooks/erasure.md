@@ -163,6 +163,13 @@ written policy, and the mechanics are implemented, not aspirational.
    stamps `backups_purged_by = executed_at + BACKUP_RETENTION_DAYS`
    into every `report_of_execution` — that is the "fully purged from
    backups by <date>" answer the DPO gives the data subject.
+   **Since sprint 16 the notice is automated** (ADR-0041): the
+   backup-horizon job (core-service, `MDX_BACKGROUND_JOBS=true`, or
+   `python -m core_service.jobs.backup_horizon` from cron) watches for
+   the horizon to pass, appends `backups_purged_confirmed_at` + the
+   "fully purged from backups" note to `report_of_execution`, and
+   audits `erasure.backup_horizon_reached` (sec). Idempotent — the
+   presence of the stamp is the guard.
 4. **Restoring erased patients is forbidden.** Every restore MUST
    re-run erasures completed after the backup was taken. This is
    scripted, not manual archaeology — see below.

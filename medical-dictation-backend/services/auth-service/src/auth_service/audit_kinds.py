@@ -24,6 +24,16 @@ AUTH_ACCOUNT_LOCKED: Final[str] = "auth.account_locked"
 AUTH_REAUTH_SUCCEEDED: Final[str] = "auth.reauth_succeeded"
 AUTH_REAUTH_FAILED: Final[str] = "auth.reauth_failed"
 
+# ── MFA (sprint 16) ───────────────────────────────────────────────────
+AUTH_MFA_ENROLLED: Final[str] = "auth.mfa.enrolled"
+# Admin-assisted reset. The kind was pre-ledgered in sprint 02
+# (docs/audit/event-kinds.md, permissions.csv) as `user.reset_mfa`; the
+# sprint-16 spec's `auth.mfa.reset` name lost to the existing catalogue.
+USER_RESET_MFA: Final[str] = "user.reset_mfa"
+
+# ── Session revocation (sprint 16) ────────────────────────────────────
+AUTH_SESSION_REVOKED: Final[str] = "auth.session.revoked"
+
 # ── User lifecycle ────────────────────────────────────────────────────
 USER_INVITED: Final[str] = "user.invited"
 USER_DEACTIVATED: Final[str] = "user.deactivated"

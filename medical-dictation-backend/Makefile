@@ -1,4 +1,4 @@
-.PHONY: check-erasure-fanout dsar-cleanup dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config wer-eval check-corpus wer-eval-corpus
+.PHONY: check-erasure-fanout dsar-cleanup dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered k8s-render wer-eval check-corpus wer-eval-corpus
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -197,6 +197,17 @@ check-no-crypto: ## CI gate — no direct cryptography.hazmat outside libs/crypt
 check-no-dev-signing-in-prod-config: ## CI gate — dev_password signing scaffold never enabled in prod configs
 	uv run python scripts/ci/check-no-dev-signing-in-prod-config.py
 
+check-no-demo-envvars-in-prod: ## CI gate (S16) — demo/dev escape hatches never enabled in prod configs
+	uv run python scripts/ci/check-no-demo-envvars-in-prod.py
+
+check-k8s-rendered: ## CI gate (S16 deployment) — chart renders; prod render secret-clean; vendored ops files drift-checked
+	uv run python scripts/ci/check-k8s-rendered.py
+
+k8s-render: ## Render the Helm chart (staging + prod) to stdout-free temp files for inspection
+	helm template mdx infra/k8s/mdx > /tmp/mdx-render-staging.yaml
+	helm template mdx infra/k8s/mdx -f infra/k8s/mdx/values-prod.yaml > /tmp/mdx-render-prod.yaml
+	@echo "rendered: /tmp/mdx-render-staging.yaml /tmp/mdx-render-prod.yaml"
+
 .PHONY: check-notification-phi-free
 check-notification-phi-free: ## CI gate (BLOCKING) — no email template may render PHI
 	uv run python scripts/ci/check-notification-phi-free.py
@@ -305,7 +316,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-synonym-corpus check-alert-rules ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-synonym-corpus check-alert-rules ## Mirror CI gates locally
 
 ci-with-db: ci check-rls check-erasure-fanout openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

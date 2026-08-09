@@ -51,7 +51,7 @@
       "min_chars": 5,
       "name": "Вітальні показники",
       "order": 2,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "Подай вітальні показники таблицею пара ключ–значення з одиницями. Не змінюй числа.",
       "voice_aliases": [
         "вітальні",
@@ -84,7 +84,7 @@
       "min_chars": 10,
       "name": "Діагноз",
       "order": 4,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "Сформулюй попередній діагноз з кодом МКХ-10, якщо названо. Не додавай кодів без підстав.",
       "voice_aliases": [
         "діагноз",

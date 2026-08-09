@@ -16,7 +16,7 @@ from redis.asyncio import Redis
 from starlette.requests import Request
 
 from audit import AuditWriter
-from auth import Claims, JwksCache, build_current_user
+from auth import Claims, JwksCache, build_current_user, build_session_denylist
 from db import create_pool
 
 from .adapters.email import EmailProvider, build_provider
@@ -90,6 +90,10 @@ async def build_state() -> ServiceState:
             expected_audience=settings.auth_audience,
             expected_issuer=settings.auth_issuer,
             clock_skew_seconds=settings.auth_clock_skew_seconds,
+            denylist=build_session_denylist(
+                enabled=settings.session_revocation_enabled,
+                redis_url=settings.redis_url,
+            ),
         ),
     )
 

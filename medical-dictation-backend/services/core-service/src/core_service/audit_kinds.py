@@ -72,3 +72,8 @@ ERASURE_ARTIFACT_DESTROYED: Final = "erasure.artifact_destroyed"
 ERASURE_EXECUTED: Final = "erasure.executed"
 # Reserved since sprint 03 (0007's DELETE comment); real as of step 07.
 ASR_AUDIO_DELETED: Final = "asr.audio_deleted"
+
+# ── Sprint 16 — backup-horizon notice + scheduler runs ──────────────────
+ERASURE_BACKUP_HORIZON_REACHED: Final = "erasure.backup_horizon_reached"
+SCHEDULER_JOB_COMPLETED: Final = "scheduler.job.completed"
+SCHEDULER_JOB_FAILED: Final = "scheduler.job.failed"

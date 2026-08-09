@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from audit import Severity
@@ -46,6 +47,64 @@ class PhraseDTO(BaseModel):
     source: str
     impression_count: int
     acceptance_count: int
+
+
+class PhraseListItemDTO(BaseModel):
+    """Row of the sprint-17 admin listing (GET). Distinct from PhraseDTO:
+    the listing carries the roll-up counters + timestamps the console
+    shows; the POST echo never has real counter values."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    phrase: str
+    language: str
+    specialty: str | None
+    section_hint: str | None
+    source: str
+    impression_count: int
+    acceptance_count: int
+    last_accepted_at: datetime | None
+    created_at: datetime
+
+
+@router.get("/phrases", response_model=list[PhraseListItemDTO])
+async def list_phrases(
+    claims: Annotated[Claims, Depends(requires("autocomplete.read", "phrase"))],
+    language: Annotated[Literal["uk", "en"] | None, Query()] = None,
+    specialty: Annotated[str | None, Query(max_length=64)] = None,
+    source: Annotated[Literal["system", "tenant", "user"] | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[PhraseListItemDTO]:
+    """Admin corpus listing. Visibility is the RLS policy's (system +
+    own-tenant + own-user rows); a read needs no audit event."""
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        await conn.execute("SELECT set_config('app.user_id',   $1, true)", str(claims.sub))
+        await conn.execute(
+            "SELECT set_config('app.user_role', $1, true)", role_for_rls(claims)
+        )
+        rows = await repo.list_phrases(
+            conn,
+            language=language,
+            specialty=specialty,
+            source=source,
+            limit=limit,
+        )
+    return [
+        PhraseListItemDTO(
+            id=r["id"],
+            phrase=r["phrase"],
+            language=r["language"],
+            specialty=r["specialty"],
+            section_hint=r["section_hint"],
+            source=str(r["source"]),
+            impression_count=int(r["impression_count"]),
+            acceptance_count=int(r["acceptance_count"]),
+            last_accepted_at=r["last_accepted_at"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
 
 
 async def _reject_pii(
@@ -224,6 +283,47 @@ class SnippetDTO(BaseModel):
     cursor_position: int
     language: str
     source: str
+
+
+class SnippetListItemDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    trigger: str
+    expansion: str
+    cursor_position: int
+    language: str
+    source: str
+    created_at: datetime
+
+
+@router.get("/snippets", response_model=list[SnippetListItemDTO])
+async def list_snippets(
+    claims: Annotated[Claims, Depends(requires("autocomplete.read", "phrase"))],
+    language: Annotated[Literal["uk", "en"] | None, Query()] = None,
+    source: Annotated[Literal["system", "tenant", "user"] | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[SnippetListItemDTO]:
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        await conn.execute("SELECT set_config('app.user_id',   $1, true)", str(claims.sub))
+        await conn.execute(
+            "SELECT set_config('app.user_role', $1, true)", role_for_rls(claims)
+        )
+        rows = await repo.list_snippets(
+            conn, language=language, source=source, limit=limit
+        )
+    return [
+        SnippetListItemDTO(
+            id=r["id"],
+            trigger=r["trigger"],
+            expansion=r["expansion"],
+            cursor_position=int(r["cursor_position"]),
+            language=r["language"],
+            source=str(r["source"]),
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
 
 
 @router.post("/snippets", response_model=SnippetDTO, status_code=status.HTTP_201_CREATED)

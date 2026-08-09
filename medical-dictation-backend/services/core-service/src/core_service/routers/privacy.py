@@ -34,7 +34,7 @@ from db import tenant_connection
 
 from .. import audit_helper, audit_kinds
 from ..config import settings
-from ..deps import get_state, requires
+from ..deps import get_state, requires, requires_mfa
 from ..domain import download_tokens, patients_repository, privacy_repository
 from ..scrub import scrub_free_text
 
@@ -152,6 +152,7 @@ async def _create(
     response_model=PrivacyRequestOut,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Trigger the DSAR export (assembles the full patient package).",
+    dependencies=[Depends(requires_mfa())],
 )
 async def request_dsar(
     patient_id: UUID,
@@ -298,6 +299,7 @@ async def review_request(
     "/privacy-requests/{request_id}/approve",
     response_model=PrivacyRequestOut,
     summary="Approve an erasure request (second person; starts the grace period).",
+    dependencies=[Depends(requires_mfa())],
 )
 async def approve_request(
     request_id: UUID,
@@ -334,6 +336,7 @@ async def approve_request(
     "/privacy-requests/{request_id}/reject",
     response_model=PrivacyRequestOut,
     summary="Reject (or cancel during grace) an erasure request, with a reason.",
+    dependencies=[Depends(requires_mfa())],
 )
 async def reject_request(
     request_id: UUID,

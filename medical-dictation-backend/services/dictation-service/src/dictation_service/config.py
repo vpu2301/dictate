@@ -5,6 +5,8 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from secret import Secret
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -85,6 +87,19 @@ class Settings(BaseSettings):
 
     # ── Master key (envelope crypto for finalized uploads) ──────────────
     master_key_path: str = Field(default="/etc/mdx/master.key", alias="MDX_MASTER_KEY_PATH")
+
+    # ── Master-key provider (sprint 16, ADR-0011 KMS swap) ───────────────
+    # 'file' (dev default — behaviour identical to pre-sprint-16) or
+    # 'vault' (Vault Transit; fail-closed startup probe). With 'vault', the
+    # file at master_key_path — if present — stays live as a read-only
+    # fallback for rows not yet re-wrapped (scripts/kms/rewrap-tenant-keks.py).
+    master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
+    vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
+    vault_token: Secret[str] = Field(
+        default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
+    )
+    vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")
+    vault_transit_mount: str = Field(default="transit", alias="MDX_VAULT_TRANSIT_MOUNT")
 
     # ── Streaming protocol ──────────────────────────────────────────────
     ws_subprotocol: str = Field(default="medical-dictation.v1", alias="MDX_WS_SUBPROTOCOL")
@@ -238,6 +253,22 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+
+    # ── Startup model warmup (sprint 16 — sprint-03 retro cold-start) ───
+    # false (dev default): pre-sprint-16 blocking load — simplest, and
+    # fine when warmup is fast (tiny on CPU). true (production): Whisper +
+    # diarizer load in a background lifespan task; /healthz serves
+    # immediately (liveness never kills a cold pod), /readyz stays 503
+    # until the models are resident, so the LB sends no traffic early.
+    warm_in_background: bool = Field(default=False, alias="MDX_WARM_IN_BACKGROUND")
+
+    # ── Session revocation check (sprint 16) ────────────────────────────
+    # When on, current_user rejects tokens whose sid/sub is on the Redis
+    # denylist that auth-service pushes on logout/deactivation. Fail-OPEN
+    # on Redis outage (ADR-0040). Same env name across the fleet; off in dev.
+    session_revocation_enabled: bool = Field(
+        default=False, alias="MDX_SESSION_REVOCATION_ENABLED"
+    )
 
 
 settings = Settings()

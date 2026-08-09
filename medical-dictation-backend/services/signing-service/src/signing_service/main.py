@@ -34,6 +34,27 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         package_name="signing-service",
         disable_otel=settings.testing or settings.otel_sdk_disabled,
     )
+    # Sprint 16: KMS-sourced system HMAC keys. Fail-closed — if the flag is
+    # on and Vault can't serve the keys, the service must not start with
+    # the "00"*32 env placeholders (they'd silently HMAC under a dev key).
+    if settings.hmac_keys_from_vault:
+        from crypto import fetch_kv_secrets
+
+        kv = await fetch_kv_secrets(
+            addr=settings.vault_addr,
+            token=settings.vault_token,
+            path=settings.vault_hmac_kv_path,
+            mount=settings.vault_kv_mount,
+        )
+        try:
+            settings.signer_ipn_hmac_key_hex = kv["signer_ipn_hmac_key"]
+            settings.public_verify_ip_hmac_key_hex = kv["public_verify_ip_hmac_key"]
+        except KeyError as exc:
+            raise RuntimeError(
+                f"Vault KV {settings.vault_hmac_kv_path!r} is missing field {exc}. "
+                "See docs/runbooks/kms.md § hmac-keys."
+            ) from exc
+        logger.info("signing.hmac_keys_sourced_from_vault")
     state = await build_state()
     app.state.svc = state
     install_state(state)

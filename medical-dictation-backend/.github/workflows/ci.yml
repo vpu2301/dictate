@@ -93,6 +93,31 @@ jobs:
           make validate-templates
           make check-corpus
           make check-autocomplete-corpus
+          # S16: the sprint-09 dev-signing gate was in `make ci` but had
+          # never been added to this sweep — extended here alongside the
+          # new demo-envvars gate so prod-config guards actually gate PRs.
+          make check-no-dev-signing-in-prod-config
+          make check-no-demo-envvars-in-prod
+
+  # ──────────────────────────────────────────────────────────────
+  # S16 deployment: the Helm chart must render (staging + prod), the
+  # prod render must be secret-clean, and the chart's vendored ops
+  # files must match their repo source of truth.
+  k8s-render:
+    name: K8s chart render & gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.15.2
+      - name: Install uv
+        run: pip install uv==${{ env.UV_VERSION }}
+      - name: Render + gate
+        run: make check-k8s-rendered
 
   # ──────────────────────────────────────────────────────────────
   test:

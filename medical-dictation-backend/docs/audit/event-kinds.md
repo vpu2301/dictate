@@ -21,7 +21,9 @@ typos at import.
 | `user.deactivated`                | sec      | auth-service /admin/users/{sub}/deactivate | Sessions revoked, status flipped                         |
 | `user.reactivated`                | sec      | auth-service /admin/users/{sub}/reactivate | Deactivated user re-enabled; status flipped back to active |
 | `user.role_changed`               | sec      | auth-service PUT /admin/users/{sub}/roles | Realm roles changed by tenant_admin. Payload carries old_roles → new_roles. |
-| `user.reset_mfa`                  | sec      | *(sprint 16+)*                   | MFA enrolment cleared by admin                                     |
+| `user.reset_mfa`                  | sec      | auth-service DELETE /auth/mfa/{sub} | S16 — MFA enrolment cleared by admin (secret attributes wiped, sessions revoked). Payload: sessions_revoked. |
+| `auth.mfa.enrolled`               | info     | auth-service POST /auth/mfa/verify | S16 — TOTP enrolment completed (first valid code). |
+| `auth.session.revoked`            | info/sec | auth-service logout / replay / deactivate | S16 — sid or sub pushed onto the revocation denylist (ADR-0040). Payload: reason (+ sid for logout). sec on refresh_replay / user.deactivated, info on plain logout. |
 | `tenant.created`                  | sec      | auth-service POST /tenants        | A new clinic/tenant was onboarded; actor becomes owner            |
 | `tenant.updated`                  | info     | auth-service PATCH /tenants/{id}   | Tenant profile / branding / contact fields changed                |
 | `tenant.logo_updated`             | info     | auth-service PUT /tenants/{id}/logo | Tenant logo uploaded / replaced                                   |
@@ -59,6 +61,7 @@ typos at import.
 | `template.versioned`              | info     | report-service PUT /templates/{id} | Sprint 06 — structural edit; new row with parent_template_id     |
 | `template.deprecated`             | info     | report-service DELETE /templates/{id} | Sprint 06 — soft-delete; status='deprecated'                 |
 | `template.viewed_full`            | info     | report-service GET /templates/{id} | Sprint 06 — full schema_jsonb fetched                          |
+| `template.rebound`                | info     | report-service POST /templates/{id}/rebind | Sprint 17 — one draft report moved to a successor template. Payload: report_id, from_template_id, to_template_id (ids only, no PHI) |
 | `dictation.section_switched`      | info     | dictation-service WS handler     | Sprint 06 — section navigation; prompt swap for next window      |
 | `dictation.nlp_timeout`           | warn     | dictation-service finalize       | Sprint 05 contract, wired in S14 — NLP pipeline unavailable at finalize; the raw transcript is persisted unchanged |
 | `conversation.speaker_mapping.inferred` | info | dictation-service WS handler   | Sprint 14 — doctor/patient mapping hypothesis emitted or changed. Payload: mapping, confidence, rationale |
@@ -186,6 +189,15 @@ Tenant-scoped, hash-chained. Constants in
 | `synonym.group.created`           | info     | report-service POST /v1/synonyms | Sprint 15 — tenant synonym group added. Payload: group_id, term_count, language. Terms are closed-vocabulary dictionary entries, not prose. |
 | `synonym.group.updated`           | info     | report-service PUT /v1/synonyms/{group_id} | Sprint 15 — tenant synonym group replaced. Payload: group_id, term_count, language. |
 | `synonym.group.deleted`           | info     | report-service DELETE /v1/synonyms/{group_id} | Sprint 15 — tenant synonym group removed. Payload: group_id. |
+
+## Sprint-16 — KMS, schedulers, backup horizon
+
+| kind | severity | emitter | meaning |
+|------|----------|---------|---------|
+| `kms.rewrap.completed` | sec | `scripts/kms/rewrap-tenant-keks.py` | one tenant KEK re-wrapped file→Vault (ADR-0011 amendment). Payload: from, to master ids. |
+| `scheduler.job.completed` | info | report-/autocomplete-/core-service job loops (ADR-0041) | one scheduler iteration finished; written under the reserved global tenant. Payload: per-job counts. |
+| `scheduler.job.failed` | warn | same | an iteration raised; the loop survives and retries next interval. |
+| `erasure.backup_horizon_reached` | sec | core-service backup-horizon job | `backups_purged_by` passed; `report_of_execution` gained its "fully purged from backups" line. Payload: request_id. |
 
 ## Payload conventions
 

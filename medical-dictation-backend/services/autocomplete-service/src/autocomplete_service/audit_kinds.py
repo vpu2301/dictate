@@ -12,3 +12,7 @@ SNIPPET_UPDATED: Final = "autocomplete.snippet.updated"
 SNIPPET_DELETED: Final = "autocomplete.snippet.deleted"
 PHRASE_WRITE_REJECTED_PII: Final = "autocomplete.phrase.write_rejected_pii"
 ROLLUP_COMPLETED: Final = "autocomplete.rollup.completed"
+
+# ── Sprint 16 — scheduler runs (telemetry cold-archive + rotation) ──────
+SCHEDULER_JOB_COMPLETED: Final = "scheduler.job.completed"
+SCHEDULER_JOB_FAILED: Final = "scheduler.job.failed"

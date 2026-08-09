@@ -283,6 +283,47 @@ class KeycloakClient:
         if resp.status_code not in (200, 204):
             raise KeycloakError(status=resp.status_code, body=_body(resp))
 
+    async def get_user(self, sub: UUID) -> dict[str, Any]:
+        """GET the full user representation (attributes included)."""
+        resp = await self._client.get(
+            self._admin_users_url(str(sub)), headers=await self._admin_headers()
+        )
+        if resp.status_code != 200:
+            raise KeycloakError(status=resp.status_code, body=_body(resp))
+        rep: dict[str, Any] = resp.json()
+        return rep
+
+    async def set_user_attributes(self, sub: UUID, updates: dict[str, list[str]]) -> None:
+        """Merge ``updates`` into the user's attributes (sprint 16 MFA).
+
+        Keycloak's PUT replaces the WHOLE attributes map, so a blind write
+        would drop ``tenant_id`` and break every future token. We GET,
+        merge, and PUT. A key mapped to an empty list is removed.
+
+        The PUT body is the **full fetched representation**, not just
+        ``{"attributes": …}`` — Keycloak 24's declarative user profile
+        treats a representation without ``email``/``firstName``/… as
+        *clearing* those fields (verified live: an attributes-only PUT
+        nulled the user's email and broke their login). Last-writer-wins
+        on races — acceptable for the MFA surface, where a user only
+        mutates their own attributes.
+        """
+        rep = await self.get_user(sub)
+        attrs: dict[str, Any] = rep.get("attributes") or {}
+        for key, value in updates.items():
+            if value:
+                attrs[key] = value
+            else:
+                attrs.pop(key, None)
+        rep["attributes"] = attrs
+        resp = await self._client.put(
+            self._admin_users_url(str(sub)),
+            json=rep,
+            headers=await self._admin_headers(),
+        )
+        if resp.status_code not in (200, 204):
+            raise KeycloakError(status=resp.status_code, body=_body(resp))
+
     async def set_user_enabled(self, sub: UUID, *, enabled: bool) -> None:
         url = self._admin_users_url(str(sub))
         resp = await self._client.put(

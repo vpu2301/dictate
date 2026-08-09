@@ -52,7 +52,7 @@
       "min_chars": 10,
       "name": "Assessment",
       "order": 2,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "State the assessment: primary diagnosis, complications, comorbidities. Add the ICD-10 code only if explicitly dictated.",
       "voice_aliases": [
         "assessment",

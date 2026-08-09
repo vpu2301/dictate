@@ -4,6 +4,7 @@ from .bootstrap import bootstrap
 from .correlation import CorrelationIdFilter
 from .logging import setup_logging
 from .metrics import setup_metrics
+from .periodic import run_job_once, run_periodic
 from .pii_filter import PIISafeFilter, scrub, scrub_event_dict
 from .problem_details import (
     PROBLEM_CONTENT_TYPE,
@@ -19,6 +20,8 @@ __all__ = [
     "ProblemDetails",
     "bootstrap",
     "register_exception_handlers",
+    "run_job_once",
+    "run_periodic",
     "scrub",
     "scrub_event_dict",
     "setup_logging",

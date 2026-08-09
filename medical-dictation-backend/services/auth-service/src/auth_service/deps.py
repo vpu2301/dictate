@@ -70,6 +70,7 @@ async def current_user(
             expected_audience=settings.auth_audience,
             expected_issuer=settings.auth_issuer,
             clock_skew_seconds=settings.auth_clock_skew_seconds,
+            denylist=state.denylist,
         )
     dep = state._current_user_dep  # type: ignore[attr-defined]
     result: Claims = await dep(request, authorization)
@@ -129,8 +130,13 @@ def requires_mfa() -> Callable[..., Awaitable[Claims]]:
     flip ``MDX_REQUIRE_MFA`` and bounce the service without code changes,
     and so tests can monkeypatch the setting per-case.
 
-    The matching client-side flow (TOTP enrolment + redemption endpoints)
-    is intentionally not built in sprint 02 — that's sprint 16+.
+    Sprint 16 grace flow: with the flag on, a caller whose token lacks
+    ``mfa`` is split by enrolment status —
+
+    - not enrolled → **403** with machine code ``mfa_enrolment_required``
+      (the FE routes to ``POST /auth/mfa/enrol``);
+    - enrolled but holding a pre-enrolment token → **401** with the MFA
+      challenge (re-login; auth-service now demands the TOTP code).
     """
     from .config import settings
 
@@ -138,6 +144,13 @@ def requires_mfa() -> Callable[..., Awaitable[Claims]]:
         claims: Annotated[Claims, Depends(current_user)],
     ) -> Claims:
         if settings.require_mfa and not claims.mfa:
+            if not claims.mfa_enrolled:
+                exc = HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="MFA enrolment required for this endpoint",
+                )
+                exc.problem_extras = {"code": "mfa_enrolment_required"}  # type: ignore[attr-defined]
+                raise exc
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="MFA required for this endpoint",

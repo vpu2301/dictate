@@ -1,0 +1,95 @@
+{{- /*
+The three ops host-crons (infra/compose/cron/) migrated in-cluster.
+Scripts ship in the chart (files/jobs/) and are drift-gated against
+scripts/jobs/ by `make check-k8s-cron-scripts`; they run on the
+core-service image, which carries every lib they import.
+*/ -}}
+{{- if .Values.cronJobs.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mdx-ops-jobs
+data:
+  erasure_scheduler.py: |
+{{ .Files.Get "files/jobs/erasure_scheduler.py" | indent 4 }}
+  dsar_package_cleanup.py: |
+{{ .Files.Get "files/jobs/dsar_package_cleanup.py" | indent 4 }}
+  nightly_verify.py: |
+{{ .Files.Get "files/jobs/nightly_verify.py" | indent 4 }}
+{{- $cron := .Values.cronJobs }}
+{{- range $job := list
+      (dict "name" "erasure-scheduler" "script" "erasure_scheduler.py" "schedule" $cron.erasureScheduler.schedule)
+      (dict "name" "dsar-package-cleanup" "script" "dsar_package_cleanup.py" "schedule" $cron.dsarPackageCleanup.schedule)
+      (dict "name" "nightly-verify" "script" "nightly_verify.py" "schedule" $cron.nightlyVerify.schedule) }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mdx-{{ $job.name }}
+spec:
+  schedule: {{ $job.schedule | quote }}
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: {app: mdx-{{ $job.name }}, mdx-tier: job}
+        spec:
+          restartPolicy: Never
+          initContainers:
+            # Same owner/mode fix as apps.yaml — see the comment there.
+            - name: fix-master-key-perms
+              image: busybox:1.36
+              securityContext: {runAsUser: 0, runAsNonRoot: false}
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  cp /secret-src/master.key /etc/mdx/master.key
+                  chown 65532:65532 /etc/mdx/master.key
+                  chmod 0400 /etc/mdx/master.key
+              volumeMounts:
+                - {name: master-key-src, mountPath: /secret-src, readOnly: true}
+                - {name: master-key-dir, mountPath: /etc/mdx}
+          containers:
+            - name: job
+              image: {{ include "mdx.image" (dict "root" $ "image" $cron.image) }}
+              imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+              command: ["python", "/ops/{{ $job.script }}"]
+              env:
+                - name: DATABASE_URL
+                  value: {{ $cron.erasureScheduler.databaseUrl | quote }}
+                - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                  value: {{ $.Values.global.otlpEndpoint | quote }}
+                {{- range $k, $v := $.Values.commonEnv }}
+                - name: {{ $k }}
+                  value: {{ $v | quote }}
+                {{- end }}
+                - name: S3_ENDPOINT
+                  value: http://minio:9000
+                - name: MDX_MASTER_KEY_PATH
+                  value: /etc/mdx/master.key
+              volumeMounts:
+                - name: ops-jobs
+                  mountPath: /ops
+                  readOnly: true
+                - name: master-key-dir
+                  mountPath: /etc/mdx/master.key
+                  subPath: master.key
+                  readOnly: true
+          volumes:
+            - name: ops-jobs
+              configMap: {name: mdx-ops-jobs}
+            - name: master-key-src
+              secret:
+                secretName: {{ $.Values.secretRefs.masterKey }}
+                defaultMode: 0400
+            - name: master-key-dir
+              emptyDir: {medium: Memory, sizeLimit: 1Mi}
+{{- end }}
+{{- end }}

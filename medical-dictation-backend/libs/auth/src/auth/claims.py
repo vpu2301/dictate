@@ -37,6 +37,14 @@ class Claims(BaseModel):
     roles: list[str]
     scope: str = ""
     mfa: bool = False
+    # Sprint 16: TOTP enrolment status, mapped from the `mfa_enrolled`
+    # Keycloak user attribute. Drives the grace flow: a gated route
+    # distinguishes "enrol first" (403 mfa_enrolment_required) from
+    # "re-login with your TOTP" (401). auth-service refuses to release a
+    # token to an enrolled user without a valid TOTP code, so on tokens it
+    # issues `mfa` ⇔ `mfa_enrolled`; the two claims exist so that a future
+    # flow-based step-up (acr/amr) can decouple them without a schema change.
+    mfa_enrolled: bool = False
     sid: str
     iss: str
     aud: str | list[str]

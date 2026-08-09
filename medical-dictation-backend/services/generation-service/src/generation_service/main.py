@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -34,6 +35,36 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     state = await build_state()
     app.state.svc = state
     install_state(state)
+    # Sprint 16 (MDX_PREWARM_ENABLED): force the model resident with a
+    # 1-token completion before advertising readiness — a llama-server
+    # that answers /health can still owe its first-token latency to lazy
+    # weight residency/KV allocation. Retries until it lands; /readyz
+    # reports `warmed: false` (503) meanwhile.
+    state.warmed = not settings.prewarm_enabled
+    warm_task: asyncio.Task[None] | None = None
+    if (
+        settings.prewarm_enabled
+        and settings.layer_c_enabled
+        and not settings.testing
+    ):
+
+        async def _prewarm() -> None:
+            while True:
+                try:
+                    if state.inference is not None and await state.inference.ready():
+                        await state.inference.complete(
+                            prompt="Warmup.", max_tokens=1
+                        )
+                        state.warmed = True
+                        logger.info("warmup.generation_ready")
+                        return
+                except Exception as exc:  # noqa: BLE001 — keep retrying
+                    logger.warning(
+                        "warmup.generation_retry", extra={"error": str(exc)}
+                    )
+                await asyncio.sleep(settings.prewarm_retry_seconds)
+
+        warm_task = asyncio.create_task(_prewarm(), name="generation-prewarm")
     logger.info(
         "generation-service.started",
         extra={
@@ -47,6 +78,8 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        if warm_task is not None:
+            warm_task.cancel()
         await teardown_state(state)
         logger.info("generation-service.stopped")
 

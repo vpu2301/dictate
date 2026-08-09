@@ -1,0 +1,155 @@
+{{- /*
+One-shot jobs. migrate runs as a Helm hook before every install/upgrade
+(the compose `migrate` counterpart); seed is staging-only. minio-init
+carries the bucket + ILM bootstrap from infra/compose/base.yml.
+*/ -}}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mdx-migrate-{{ .Release.Revision }}
+  annotations:
+    # POST-install: on a virgin cluster postgres itself is a chart
+    # resource, so a pre-install migrate would deadlock waiting for a DB
+    # that will only exist after install. Services tolerate the gap —
+    # readiness holds them out of rotation until migrations land.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels: {app: mdx-migrate, mdx-tier: job}
+    spec:
+      restartPolicy: OnFailure
+      {{- if .Values.stateful.inCluster }}
+      initContainers:
+        # Belt-and-braces bootstrap: initdb.d scripts run only on an EMPTY
+        # data dir, so a container restart mid-first-boot leaves init.sql
+        # half-applied (found live in S16D staging: plain-postgres image
+        # aborted at CREATE EXTENSION vector and the audit schema never
+        # materialised). init.sql is idempotent — re-applying here makes
+        # the migrate hook self-healing regardless of first-boot history.
+        - name: bootstrap-sql
+          image: {{ include "mdx.image" (dict "root" $ "image" .Values.jobs.migrate.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until pg_isready -h postgres -U postgres; do sleep 2; done
+              PGPASSWORD="$POSTGRES_PASSWORD" psql -h postgres -U postgres \
+                -d medical_dictation -v ON_ERROR_STOP=1 -f /init/init.sql
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: mdx-postgres, key: password}}
+          volumeMounts:
+            - {name: initdb, mountPath: /init, readOnly: true}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "mdx.image" (dict "root" $ "image" .Values.jobs.migrate.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["python", "scripts/db/migrate.py", "up"]
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.jobs.migrate.databaseUrl | quote }}
+      {{- if .Values.stateful.inCluster }}
+      volumes:
+        - name: initdb
+          configMap: {name: mdx-postgres-init}
+      {{- end }}
+{{- if .Values.jobs.seed.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mdx-seed-{{ .Release.Revision }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels: {app: mdx-seed, mdx-tier: job}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed
+          image: {{ include "mdx.image" (dict "root" $ "image" .Values.jobs.seed.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          # Same sequence as the compose seed one-shot (docker-compose.override.yml).
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/seed/dev_role_logins.sql
+              python scripts/seed/seed.py
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/seed/medical_prompts.sql
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/seed/abbreviations_global.sql
+              python scripts/seed/seed_voice_commands.py --dsn "$DATABASE_URL"
+              python scripts/seed/seed_templates.py --dsn "$DATABASE_URL"
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.jobs.migrate.databaseUrl | quote }}
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: medical_dictation
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: mdx-postgres, key: password}}
+{{- end }}
+{{- if .Values.stateful.inCluster }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mdx-minio-init-{{ .Release.Revision }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels: {app: mdx-minio-init, mdx-tier: job}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: {{ .Values.stateful.minio.mcImage }}
+          command: ["/bin/sh", "-c"]
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom: {secretKeyRef: {name: mdx-minio, key: user}}
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom: {secretKeyRef: {name: mdx-minio, key: password}}
+          args:
+            - |
+              set -eu
+              mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+              mc mb --ignore-existing local/mdx-audio
+              mc mb --ignore-existing local/mdx-transcripts
+              mc mb --ignore-existing local/mdx-dsar
+              mc mb --ignore-existing local/mdx-patient-docs
+              mc mb --ignore-existing local/mdx-backups
+              mc mb --ignore-existing local/mdx-audio-clips
+              mc mb --ignore-existing local/mdx-telemetry-archive
+              mc version enable local/mdx-audio || true
+              mc version enable local/mdx-transcripts || true
+              mc version enable local/mdx-patient-docs || true
+              mc ilm rule rm --all --force local/mdx-dsar 2>/dev/null || true
+              mc ilm rule add --expire-days 7 local/mdx-dsar
+              mc ilm rule rm --all --force local/mdx-backups 2>/dev/null || true
+              mc ilm rule add --expire-days 35 local/mdx-backups
+              mc ilm rule rm --all --force local/mdx-audio-clips 2>/dev/null || true
+              mc ilm rule add --expire-days 1 local/mdx-audio-clips
+{{- end }}

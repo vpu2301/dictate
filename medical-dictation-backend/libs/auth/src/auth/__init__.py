@@ -49,6 +49,11 @@ from .perms import (
     check,
     check_any,
 )
+from .revocation import (
+    RedisSessionDenylist,
+    SessionDenylist,
+    build_session_denylist,
+)
 from .verifier import verify_token
 
 __all__ = [
@@ -68,9 +73,12 @@ __all__ = [
     "KNOWN_TARGET_KINDS",
     "KidNotFoundError",
     "MalformedClaimsError",
+    "RedisSessionDenylist",
     "Role",
+    "SessionDenylist",
     "TargetKind",
     "build_current_user",
+    "build_session_denylist",
     "can",
     "can_claims",
     "check",

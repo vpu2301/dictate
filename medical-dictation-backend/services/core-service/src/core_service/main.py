@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -43,6 +44,30 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     state = await build_state()
     app.state.svc = state
     install_state(state)
+    # Sprint 16: erasure backup-horizon notifier hosted in-process
+    # (ADR-0041). Off by default in dev; also runnable as a CLI/cron
+    # (python -m core_service.jobs.backup_horizon).
+    jobs: list[asyncio.Task[None]] = []
+    if settings.background_jobs_enabled and not settings.testing:
+        from observability import run_periodic
+
+        from .jobs import backup_horizon
+
+        async def _backup_horizon_iteration() -> dict[str, int]:
+            return await backup_horizon.run_once(
+                app_pool=state.app_pool, audit_writer=state.audit_writer
+            )
+
+        jobs.append(
+            asyncio.create_task(
+                run_periodic(
+                    job_name="erasure_backup_horizon",
+                    interval_seconds=settings.background_jobs_interval_s,
+                    fn=_backup_horizon_iteration,
+                ),
+                name="erasure-backup-horizon",
+            )
+        )
     logger.info(
         "core-service.started",
         extra={"service": settings.service_name, "env": settings.environment},
@@ -50,6 +75,10 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        for task in jobs:
+            task.cancel()
+        if jobs:
+            await asyncio.gather(*jobs, return_exceptions=True)
         await teardown_state(state)
         logger.info("core-service.stopped")
 

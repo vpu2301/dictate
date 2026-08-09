@@ -30,6 +30,35 @@
         "title": "Body_upload_logo_tenants__tenant_id__logo_put",
         "type": "object"
       },
+      "EnrolResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "issuer": {
+            "title": "Issuer",
+            "type": "string"
+          },
+          "provisioning_uri": {
+            "title": "Provisioning Uri",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provisioning_uri",
+          "secret",
+          "issuer",
+          "account"
+        ],
+        "title": "EnrolResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1091,6 +1120,41 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VerifyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 8,
+            "minLength": 6,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "VerifyRequest",
+        "type": "object"
+      },
+      "VerifyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "enrolled": {
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "enrolled_at": {
+            "title": "Enrolled At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enrolled",
+          "enrolled_at"
+        ],
+        "title": "VerifyResponse",
+        "type": "object"
       }
     }
   },
@@ -1892,6 +1956,166 @@
         "summary": "Return verified claims + DB user state",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/auth/mfa/enrol": {
+      "post": {
+        "operationId": "enrol_auth_mfa_enrol_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Begin TOTP enrolment \u2014 returns the provisioning URI / QR payload",
+        "tags": [
+          "mfa"
+        ]
+      }
+    },
+    "/auth/mfa/verify": {
+      "post": {
+        "operationId": "verify_auth_mfa_verify_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete TOTP enrolment with a first valid code",
+        "tags": [
+          "mfa"
+        ]
+      }
+    },
+    "/auth/mfa/{sub}": {
+      "delete": {
+        "operationId": "reset_auth_mfa__sub__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sub",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin-assisted MFA reset (lost device)",
+        "tags": [
+          "mfa"
         ]
       }
     },

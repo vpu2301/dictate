@@ -19,6 +19,8 @@ dependencies = [
     "auth",
     "audit",
     "db",
+    "secret",
+    "crypto",
 ]
 
 [tool.uv.sources]
@@ -26,6 +28,8 @@ observability = { workspace = true }
 auth = { workspace = true }
 audit = { workspace = true }
 db = { workspace = true }
+secret = { workspace = true }
+crypto = { workspace = true }
 
 [project.optional-dependencies]
 dev = [

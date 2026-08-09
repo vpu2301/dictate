@@ -18,7 +18,7 @@
       "min_chars": 10,
       "name": "Госпіталізація",
       "order": 0,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "госпіталізація",
@@ -63,7 +63,7 @@
       "min_chars": 10,
       "name": "Заключний діагноз",
       "order": 3,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "діагноз",
@@ -78,7 +78,7 @@
       "min_chars": 10,
       "name": "Виписка",
       "order": 4,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "виписка"

@@ -38,7 +38,7 @@ from uuid import UUID
 import asyncpg
 
 from audit import Severity
-from crypto import Envelope, FileMasterKeyProvider, TenantKekRepository
+from crypto import Envelope, TenantKekRepository, build_master_key_provider
 from db import create_pool, tenant_connection
 from storage import EncryptedObjectStore, S3Client
 
@@ -91,7 +91,14 @@ async def get_runtime(state: Any) -> DsarRuntime:
         min_size=1,
         max_size=2,
     )
-    master = FileMasterKeyProvider(path=settings.master_key_path)
+    master = build_master_key_provider(
+        provider=settings.master_key_provider,
+        file_path=settings.master_key_path,
+        vault_addr=settings.vault_addr,
+        vault_token=settings.vault_token,
+        vault_transit_key=settings.vault_transit_key,
+        vault_transit_mount=settings.vault_transit_mount,
+    )
     await master.startup_self_check()
     kek_repo = TenantKekRepository(pool=crypto_pool, master_key_provider=master)
     envelope = Envelope(master_key_provider=master, kek_repository=kek_repo)

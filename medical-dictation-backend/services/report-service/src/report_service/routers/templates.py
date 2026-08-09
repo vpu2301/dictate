@@ -31,6 +31,7 @@ _meter = metrics.get_meter("mdx.templates")
 _clones = _meter.create_counter("mdx_template_clones_total", unit="1")
 _updates = _meter.create_counter("mdx_template_updates_total", unit="1")
 _deprecations = _meter.create_counter("mdx_template_deprecations_total", unit="1")
+_rebinds = _meter.create_counter("mdx_template_rebinds_total", unit="1")
 _section_lookups = _meter.create_counter("mdx_template_section_prompt_lookups_total", unit="1")
 
 
@@ -95,6 +96,26 @@ class SectionPromptResponse(_Strict):
     prompt: str
     language: str
     section_name: str
+
+
+class BoundReport(_Strict):
+    """PHI-free: the caller holds template.update, not report.read."""
+
+    report_id: UUID
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class RebindRequest(_Strict):
+    report_id: UUID
+    to_template_id: UUID
+
+
+class RebindResponse(_Strict):
+    report_id: UUID
+    from_template_id: UUID
+    to_template_id: UUID
 
 
 # ── List ────────────────────────────────────────────────────────────
@@ -401,8 +422,8 @@ async def deprecate_template(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "templates referenced by reports cannot be deprecated; "
-                "sprint-17 admin will offer re-bind"
+                "templates referenced by draft reports cannot be deprecated; "
+                "re-bind the drafts to a successor template first"
             ),
         )
 
@@ -418,3 +439,106 @@ async def deprecate_template(
     )
     _deprecations.add(1)
     return {"status": "deprecated"}
+
+
+# ── Bound reports + re-bind (sprint-17 admin console) ───────────────
+
+
+@router.get(
+    "/{template_id}/bound-reports",
+    response_model=list[BoundReport],
+    summary="PHI-free list of reports bound to a template (admin re-bind UI).",
+)
+async def list_bound_reports(
+    template_id: UUID,
+    claims: Annotated[Claims, Depends(requires("template.update", "template"))],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[BoundReport]:
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        template = await repository.get_template(conn, template_id=template_id)
+        if template is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        rows = await repository.list_bound_reports(
+            conn, template_id=template_id, limit=limit
+        )
+    return [
+        BoundReport(
+            report_id=r["id"],
+            status=r["status"],
+            created_at=r["created_at"],
+            updated_at=r["updated_at"],
+        )
+        for r in rows
+    ]
+
+
+_REBIND_ERRORS: dict[str, tuple[int, str]] = {
+    "template_not_found": (status.HTTP_404_NOT_FOUND, "template not found"),
+    "report_not_found": (status.HTTP_404_NOT_FOUND, "report not found"),
+    "not_bound": (
+        status.HTTP_409_CONFLICT,
+        "report is not bound to this template",
+    ),
+    "not_draft": (
+        status.HTTP_409_CONFLICT,
+        "only draft reports can be re-bound; finalized and signed reports keep their template",
+    ),
+    "same_template": (
+        status.HTTP_409_CONFLICT,
+        "report is already bound to this template",
+    ),
+    "target_not_found": (status.HTTP_404_NOT_FOUND, "target template not visible"),
+    "target_deprecated": (
+        status.HTTP_409_CONFLICT,
+        "target template is deprecated",
+    ),
+    "language_mismatch": (
+        status.HTTP_409_CONFLICT,
+        "target template language differs from the source template",
+    ),
+}
+
+
+@router.post(
+    "/{template_id}/rebind",
+    response_model=RebindResponse,
+    summary="Move one draft report to a successor template (audited).",
+)
+async def rebind_report(
+    template_id: UUID,
+    body: RebindRequest,
+    claims: Annotated[Claims, Depends(requires("template.update", "template"))],
+) -> RebindResponse:
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        outcome = await repository.rebind_report(
+            conn,
+            template_id=template_id,
+            report_id=body.report_id,
+            to_template_id=body.to_template_id,
+        )
+
+    if outcome != "ok":
+        code, detail = _REBIND_ERRORS[outcome]
+        raise HTTPException(status_code=code, detail=detail)
+
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.TEMPLATE_REBOUND,
+        actor_sub=claims.sub,
+        target_kind="template",
+        target_id=str(template_id),
+        payload={
+            "report_id": str(body.report_id),
+            "from_template_id": str(template_id),
+            "to_template_id": str(body.to_template_id),
+        },
+        severity=Severity.INFO,
+    )
+    _rebinds.add(1)
+    return RebindResponse(
+        report_id=body.report_id,
+        from_template_id=template_id,
+        to_template_id=body.to_template_id,
+    )

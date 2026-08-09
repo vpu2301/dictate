@@ -100,6 +100,10 @@ services:
         mc mb --ignore-existing local/mdx-audio-clips
         mc ilm rule rm --all --force local/mdx-audio-clips 2>/dev/null || true
         mc ilm rule add --expire-days 1 local/mdx-audio-clips
+        # S16 — telemetry cold archive (>90-day partitions, encrypted,
+        # written by autocomplete's partition rotation before the drop).
+        # No ILM: cold storage is the point; lifecycle is an ops decision.
+        mc mb --ignore-existing local/mdx-telemetry-archive
         echo "minio-init: buckets ready"
     restart: "no"
 

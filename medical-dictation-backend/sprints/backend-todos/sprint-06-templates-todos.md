@@ -27,6 +27,9 @@
    - Sprint 11 (encounters) reads template metadata.
    - Sprint 13 (anamnesis) reads `field_type` per section.
    - Sprint 17 (admin + FHIR) surfaces existing endpoints + adds re-bind UI.
+     ✅ DONE (sprint-17): `GET /templates/{id}/bound-reports` +
+     `POST /templates/{id}/rebind` (draft-only, audited `template.rebound`);
+     deprecation now blocks on draft references only.
 ## 7. Retrospective prompts — see `docs/retros/sprint-06.md`.
 ## 8. Risks — see canonical spec § 8 (E1–E10).
 ## 9. Out of scope — see canonical spec § 9.

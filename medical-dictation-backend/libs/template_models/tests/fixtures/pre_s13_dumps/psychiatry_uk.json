@@ -48,7 +48,7 @@
       "min_chars": 10,
       "name": "Діагноз",
       "order": 2,
-      "required": true,
+      "required": false,
       "synthesis_prompt": "",
       "voice_aliases": [
         "діагноз"

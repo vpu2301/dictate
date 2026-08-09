@@ -255,11 +255,15 @@ async def deprecate_template(conn: asyncpg.Connection, *, template_id: UUID) -> 
     if row["status"] == "deprecated":
         return "deprecated"  # idempotent
 
-    # Sprint-8 will create `reports`; for sprint-6 we check defensively
-    # in case the table already exists.
+    # Sprint-17 semantics: only LIVE DRAFTS block deprecation — they are
+    # the rows an admin can still re-bind to a successor. Finalized,
+    # signed, amended and cancelled reports keep their historical
+    # template binding forever ("existing reports keep it"); the FK is
+    # ON DELETE RESTRICT and deprecation is a soft status flip, so
+    # history is never endangered.
     try:
         n = await conn.fetchval(
-            "SELECT COUNT(*) FROM reports WHERE template_id = $1",
+            "SELECT COUNT(*) FROM reports WHERE template_id = $1 AND status = 'draft'",
             template_id,
         )
         if n and int(n) > 0:
@@ -272,6 +276,102 @@ async def deprecate_template(conn: asyncpg.Connection, *, template_id: UUID) -> 
         template_id,
     )
     return "deprecated"
+
+
+# ── Bound reports + re-bind (sprint-17 admin console) ───────────────
+
+
+async def list_bound_reports(
+    conn: asyncpg.Connection,
+    *,
+    template_id: UUID,
+    limit: int = 50,
+) -> list[asyncpg.Record]:
+    """PHI-free listing of reports referencing a template.
+
+    Deliberately selects ONLY id/status/timestamps: the caller holds
+    ``template.update``, not ``report.read`` (tenant_admin is excluded
+    from clinical reads by the Admin ⟂ PHI separation), so no title,
+    patient or author fields may appear here.
+    """
+    return list(
+        await conn.fetch(
+            """
+            SELECT id, status, created_at, updated_at
+            FROM reports
+            WHERE template_id = $1
+            ORDER BY updated_at DESC, id DESC
+            LIMIT $2
+            """,
+            template_id,
+            limit,
+        )
+    )
+
+
+async def rebind_report(
+    conn: asyncpg.Connection,
+    *,
+    template_id: UUID,
+    report_id: UUID,
+    to_template_id: UUID,
+) -> str:
+    """Move ONE draft report from ``template_id`` to a successor.
+
+    Outcome codes: ``ok``, ``template_not_found``, ``report_not_found``,
+    ``not_bound``, ``not_draft``, ``same_template``,
+    ``target_not_found``, ``target_deprecated``, ``language_mismatch``.
+
+    Only ``status='draft'`` reports are movable: finalized/signed/
+    amended rows are immutable history and keep their template;
+    cancelled rows are soft-deleted. ``template_schema_version`` is
+    refreshed to the target's so the draft renders against the schema
+    it is now bound to.
+    """
+    source = await conn.fetchrow(
+        "SELECT id, language FROM templates WHERE id = $1",
+        template_id,
+    )
+    if source is None:
+        return "template_not_found"
+
+    report = await conn.fetchrow(
+        "SELECT id, status, template_id FROM reports WHERE id = $1 FOR UPDATE",
+        report_id,
+    )
+    if report is None:
+        return "report_not_found"
+    if report["template_id"] != template_id:
+        return "not_bound"
+    if report["status"] != "draft":
+        return "not_draft"
+    if to_template_id == template_id:
+        return "same_template"
+
+    target = await conn.fetchrow(
+        "SELECT id, status, language, schema_version FROM templates WHERE id = $1",
+        to_template_id,
+    )
+    if target is None:
+        return "target_not_found"
+    if target["status"] == "deprecated":
+        return "target_deprecated"
+    if target["language"] != source["language"]:
+        return "language_mismatch"
+
+    await conn.execute(
+        """
+        UPDATE reports
+        SET template_id = $2,
+            template_schema_version = $3,
+            updated_at = now()
+        WHERE id = $1
+        """,
+        report_id,
+        to_template_id,
+        int(target["schema_version"]),
+    )
+    return "ok"
 
 
 # ── Section prompt lookup (dictation hot path) ──────────────────────

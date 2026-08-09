@@ -35,13 +35,19 @@ async def current_user(
 ) -> Claims:
     state = get_state()
     if not hasattr(state, "_current_user_dep"):
-        from auth import build_current_user
+        from auth import build_current_user, build_session_denylist
 
         state._current_user_dep = build_current_user(  # type: ignore[attr-defined]
             jwks_cache=state.jwks_cache,
             expected_audience=settings.auth_audience,
             expected_issuer=settings.auth_issuer,
             clock_skew_seconds=settings.auth_clock_skew_seconds,
+            # Sprint 16: session-revocation denylist (None when the flag is
+            # off — pre-sprint-16 behaviour, no Redis dependency at runtime).
+            denylist=build_session_denylist(
+                enabled=settings.session_revocation_enabled,
+                redis_url=settings.redis_url,
+            ),
         )
     dep = state._current_user_dep  # type: ignore[attr-defined]
     return await dep(request, authorization)

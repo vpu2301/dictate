@@ -40,6 +40,7 @@ from .exceptions import (
     MalformedClaimsError,
 )
 from .jwks import JwksCache
+from .revocation import SessionDenylist
 from .verifier import verify_token
 
 _WWW_AUTHENTICATE = 'Bearer realm="medical-dictation"'
@@ -62,6 +63,7 @@ def build_current_user(
     expected_audience: str,
     expected_issuer: str,
     clock_skew_seconds: int = 30,
+    denylist: SessionDenylist | None = None,
 ) -> Callable[..., Coroutine[None, None, Claims]]:
     """Return a FastAPI dependency that yields verified :class:`Claims`.
 
@@ -69,6 +71,13 @@ def build_current_user(
     verifies the token, sets the per-request claims ContextVar, stashes
     the claims on ``request.state.claims`` for non-Depends consumers, and
     returns the :class:`Claims` instance.
+
+    ``denylist`` (sprint 16): when provided, a signature-valid token whose
+    ``sid`` or ``sub`` is on the revocation denylist is rejected 401 — this
+    closes the "access tokens stay valid 15 min after logout" window. A
+    ``None`` denylist (feature off) is the pre-sprint-16 behaviour; a
+    denylist whose backend is down fails OPEN inside ``is_revoked``
+    (availability over the residual window — see :mod:`auth.revocation`).
     """
 
     async def _current_user(
@@ -106,6 +115,11 @@ def build_current_user(
         except AuthError as exc:
             # Catch-all for any future AuthError subclass we add later.
             raise _unauthorized(str(exc)) from exc
+
+        if denylist is not None and await denylist.is_revoked(
+            sid=claims.sid, sub=str(claims.sub)
+        ):
+            raise _unauthorized("Session has been revoked")
 
         set_current_claims(claims)
         request.state.claims = claims

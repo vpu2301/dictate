@@ -126,7 +126,13 @@ DETACH+DROPs partitions whose range ended > 90 days ago (via the
 `autocomplete_drop_telemetry_partition` SECURITY DEFINER fn, 0040).
 Dropped partitions are logged by name
 (`partition_rotation.partition_dropped`). **Cold-storage archival
-before drop is sprint-16 scope — until then the drop is destructive.**
+before drop shipped in sprint 16: set
+`MDX_TELEMETRY_COLD_ARCHIVE_ENABLED=true` and rotation writes the
+partition as gzip JSONL through `EncryptedObjectStore` to
+`S3_TELEMETRY_ARCHIVE_BUCKET` (default `mdx-telemetry-archive`, global
+tenant envelope) BEFORE dropping; an archive failure blocks the drop
+until the next run. With the flag off (dev default) the drop is still
+destructive.**
 
 ### Trie memory / marisa-trie upgrade trigger (ADR-0025)
 

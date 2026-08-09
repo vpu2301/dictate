@@ -1,0 +1,123 @@
+{{- /*
+Staging observability: otel-collector (OTLP → Prometheus exposition) +
+a Prometheus scraping it — the minimum for the product metrics and the
+KEDA scaler. Production replaces both with kube-prometheus-stack + the
+repo dashboards/alerts (docs/deploy/observability.md); flip
+observability.*.enabled=false there.
+*/ -}}
+{{- if .Values.observability.otelCollector.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mdx-otel-collector
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+    processors:
+      batch: {}
+    exporters:
+      prometheus:
+        endpoint: 0.0.0.0:8889
+      # Traces are accepted (services export unconditionally) and dropped
+      # in staging; prod routes them to Tempo (observability.md).
+      debug:
+        verbosity: basic
+        sampling_initial: 0
+        sampling_thereafter: 0
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [prometheus]
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  labels: {app: otel-collector, mdx-tier: stateful}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: otel-collector}}
+  template:
+    metadata:
+      labels: {app: otel-collector, mdx-tier: stateful}
+    spec:
+      containers:
+        - name: collector
+          image: {{ .Values.observability.otelCollector.image }}
+          args: ["--config=/etc/otelcol/config.yaml"]
+          ports:
+            - {containerPort: 4317, name: otlp}
+            - {containerPort: 8889, name: prom}
+          volumeMounts:
+            - {name: conf, mountPath: /etc/otelcol, readOnly: true}
+      volumes:
+        - name: conf
+          configMap: {name: mdx-otel-collector}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+spec:
+  selector: {app: otel-collector}
+  ports:
+    - {port: 4317, targetPort: otlp, name: otlp}
+    - {port: 8889, targetPort: prom, name: prom}
+{{- end }}
+{{- if .Values.observability.prometheus.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mdx-prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: otel-collector
+        static_configs:
+          - targets: ["otel-collector:8889"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  labels: {app: prometheus, mdx-tier: stateful}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: prometheus}}
+  template:
+    metadata:
+      labels: {app: prometheus, mdx-tier: stateful}
+    spec:
+      containers:
+        - name: prometheus
+          image: {{ .Values.observability.prometheus.image }}
+          args: ["--config.file=/etc/prometheus/prometheus.yml"]
+          ports: [{containerPort: 9090, name: http}]
+          volumeMounts:
+            - {name: conf, mountPath: /etc/prometheus, readOnly: true}
+      volumes:
+        - name: conf
+          configMap: {name: mdx-prometheus}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  selector: {app: prometheus}
+  ports: [{port: 9090, targetPort: http}]
+{{- end }}

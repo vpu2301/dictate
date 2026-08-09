@@ -14,7 +14,9 @@ Public surface:
 - :class:`Envelope`            — the single sanctioned encrypt/decrypt path.
 - :class:`MasterKeyProvider`   — Protocol; ``FileMasterKeyProvider`` for dev.
 - :class:`FileMasterKeyProvider`
-- :class:`KmsMasterKeyProvider` — stub; sprint 16 implements.
+- :class:`KmsMasterKeyProvider` — Vault-Transit-backed master (sprint 16).
+- :class:`CompositeMasterKeyProvider` — mixed-master reads during re-wrap.
+- :func:`build_master_key_provider` — the sanctioned composition helper.
 - :class:`TenantKekRepository` — fetches plaintext tenant KEKs from `tenant_keks`.
 - Exception classes for every failure mode.
 """
@@ -44,14 +46,18 @@ from .ipn import (
     unpack_ipn_envelope,
 )
 from .master import (
+    CompositeMasterKeyProvider,
     FileMasterKeyProvider,
     KmsMasterKeyProvider,
     MasterKeyProvider,
+    build_master_key_provider,
 )
 from .stream import encryptor_at_offset, fresh_stream_key, fresh_stream_nonce
 from .tenant_kek import TenantKekRepository
+from .vault_kv import fetch_kv_secrets
 
 __all__ = [
+    "CompositeMasterKeyProvider",
     "CryptoError",
     "DecryptError",
     "ENVELOPE_ALGORITHM",
@@ -68,7 +74,9 @@ __all__ = [
     "MasterKeyProvider",
     "TenantKekRepository",
     "TenantMismatchError",
+    "build_master_key_provider",
     "encryptor_at_offset",
+    "fetch_kv_secrets",
     "fresh_stream_key",
     "fresh_stream_nonce",
     "ipn_hmac",

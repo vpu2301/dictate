@@ -95,7 +95,7 @@ class ErasureRuntime:
 
     @classmethod
     async def build(cls) -> ErasureRuntime:
-        from crypto import Envelope, FileMasterKeyProvider, TenantKekRepository
+        from crypto import Envelope, TenantKekRepository, build_master_key_provider
 
         app_pool = await create_pool(
             settings.db_app_role_dsn,
@@ -117,7 +117,14 @@ class ErasureRuntime:
             application_name=f"{settings.service_name}/erasure-crypto",
             min_size=1, max_size=2,
         )
-        master = FileMasterKeyProvider(path=settings.master_key_path)
+        master = build_master_key_provider(
+            provider=settings.master_key_provider,
+            file_path=settings.master_key_path,
+            vault_addr=settings.vault_addr,
+            vault_token=settings.vault_token,
+            vault_transit_key=settings.vault_transit_key,
+            vault_transit_mount=settings.vault_transit_mount,
+        )
         await master.startup_self_check()
         envelope = Envelope(
             master_key_provider=master,
