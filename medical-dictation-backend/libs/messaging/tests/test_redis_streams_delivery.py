@@ -99,13 +99,17 @@ async def test_dlq_after_max_retries_without_header_help(
         # fields, so failing the same object three times is exactly the
         # retry sequence. Under the old header-borne counter this read
         # back as attempts=1 every time and never reached the cap.
-        await consumer.fail(first, error_kind="boom-1")
+        # The return value is the "this work is now permanently off the
+        # stream" signal: a caller that keeps its own record of the job
+        # (asr-worker keeps a transcription_jobs row) has no other way to
+        # learn the queue gave up, and the record would wait forever.
+        assert await consumer.fail(first, error_kind="boom-1") is False
         assert await redis_client.xlen(dlq) == 0
 
-        await consumer.fail(first, error_kind="boom-2")
+        assert await consumer.fail(first, error_kind="boom-2") is False
         assert await redis_client.xlen(dlq) == 0
 
-        await consumer.fail(first, error_kind="boom-3")
+        assert await consumer.fail(first, error_kind="boom-3") is True
         assert await redis_client.xlen(dlq) == 1
         assert await _pending_count(redis_client, stream, group) == 0
 

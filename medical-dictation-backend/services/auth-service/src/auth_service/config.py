@@ -6,10 +6,19 @@ service (enforced by the sprint-01 pre-commit hook).
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from secret import Secret
+
+# ``Secret[str]`` is a generic, so pydantic-settings classes it as a complex
+# type and json.loads() the raw env value — any plain string (including "")
+# blows up with a JSONDecodeError before the field is ever validated. NoDecode
+# hands the raw string straight to Secret's validator. Every Secret field fed
+# from the environment must use this alias.
+SecretStrEnv = Annotated[Secret[str], NoDecode]
 
 
 class Settings(BaseSettings):
@@ -137,7 +146,7 @@ class Settings(BaseSettings):
     # ── Master-key provider (sprint 16, ADR-0011 KMS swap) ───────────────
     master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
     vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
-    vault_token: Secret[str] = Field(
+    vault_token: SecretStrEnv = Field(
         default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
     )
     vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")
@@ -163,6 +172,103 @@ class Settings(BaseSettings):
     # When MDX_DEMO_MODE=true the DemoRateLimitMiddleware enforces per-IP/
     # per-user caps on session endpoints. Off everywhere but the public demo.
     demo_mode: bool = Field(default=False, alias="MDX_DEMO_MODE")
+
+    # ── Password recovery ───────────────────────────────────────────────
+    # The forgot/reset surface. Off by default like every other feature
+    # switch here: it mints credentials over email, so a deployment that
+    # has not configured a mail relay must not advertise the endpoint.
+    password_reset_enabled: bool = Field(
+        default=False, alias="MDX_PASSWORD_RESET_ENABLED"
+    )
+    # 30 minutes. OWASP puts the useful range at 15–60: long enough to
+    # survive a slow mail relay and a user who reads mail on their phone
+    # and resets on a desktop, short enough that a link sitting in an
+    # unattended inbox stops being a key fairly quickly.
+    password_reset_ttl_seconds: int = Field(
+        default=1800, alias="MDX_PASSWORD_RESET_TTL_SECONDS"
+    )
+    # The lockdown link lives much longer than the reset link — 7 days.
+    # It rides in the "your password was changed" mail, and the whole
+    # point of that mail is the case where the change was NOT the account
+    # holder: they may be asleep, on shift, or away for the weekend when
+    # it lands. A 30-minute panic button that has already expired by the
+    # time somebody reads the mail is not a panic button.
+    lockdown_token_ttl_seconds: int = Field(
+        default=604800, alias="MDX_LOCKDOWN_TOKEN_TTL_SECONDS"
+    )
+    # Minimum length. NIST SP 800-63B §5.1.1.2: length is the control that
+    # matters, composition rules are not, and 8 is the floor for
+    # memorised secrets — 12 is the floor for anything guarding PHI.
+    password_min_length: int = Field(default=12, alias="MDX_PASSWORD_MIN_LENGTH")
+
+    # Abuse caps for the unauthenticated request endpoint. Two windows:
+    # per-IP stops a broad enumeration sweep, per-email stops one mailbox
+    # being flooded by a stranger. Both fail OPEN on a Redis outage —
+    # house pattern, and the alternative is locking everyone out of
+    # account recovery because a cache is down.
+    password_reset_ip_per_hour: int = Field(
+        default=20, alias="MDX_PASSWORD_RESET_IP_PER_HOUR"
+    )
+    password_reset_email_per_hour: int = Field(
+        default=5, alias="MDX_PASSWORD_RESET_EMAIL_PER_HOUR"
+    )
+    # Salt for the stored IP hashes. MUST be set per-deployment: the
+    # address space is small enough to brute-force an unsalted hash back
+    # to the original IP in seconds.
+    password_reset_ip_hash_salt: SecretStrEnv = Field(
+        default_factory=lambda: Secret("dev-ip-hash-salt-change-in-prod"),
+        alias="MDX_PASSWORD_RESET_IP_HASH_SALT",
+    )
+
+    # ── Outbound mail (password recovery) ───────────────────────────────
+    # `mock` captures in memory and refuses to run in production; `smtp`
+    # talks to Mailpit in dev and Google Workspace in prod.
+    email_provider: str = Field(default="mock", alias="MDX_EMAIL_PROVIDER")
+    auth_smtp_host: str = Field(default="localhost", alias="MDX_AUTH_SMTP_HOST")
+    auth_smtp_port: int = Field(default=1025, alias="MDX_AUTH_SMTP_PORT")
+    auth_smtp_use_tls: bool = Field(default=False, alias="MDX_AUTH_SMTP_USE_TLS")
+    auth_smtp_username: str = Field(default="", alias="MDX_AUTH_SMTP_USERNAME")
+    # Google Workspace has refused plain account passwords for SMTP since
+    # 2024 — this must be a 16-character App Password (the account needs
+    # 2-Step Verification on). The symptom of getting it wrong is
+    # `535-5.7.8 Username and Password not accepted`.
+    auth_smtp_password: SecretStrEnv = Field(
+        default_factory=lambda: Secret(""), alias="MDX_AUTH_SMTP_PASSWORD"
+    )
+    auth_email_from: str = Field(
+        default="sales@klarnote.com", alias="MDX_AUTH_EMAIL_FROM"
+    )
+    auth_email_from_name: str = Field(
+        default="Klarnote", alias="MDX_AUTH_EMAIL_FROM_NAME"
+    )
+    auth_email_reply_to: str = Field(
+        default="sales@klarnote.com", alias="MDX_AUTH_EMAIL_REPLY_TO"
+    )
+    # SPA origin the mailed links point at. The reset link is only useful
+    # if it lands on the app the user actually runs.
+    app_base_url: str = Field(default="http://localhost:5173", alias="MDX_APP_BASE_URL")
+    support_url: str = Field(
+        default="https://klarnote.com/contact", alias="MDX_SUPPORT_URL"
+    )
+
+    # ── Outbox delivery worker ──────────────────────────────────────────
+    background_jobs_enabled: bool = Field(default=True, alias="MDX_BACKGROUND_JOBS")
+    mail_delivery_interval_s: float = Field(
+        default=5.0, alias="MDX_AUTH_MAIL_DELIVERY_INTERVAL_S"
+    )
+    mail_delivery_batch_size: int = Field(
+        default=25, alias="MDX_AUTH_MAIL_DELIVERY_BATCH"
+    )
+    mail_delivery_max_attempts: int = Field(
+        default=5, alias="MDX_AUTH_MAIL_DELIVERY_MAX_ATTEMPTS"
+    )
+    mail_delivery_backoff_base_s: float = Field(
+        default=60.0, alias="MDX_AUTH_MAIL_DELIVERY_BACKOFF_BASE_S"
+    )
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment in {"production", "staging"}
 
 
 settings = Settings()

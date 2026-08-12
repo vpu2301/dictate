@@ -1,0 +1,74 @@
+{% extends "_layout.html" %}
+{# request_received.de — translated copy only; the design is in _layout.html. #}
+{% block html_lang %}de{% endblock %}
+{% block title %}Wir haben Ihre Anfrage — Klarnote{% endblock %}
+{% block eyebrow %}Anfrage eingegangen{% endblock %}
+{% block preheader %}Wählen Sie einen passenden Termin — 40 Minuten per Google Meet.{% endblock %}
+{% block headline %}Danke —<br />Ihre Anfrage ist da.{% endblock %}
+{% block lead %}Der nächste Schritt liegt bei Ihnen: Wählen Sie einen Termin, der Ihnen passt. Die Demo dauert 40 Minuten und findet per Google Meet statt — live durch das Produkt, mit Antworten auf Ihre Fragen.{% endblock %}
+{% block signoff %}Bis bald,{% endblock %}
+{% block role %}Solutions Lead, Klarnote{% endblock %}
+{% block why %}Sie erhalten diese E-Mail, weil Sie über klarnote.com eine Demo angefragt haben.{% endblock %}
+{% block unsub %}Abmelden{% endblock %}
+{% block privacy %}Datenschutz{% endblock %}
+{% block content %}
+   <tr><td style="padding:28px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:6px 22px 10px 22px;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Ihre Adresse</td>
+             <td style="padding:12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ email }}</td>
+           </tr>
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:0;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Anfrage eingegangen</td>
+             <td style="padding:12px 0;border-bottom:0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ requested_at }}</td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
+       <tr><td align="center" bgcolor="#141B19" style="background-color:#141B19;border-radius:999px;">
+         <a target="_blank" rel="noopener" href="{{ booking_url }}" style="display:inline-block;padding:16px 30px;font-family:{{ sans }};font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:600;color:#FFFFFF;text-decoration:none;">Termin für die Demo wählen</a>
+       </td></tr>
+       <tr><td align="center" style="padding:11px 0 0 0;font-family:{{ sans }};font-size:12.5px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;">Termine in den nächsten zwei Wochen · 40 Minuten · Google Meet</td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:34px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #EEF0EF;">
+       <tr><td style="padding:24px 0 0 0;">
+         <p style="margin:0 0 16px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Wie es weitergeht</p>
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Sie wählen einen Termin</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Der Kalender öffnet sich im Browser — wählen Sie einen Slot, und die Bestätigung mit dem Google-Meet-Link kommt sofort.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Wir bereiten uns vor</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Antworten Sie mit einem oder zwei typischen Fällen, dann zeigen wir Ihren Arbeitsablauf statt einer allgemeinen Tour.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 0 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">40 Minuten gemeinsam</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Live-Diktat, Ambient Scribe, Vorlagen und Rollen. Keine Folien.</p>
+             </td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:20px 22px;">
+         <p style="margin:0 0 5px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Wenn Ihnen ein anderer Weg lieber ist</p>
+         <p style="margin:0;font-family:{{ sans }};font-size:15px;line-height:25px;mso-line-height-rule:exactly;color:#1B2422;">Antworten Sie einfach auf diese E-Mail — {{ host_name }} liest persönlich mit und schlägt Ihnen einen Termin vor, auch außerhalb der üblichen Zeiten.</p>
+       </td></tr>
+     </table>
+   </td></tr>
+{% endblock %}

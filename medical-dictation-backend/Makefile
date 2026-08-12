@@ -1,4 +1,4 @@
-.PHONY: check-erasure-fanout dsar-cleanup dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered k8s-render wer-eval check-corpus wer-eval-corpus
+.PHONY: check-erasure-fanout dsar-cleanup dev-up dev-down dev-restart dev-logs smoke smoke-test lint typecheck typecheck-all type-check test test-cov security security-scan ci doctor reset-db help pre-commit-install lint-imports check-no-os-environ check-no-direct-asyncpg dev-up-asr dev-up-gpu seed-prompts check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered k8s-render wer-eval check-corpus wer-eval-corpus run-marketing-service
 
 COMPOSE = docker compose
 COMPOSE_FILE = docker-compose.yml
@@ -67,6 +67,11 @@ run-notification-service: ## Run notification-service on :8004 (needs dev-up + m
 	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
 	uv run --project services/notification-service uvicorn notification_service.main:app --host 0.0.0.0 --port 8004
 
+.PHONY: run-marketing-service
+run-marketing-service: ## Run marketing-service on :8012 — public demo booking funnel (needs dev-up + migrate-up)
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+	uv run --project services/marketing-service uvicorn marketing_service.main:app --host 0.0.0.0 --port 8012
+
 doctor: ## Diagnose local environment issues
 	@bash scripts/doctor.sh
 
@@ -101,7 +106,9 @@ test: ## Run pytest across services and libs
 	uv run --project services/auth-service pytest services/auth-service/tests/ -v
 	uv run --project libs/crypto pytest libs/crypto/tests/unit/ -v
 	uv run --project libs/storage pytest libs/storage/tests/unit/ -v
+	uv run --project libs/asr_models pytest libs/asr_models/tests/unit/ -v
 	uv run --project services/asr-service pytest services/asr-service/tests/unit/ -v
+	uv run --project services/asr-worker pytest services/asr-worker/tests/unit/ -v
 	uv run --project services/dictation-service pytest services/dictation-service/tests/unit/ -v
 	uv run --project services/nlp-service pytest services/nlp-service/tests/unit/ -v
 	uv run --project libs/template_models pytest libs/template_models/tests/unit/ -v
@@ -113,6 +120,7 @@ test: ## Run pytest across services and libs
 	uv run --project services/signing-service pytest libs/kep/tests/unit/ -v
 	uv run --project libs/notification_events pytest libs/notification_events/tests/unit/ -v
 	uv run --project services/notification-service pytest services/notification-service/tests/unit/ -v
+	uv run --project services/marketing-service pytest services/marketing-service/tests/unit/ -v
 	uv run --project services/core-service pytest services/core-service/tests/unit/ -v
 
 test-cov: ## Run pytest with coverage report (gate ≥ 80%)
@@ -247,6 +255,14 @@ check-alert-rules: ## CI gate — promtool syntax check + alert unit tests (spri
 	    --entrypoint sh $(PROMTOOL_IMAGE) -c \
 	    'promtool check rules /rules/*.yml && promtool test rules /rules/tests/*.yml'
 
+.PHONY: check-metric-names
+check-metric-names: ## CI gate — exported metric names must match the declared instruments
+	@# rules/tests/ feeds promtool hand-written series, so it proves an alert
+	@# fires on the RIGHT SHAPE of data but says nothing about whether the
+	@# name it queries is the name the collector actually exports. That gap
+	@# is how DictationConversationFleetUnavailable paged on a healthy fleet.
+	uv run python scripts/ci/check-metric-names.py
+
 capacity-probe: ## Sprint-14 dual-model capacity probe (residency + per-window latency; CPU on macOS, A10G rig is the gate)
 	uv run python scripts/eval/run_capacity_probe.py \
 	    --scenarios $(or $(SCENARIOS),1c,2c,2c1d,4d) \
@@ -318,7 +334,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-synonym-corpus check-alert-rules ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-synonym-corpus check-alert-rules check-metric-names ## Mirror CI gates locally
 
 ci-with-db: ci check-rls check-erasure-fanout openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

@@ -7,7 +7,9 @@ via :func:`auth_service.deps.get_state`.
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 import asyncpg
 
@@ -16,9 +18,11 @@ from auth import JwksCache, RedisSessionDenylist, build_session_denylist
 from crypto import Envelope, TenantKekRepository, build_master_key_provider
 from db import create_pool
 
+from .adapters.email import EmailProvider, build_provider
 from .config import settings
 from .jwks_metrics import instrument_jwks_cache
 from .keycloak_client import KeycloakClient
+from .rate_limit import PasswordResetRateLimiter
 
 
 @dataclass
@@ -35,6 +39,10 @@ class ServiceState:
     keycloak: KeycloakClient
     # ── Sprint 16: session-revocation denylist (None = feature off) ─────
     denylist: RedisSessionDenylist | None = None
+    # ── Password recovery (None = feature off) ──────────────────────────
+    email_provider: EmailProvider | None = None
+    password_rate_limiter: PasswordResetRateLimiter | None = None
+    _redis: Any = None
     # ── Sprint 16 MFA: lazy envelope wiring ──────────────────────────────
     # The TOTP secret store needs libs/crypto, which needs the master key
     # and the crypto_writer pool. Built on FIRST use so an auth-service
@@ -114,6 +122,46 @@ async def build_state() -> ServiceState:
         admin_client_secret=settings.keycloak_admin_client_secret,
     )
 
+    # ── Password recovery ────────────────────────────────────────────
+    # Built only when the feature is on, so a deployment that never
+    # enables it needs no mail relay, no Redis for the limiter, and
+    # cannot trip the MockProvider production guard at startup.
+    email_provider: EmailProvider | None = None
+    password_rate_limiter: PasswordResetRateLimiter | None = None
+    redis_client: Any = None
+    if settings.password_reset_enabled:
+        email_provider = build_provider(
+            kind=settings.email_provider,
+            is_production=settings.is_production,
+            host=settings.auth_smtp_host,
+            port=settings.auth_smtp_port,
+            from_address=settings.auth_email_from,
+            from_name=settings.auth_email_from_name,
+            use_tls=settings.auth_smtp_use_tls,
+            username=settings.auth_smtp_username,
+            password=settings.auth_smtp_password.value(),
+        )
+        try:
+            import redis.asyncio as aioredis
+
+            redis_client = aioredis.from_url(
+                settings.redis_url, decode_responses=False
+            )
+            password_rate_limiter = PasswordResetRateLimiter(
+                redis_client,
+                ip_per_hour=settings.password_reset_ip_per_hour,
+                email_per_hour=settings.password_reset_email_per_hour,
+                email_salt=settings.password_reset_ip_hash_salt.value(),
+            )
+        except Exception:  # noqa: BLE001
+            # The limiter is fail-open by design; failing to construct it
+            # at all is the same posture, so it must not stop the service
+            # from starting. The router treats None as "no limit" and
+            # logs it once here rather than on every request.
+            logging.getLogger(__name__).warning(
+                "auth.password.rate_limiter_unavailable_fail_open"
+            )
+
     return ServiceState(
         jwks_cache=jwks_cache,
         app_pool=app_pool,
@@ -127,6 +175,9 @@ async def build_state() -> ServiceState:
             enabled=settings.session_revocation_enabled,
             redis_url=settings.redis_url,
         ),
+        email_provider=email_provider,
+        password_rate_limiter=password_rate_limiter,
+        _redis=redis_client,
     )
 
 
@@ -139,5 +190,9 @@ async def teardown_state(state: ServiceState) -> None:
     await state.keycloak.aclose()
     if state.denylist is not None:
         await state.denylist.aclose()
+    if state.email_provider is not None:
+        await state.email_provider.aclose()
+    if state._redis is not None:
+        await state._redis.aclose()
     if state.crypto_pool is not None:
         await state.crypto_pool.close()

@@ -14,11 +14,30 @@ Lifecycle of a job:
 10. Mark complete, audit ``asr.transcription_complete``.
 11. ACK the Redis message.
 
-Failure modes:
-  - ``AudioDecodeError``  → ``error_kind='corrupt_audio'``, no retry.
-  - GPU OOM               → ``error_kind='gpu_oom'``, no retry; releases CUDA cache.
-  - Inference timeout     → ``error_kind='timeout'``, no retry.
-  - Other exceptions      → ``error_kind='unhandled'``; consumer.fail() retries.
+Failure modes are the closed vocabulary in :mod:`asr_models.errors`, and
+the vocabulary decides the retry: a kind whose spec says ``retryable`` goes
+back to ``consumer.fail()`` for redelivery, everything else is recorded on
+the row and acked. Re-delivering a corrupt file three more times only
+delays the failure the clinician is already waiting on.
+
+  - ``AudioDecodeError``      → ``corrupt_audio``        (terminal)
+  - decoded PCM has no speech → ``no_speech``            (terminal)
+  - audio object gone         → ``audio_missing``        (terminal)
+  - envelope/AAD failure      → ``decrypt_failed``       (terminal)
+  - object store unreachable  → ``storage_unavailable``  (retried)
+  - model not loaded          → ``model_unavailable``    (retried)
+  - CUDA OOM                  → ``gpu_oom``              (terminal; frees cache)
+  - inference over budget     → ``timeout``              (terminal)
+  - transcript upload failed  → ``result_store_failed``  (retried)
+  - anything else             → ``unhandled``            (retried → DLQ)
+
+Whatever the kind, the row reaches a terminal status before the message is
+acked. A failure the worker knows about and the ``transcription_jobs`` row
+does not is the one outcome this module must never produce: the job would
+sit in ``running`` forever, holding a slot in the tenant's concurrency
+budget and showing a spinner nobody will ever resolve. The retry-exhausted
+path (DLQ) and the reaper in asr-service exist for the two cases where the
+worker cannot write that row itself.
 
 Cancellation is checked at four points, because ``DELETE /asr/jobs/{id}``
 on a RUNNING job can only ask: it sets ``cancel_requested`` and leaves the
@@ -30,6 +49,7 @@ once more before the transcript is stored.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -39,10 +59,12 @@ from uuid import UUID
 
 from opentelemetry import metrics
 
-from asr_models import JobEnqueuePayload, TranscriptionOutput
+from asr_models import JobEnqueuePayload, JobErrorKind, TranscriptionOutput, spec_for
 from audit import Severity
+from crypto import CryptoError
 from db import tenant_connection
-from messaging import Message
+from messaging import Message, RedisStreamsConsumer
+from storage import ObjectNotFoundError
 
 from . import audit_kinds
 from .audio_io import AudioDecodeError, decode_to_pcm
@@ -109,10 +131,73 @@ async def run_forever(state: WorkerState) -> None:
                     extra={"reason": exc.kind, "detail": str(exc)},
                 )
                 await consumer.ack(msg)
+            except _RetryableError as exc:
+                # Transient by classification — hand it back for redelivery.
+                # The job row is left in `running` on purpose: it IS still
+                # running, on the next attempt. Only exhaustion is terminal.
+                logger.warning(
+                    "processor.retryable",
+                    extra={"reason": exc.kind, "detail": str(exc)},
+                )
+                await _fail_or_retry(state, consumer, msg, exc)
             except Exception as exc:  # noqa: BLE001
-                # Bubble up to consumer.fail() so retries + DLQ are handled.
                 logger.exception("processor.unhandled", exc_info=exc)
-                await consumer.fail(msg, error_kind="unhandled")
+                await _fail_or_retry(
+                    state,
+                    consumer,
+                    msg,
+                    _RetryableError(str(JobErrorKind.UNHANDLED), str(exc)),
+                )
+
+
+async def _fail_or_retry(
+    state: WorkerState,
+    consumer: RedisStreamsConsumer,
+    msg: Message,
+    exc: _JobError,
+) -> None:
+    """Hand a retryable failure back to the queue; land it if that was the last try.
+
+    ``consumer.fail`` reports whether this attempt exhausted the retry
+    budget and moved the message to the DLQ. That was previously the end of
+    the story from the queue's side and the beginning of a silence on the
+    database's: the message left the stream, and the job row stayed in
+    ``running`` with no worker, no retry, and no explanation — indefinitely.
+    A DLQ'd message is a dead job, and the row has to say so.
+    """
+    dead_lettered = await consumer.fail(msg, error_kind=exc.kind)
+    if not dead_lettered:
+        return
+    ids = _identify(msg)
+    if ids is None:
+        # Unparseable payload — there is no row to fail. The DLQ entry is
+        # the whole record, which is why bad_payload is never retried.
+        return
+    tenant_id, job_id, requester_sub = ids
+    logger.error(
+        "processor.retry_exhausted",
+        extra={"job_id": str(job_id), "last_error_kind": exc.kind},
+    )
+    # Suppressed: if the database is what's failing, this write fails too.
+    # The reaper in asr-service is the backstop for exactly that case.
+    with contextlib.suppress(Exception):
+        await _mark_failed(
+            state,
+            tenant_id,
+            job_id,
+            kind=str(JobErrorKind.RETRY_EXHAUSTED),
+            detail=f"dead-lettered after repeated {exc.kind}: {exc.detail}",
+            requester_sub=requester_sub,
+        )
+
+
+def _identify(msg: Message) -> tuple[UUID, UUID, UUID] | None:
+    """(tenant_id, job_id, requester_sub) from a queue message, if it parses."""
+    try:
+        payload = JobEnqueuePayload.model_validate_json(msg.value.decode("utf-8"))
+    except Exception:  # noqa: BLE001 — any parse failure means "no job to name"
+        return None
+    return payload.tenant_id, payload.job_id, payload.requester_sub
 
 
 # How often the engine may ask the database whether the clinician has
@@ -121,15 +206,46 @@ async def run_forever(state: WorkerState) -> None:
 _CANCEL_POLL_SECONDS = 1.0
 
 
-class _NonRetryableError(Exception):
+class _JobError(Exception):
+    """A classified failure. ``kind`` is always a :class:`JobErrorKind` value."""
+
     def __init__(self, kind: str, detail: str) -> None:
         super().__init__(detail)
         self.kind = kind
         self.detail = detail
 
 
+class _NonRetryableError(_JobError):
+    """Terminal: the row already says failed, and redelivery cannot help."""
+
+
+class _RetryableError(_JobError):
+    """Transient: hand the message back; the same job may yet succeed."""
+
+
+def _classified(kind: JobErrorKind, detail: str) -> _JobError:
+    """Build the right exception for ``kind`` straight from its spec.
+
+    Retry policy lives in the vocabulary, not at the raise site — so
+    ``storage_unavailable`` cannot be spelled retryable in one branch and
+    terminal in the next.
+    """
+    spec = spec_for(str(kind))
+    cls = _RetryableError if spec is not None and spec.retryable else _NonRetryableError
+    return cls(str(kind), detail)
+
+
 async def _process_one(state: WorkerState, msg: Message) -> None:
-    payload = JobEnqueuePayload.model_validate_json(msg.value.decode("utf-8"))
+    try:
+        payload = JobEnqueuePayload.model_validate_json(msg.value.decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001 — decode or schema, same dead end
+        # Version skew: asr-service enqueued a shape this worker cannot
+        # read. Retrying re-reads the same bytes to the same conclusion, so
+        # this goes straight to the DLQ where an operator can see it.
+        logger.error("processor.bad_payload", extra={"error": str(exc)})
+        raise _NonRetryableError(
+            str(JobErrorKind.BAD_PAYLOAD), f"{type(exc).__name__}: {exc}"
+        ) from exc
     tenant_id = payload.tenant_id
     job_id = payload.job_id
 
@@ -144,7 +260,9 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
                 "processor.job_row_missing",
                 extra={"job_id": str(job_id), "tenant_id": str(tenant_id)},
             )
-            raise _NonRetryableError("job_row_missing", "job_id not in DB")
+            raise _NonRetryableError(
+                str(JobErrorKind.JOB_ROW_MISSING), "job_id not in DB"
+            )
         if row["status"] in {"complete", "failed"}:
             logger.info(
                 "processor.idempotent_skip",
@@ -176,13 +294,30 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
     )
 
     t0 = time.monotonic()
+    # Every classified failure below leaves through `die`, which records the
+    # terminal ones on the row before raising. Retryable kinds deliberately
+    # leave the row in `running`: the job has not failed, this attempt has.
+    die = _dier(state, tenant_id, job_id, requester_sub=payload.requester_sub)
     try:
         ciphertext_key = f"{tenant_id}/{payload.audio_id}.enc"
-        audio_bytes = await state.audio_store.get(
-            key=ciphertext_key,
-            tenant_id=tenant_id,
-            aad=payload.audio_id.bytes,
-        )
+        try:
+            audio_bytes = await state.audio_store.get(
+                key=ciphertext_key,
+                tenant_id=tenant_id,
+                aad=payload.audio_id.bytes,
+            )
+        except ObjectNotFoundError as exc:
+            # Retention, the S11 erasure engine, or an upload whose row was
+            # written but whose object never landed. The bytes are not
+            # coming back — no amount of redelivery finds them.
+            raise await die(JobErrorKind.AUDIO_MISSING, str(exc)) from exc
+        except CryptoError as exc:
+            # Wrong AAD, a tenant KEK that will not unwrap, a truncated
+            # envelope. Deterministic, and an operator's problem — the
+            # clinician re-uploading the same file changes nothing.
+            raise await die(JobErrorKind.DECRYPT_FAILED, str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 — S3/MinIO transport
+            raise await die(JobErrorKind.STORAGE_UNAVAILABLE, str(exc)) from exc
 
         try:
             pcm = await decode_to_pcm(
@@ -191,23 +326,34 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
                 timeout_seconds=settings.ffmpeg_timeout_seconds,
             )
         except AudioDecodeError as exc:
-            await _mark_failed(
-                state,
-                tenant_id,
-                job_id,
-                kind="corrupt_audio",
-                detail=str(exc),
-                requester_sub=payload.requester_sub,
-            )
-            raise _NonRetryableError("corrupt_audio", str(exc)) from exc
+            raise await die(JobErrorKind.CORRUPT_AUDIO, str(exc)) from exc
 
         audio_seconds = pcm.shape[0] / 16_000.0
         _audio_duration_seconds.record(audio_seconds)
+
+        # ffmpeg is happy to decode a file into nothing — a container whose
+        # audio stream is empty, or a recording that is pure silence. Whisper
+        # given no samples answers with a hallucinated phrase, and a
+        # hallucination stored as a `complete` transcript is worse than any
+        # failure: it reaches the chart looking like something the clinician
+        # said.
+        if audio_seconds <= 0:
+            raise await die(
+                JobErrorKind.NO_SPEECH, "decoded audio contains no samples"
+            )
 
         # Check cancel between fetch and inference.
         if await _is_cancelled(state, tenant_id, job_id):
             await _mark_cancelled(state, tenant_id, job_id)
             return
+
+        if not state.engine.is_loaded:
+            # The readiness probe should have caught this; if it did not,
+            # say so rather than letting the engine's bare RuntimeError get
+            # filed as `unhandled`.
+            raise await die(
+                JobErrorKind.MODEL_UNAVAILABLE, "whisper model is not loaded"
+            )
 
         prompt_text = await _fetch_prompt(state, payload.prompt_id)
 
@@ -236,27 +382,24 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
             await _mark_cancelled(state, tenant_id, job_id)
             return
         except TimeoutError:
-            await _mark_failed(
-                state,
-                tenant_id,
-                job_id,
-                kind="timeout",
-                detail=f"inference exceeded {max_infer:.1f}s",
-                requester_sub=payload.requester_sub,
-            )
-            raise _NonRetryableError("timeout", "inference timeout") from None
+            raise await die(
+                JobErrorKind.TIMEOUT, f"inference exceeded {max_infer:.1f}s"
+            ) from None
         except _CudaOOMError as exc:
             _oom_counter.add(1)
-            await _mark_failed(
-                state,
-                tenant_id,
-                job_id,
-                kind="gpu_oom",
-                detail=str(exc),
-                requester_sub=payload.requester_sub,
-            )
+            err = await die(JobErrorKind.GPU_OOM, str(exc))
             _release_cuda_cache()
-            raise _NonRetryableError("gpu_oom", str(exc)) from exc
+            raise err from exc
+
+        # Inference ran and produced nothing. Same reasoning as the empty-PCM
+        # gate above, one stage later: a zero-segment transcript stored as
+        # `complete` reads to the clinician as "we transcribed your recording
+        # and it was blank", which is indistinguishable from a lost dictation.
+        if not output.segments:
+            raise await die(
+                JobErrorKind.NO_SPEECH,
+                f"no speech recognised in {audio_seconds:.1f}s of audio",
+            )
 
         infer_seconds = time.monotonic() - t0
         _inference_seconds.record(infer_seconds)
@@ -274,31 +417,45 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
 
         result_key = f"{tenant_id}/{job_id}.json.enc"
         body = output.model_dump_json().encode("utf-8")
-        await state.transcript_store.put(
-            key=result_key,
-            plaintext=body,
-            tenant_id=tenant_id,
-            aad=job_id.bytes,
-        )
+        try:
+            await state.transcript_store.put(
+                key=result_key,
+                plaintext=body,
+                tenant_id=tenant_id,
+                aad=job_id.bytes,
+            )
+        except Exception as exc:  # noqa: BLE001 — encrypt or transport
+            # Retryable, and the retry redoes the inference. That is the
+            # cheaper mistake: the alternative is a job marked complete
+            # pointing at an object that was never written, which fails much
+            # later, on read, as a 410 the clinician cannot act on.
+            raise await die(JobErrorKind.RESULT_STORE_FAILED, str(exc)) from exc
 
-        async with tenant_connection(state.app_pool, tenant_id) as conn:
-            await conn.execute(
-                """
-                UPDATE transcription_jobs
-                SET status='complete',
-                    result_storage_uri=$2,
-                    finished_at=now(),
-                    metadata=$3::jsonb
-                WHERE id = $1
-                """,
-                job_id,
-                f"minio://{state.transcript_store.bucket}/{result_key}",
-                json.dumps(output.metadata.model_dump(mode="json")),
-            )
-            await conn.execute(
-                "UPDATE audio_files SET status='transcribed' WHERE id = $1",
-                payload.audio_id,
-            )
+        try:
+            async with tenant_connection(state.app_pool, tenant_id) as conn:
+                await conn.execute(
+                    """
+                    UPDATE transcription_jobs
+                    SET status='complete',
+                        result_storage_uri=$2,
+                        finished_at=now(),
+                        metadata=$3::jsonb
+                    WHERE id = $1
+                    """,
+                    job_id,
+                    f"minio://{state.transcript_store.bucket}/{result_key}",
+                    json.dumps(output.metadata.model_dump(mode="json")),
+                )
+                await conn.execute(
+                    "UPDATE audio_files SET status='transcribed' WHERE id = $1",
+                    payload.audio_id,
+                )
+        except Exception as exc:  # noqa: BLE001 — asyncpg transport / pool
+            # The transcript is stored; only the bookkeeping failed. The
+            # redelivery re-runs inference and overwrites the same key, so
+            # this is safe to retry — and unlike the alternative it does not
+            # strand a finished transcript behind a `running` row.
+            raise await die(JobErrorKind.DB_UNAVAILABLE, str(exc)) from exc
 
         await state.audit_writer.write_event(
             tenant_id=tenant_id,
@@ -330,24 +487,48 @@ async def _process_one(state: WorkerState, msg: Message) -> None:
             language=payload.language,
             model=output.metadata.model,
         )
-    except _NonRetryableError:
+    except _JobError:
         raise
     except Exception as exc:
         # Last-chance translation: anything we recognise as CUDA OOM
         # becomes a non-retryable error to avoid hammering the GPU.
         if _looks_like_oom(exc):
             _oom_counter.add(1)
+            err = await die(JobErrorKind.GPU_OOM, str(exc))
+            _release_cuda_cache()
+            raise err from exc
+        raise
+
+
+def _dier(
+    state: WorkerState, tenant_id: UUID, job_id: UUID, *, requester_sub: UUID
+) -> Callable[[JobErrorKind, str], Awaitable[_JobError]]:
+    """Build the ``die(kind, detail)`` used by every classified failure.
+
+    Returns (rather than raises) the exception so call sites read
+    ``raise await die(...) from exc`` and keep the original traceback
+    chained — the detail column is the only place the underlying ffmpeg or
+    CUDA text survives, and losing the ``__cause__`` would cost the log its
+    stack.
+
+    Terminal kinds are written to the row here, once, before the raise;
+    retryable kinds are not, because the job has not finished failing.
+    """
+
+    async def die(kind: JobErrorKind, detail: str) -> _JobError:
+        err = _classified(kind, detail)
+        if isinstance(err, _NonRetryableError):
             await _mark_failed(
                 state,
                 tenant_id,
                 job_id,
-                kind="gpu_oom",
-                detail=str(exc),
-                requester_sub=payload.requester_sub,
+                kind=str(kind),
+                detail=detail,
+                requester_sub=requester_sub,
             )
-            _release_cuda_cache()
-            raise _NonRetryableError("gpu_oom", str(exc)) from exc
-        raise
+        return err
+
+    return die
 
 
 def _cancel_poller(

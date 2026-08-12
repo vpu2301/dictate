@@ -281,11 +281,18 @@ class RedisStreamsConsumer:
         # Drop the retry counter — this id will never be retried again.
         await cast("Awaitable[int]", self._client.hdel(self._attempts_key, msg_id))
 
-    async def fail(self, message: Message, *, error_kind: str) -> None:
-        """Increment the retry counter; on max retries push to DLQ + ack."""
+    async def fail(self, message: Message, *, error_kind: str) -> bool:
+        """Increment the retry counter; on max retries push to DLQ + ack.
+
+        Returns whether this call dead-lettered the message — i.e. whether
+        the work is now permanently off the stream. A caller that keeps its
+        own record of the job (asr-worker keeps a ``transcription_jobs``
+        row) needs that signal to close the record out; without it the
+        queue gives up quietly and the record waits forever.
+        """
         msg_id = message.headers.get("_id")
         if msg_id is None:
-            return
+            return False
         attempts = await self._bump_attempts(msg_id)
         if attempts >= self._max_retries:
             await self._producer.send(
@@ -312,7 +319,7 @@ class RedisStreamsConsumer:
                     "attempts": attempts,
                 },
             )
-            return
+            return True
         # Not at the cap yet — leave the message in the pending entries
         # list. Reclaim or a subsequent XREADGROUP after consumer restart
         # will re-deliver it.
@@ -325,6 +332,7 @@ class RedisStreamsConsumer:
                 "max_retries": self._max_retries,
             },
         )
+        return False
 
     async def _reclaim_loop(self) -> None:
         """Background reclaim of stuck pending messages.

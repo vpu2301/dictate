@@ -307,6 +307,45 @@
             ],
             "title": "Error Kind"
           },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PHI-free explanation, safe to show.\n\nBuilt from the kind alone. ``error_detail`` is assembled from an\nexception that may quote the audio it choked on, and is not\n(ADR-0031).",
+            "readOnly": true,
+            "title": "Error Message"
+          },
+          "error_retryable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether re-running this same job could plausibly have succeeded.",
+            "readOnly": true,
+            "title": "Error Retryable"
+          },
+          "error_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the job died \u2014 ``decode``, ``inference``, ``lifecycle``, \u2026",
+            "readOnly": true,
+            "title": "Error Stage"
+          },
           "finished_at": {
             "anyOf": [
               {
@@ -422,7 +461,10 @@
           "language",
           "model",
           "status",
-          "queued_at"
+          "queued_at",
+          "error_stage",
+          "error_retryable",
+          "error_message"
         ],
         "title": "TranscriptionJobView",
         "type": "object"

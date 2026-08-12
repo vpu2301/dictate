@@ -12,6 +12,15 @@ from .result import ValidationCode, ValidationResult, ok, reject
 
 
 def validate_size(size_bytes: int, *, max_mb: int) -> ValidationResult:
+    # An empty body reaches here as a zero-byte payload and would otherwise
+    # be reported as a magic-byte mismatch ("shorter than the 12-byte
+    # window"), which reads as "your file is the wrong format" for what is
+    # almost always a browser that lost the recording before submitting.
+    if size_bytes == 0:
+        return reject(
+            ValidationCode.EMPTY_UPLOAD,
+            "the uploaded file is empty (0 bytes)",
+        )
     cap = max_mb * 1024 * 1024
     if size_bytes <= cap:
         return ok()

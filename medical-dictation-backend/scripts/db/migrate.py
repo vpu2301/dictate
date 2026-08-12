@@ -38,6 +38,38 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "infra" / "post
 
 _VERSION_RE = re.compile(r"^(\d{4})_([\w-]+)\.sql$")
 
+_TXN_BEGIN_RE = re.compile(r"^\s*(?:BEGIN|START\s+TRANSACTION)\s*;\s*$", re.IGNORECASE)
+_TXN_COMMIT_RE = re.compile(r"^\s*COMMIT\s*;\s*$", re.IGNORECASE)
+
+
+def _strip_outer_transaction(sql: str) -> str:
+    """Drop a file's own outer ``BEGIN;`` / ``COMMIT;`` wrapper.
+
+    The runner already wraps every file in a transaction that also carries the
+    ``schema_migrations`` row, so a file that commits itself splits the two: the
+    DDL lands, then the tracking INSERT runs in its own implicit transaction. If
+    anything interrupts that window the schema has moved but no row records it,
+    and the next ``up`` replays the file against objects that already exist —
+    a wedged stack that only a hand-written INSERT can unstick.
+
+    Only the first and last *statement* lines are considered, so ``BEGIN`` /
+    ``COMMIT`` inside a dollar-quoted function body are never touched (a valid
+    file cannot end mid-body).
+    """
+    lines = sql.splitlines()
+
+    def _is_noise(line: str) -> bool:
+        stripped = line.strip()
+        return not stripped or stripped.startswith("--")
+
+    head = next((i for i, ln in enumerate(lines) if not _is_noise(ln)), None)
+    if head is None or not _TXN_BEGIN_RE.match(lines[head]):
+        return sql
+    tail = next(i for i in range(len(lines) - 1, -1, -1) if not _is_noise(lines[i]))
+    if tail <= head or not _TXN_COMMIT_RE.match(lines[tail]):
+        return sql
+    return "\n".join(lines[:head] + lines[head + 1 : tail] + lines[tail + 1 :])
+
 
 class Migration(NamedTuple):
     version: str
@@ -86,8 +118,8 @@ async def _applied_versions(conn: asyncpg.Connection) -> dict[str, str]:
 
 
 async def _apply_one(conn: asyncpg.Connection, m: Migration) -> None:
-    sql = m.up_path.read_text()
-    csum = _checksum(m.up_path)
+    sql = _strip_outer_transaction(m.up_path.read_text())
+    csum = _checksum(m.up_path)  # over the raw file — stripping must not shift checksums
     async with conn.transaction():
         await conn.execute("LOCK TABLE schema_migrations IN EXCLUSIVE MODE")
         existing = await conn.fetchrow(
@@ -112,7 +144,7 @@ async def _apply_one(conn: asyncpg.Connection, m: Migration) -> None:
 
 
 async def _rollback_one(conn: asyncpg.Connection, m: Migration) -> None:
-    sql = m.down_path.read_text()
+    sql = _strip_outer_transaction(m.down_path.read_text())
     async with conn.transaction():
         await conn.execute("LOCK TABLE schema_migrations IN EXCLUSIVE MODE")
         existing = await conn.fetchrow(

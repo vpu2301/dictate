@@ -1,0 +1,54 @@
+{% extends "_layout.html" %}
+{# demo_confirmed.de — translated copy only; the design is in _layout.html. #}
+{% block html_lang %}de{% endblock %}
+{% block title %}Ihre Klarnote-Demo ist gebucht{% endblock %}
+{% block eyebrow %}Demo bestätigt{% endblock %}
+{% block preheader %}Ihre Demo ist bestätigt. Der Google-Meet-Link steht in dieser E-Mail.{% endblock %}
+{% block headline %}Gebucht —<br />bis dann.{% endblock %}
+{% block lead %}Ihre Demo ist bestätigt. Der Google-Meet-Link steht unten und in Ihrem Kalender; nichts zu installieren.{% endblock %}
+{% block signoff %}Bis dann,{% endblock %}
+{% block role %}Solutions Lead, Klarnote{% endblock %}
+{% block why %}Sie erhalten diese E-Mail, weil Sie über klarnote.com eine Demo gebucht haben.{% endblock %}
+{% block unsub %}Abmelden{% endblock %}
+{% block privacy %}Datenschutz{% endblock %}
+{% block content %}
+   <tr><td style="padding:28px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:6px 22px 10px 22px;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Datum</td>
+             <td style="padding:12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ date_label }}</td>
+           </tr>
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Uhrzeit</td>
+             <td style="padding:12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ time_label }}</td>
+           </tr>
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:0;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Dauer</td>
+             <td style="padding:12px 0;border-bottom:0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ duration_label }}</td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
+       <tr><td align="center" bgcolor="#141B19" style="background-color:#141B19;border-radius:999px;">
+         <a target="_blank" rel="noopener" href="{{ meet_url }}" style="display:inline-block;padding:16px 30px;font-family:{{ sans }};font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:600;color:#FFFFFF;text-decoration:none;">An der Demo teilnehmen</a>
+       </td></tr>
+       <tr><td align="center" style="padding:11px 0 0 0;font-family:{{ sans }};font-size:12.5px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;">Der Link funktioniert im Browser — keine Installation</td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:18px 48px 0 48px;" class="pad">
+     <p style="margin:0;font-family:{{ sans }};font-size:13px;line-height:22px;mso-line-height-rule:exactly;color:#808A86;"><a target="_blank" rel="noopener" href="{{ add_to_calendar_url }}" style="color:#2C3B36;text-decoration:underline;">Zum Kalender hinzufügen</a><span style="color:#E3E6E4;"> · </span><a target="_blank" rel="noopener" href="{{ ics_url }}" style="color:#2C3B36;text-decoration:underline;">.ics herunterladen</a><span style="color:#E3E6E4;"> · </span><a target="_blank" rel="noopener" href="{{ cancel_url }}" style="color:#2C3B36;text-decoration:underline;">Verschieben oder absagen</a></p>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:20px 22px;">
+         <p style="margin:0 0 5px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Vor unserem Termin</p>
+         <p style="margin:0;font-family:{{ sans }};font-size:15px;line-height:25px;mso-line-height-rule:exactly;color:#1B2422;">Antworten Sie mit einem oder zwei typischen Fällen, dann zeigen wir Ihren eigenen Arbeitsablauf statt einer allgemeinen Tour.</p>
+       </td></tr>
+     </table>
+   </td></tr>
+{% endblock %}
