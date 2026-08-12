@@ -23,7 +23,7 @@
       "options": {"legend": {"displayMode": "list"}, "tooltip": {"mode": "single"}},
       "targets": [
         {
-          "expr": "sum(rate(http_server_duration_milliseconds_count{job=\"template-service\"}[2m])) by (http_route, http_method)",
+          "expr": "sum(rate(http_server_duration_count{job=\"template-service\"}[2m])) by (http_route, http_method)",
           "legendFormat": "{{http_method}} {{http_route}}",
           "refId": "A"
         }
@@ -41,7 +41,7 @@
       "id": 2,
       "targets": [
         {
-          "expr": "sum(rate(http_server_duration_milliseconds_count{job=\"template-service\",http_status_code=~\"5..\"}[2m]))",
+          "expr": "sum(rate(http_server_duration_count{job=\"template-service\",http_status_code=~\"5..\"}[2m]))",
           "legendFormat": "5xx errors/s",
           "refId": "A"
         }
@@ -59,12 +59,12 @@
       "id": 3,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{job=\"template-service\"}[2m])) by (le, http_route))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_bucket{job=\"template-service\"}[2m])) by (le, http_route))",
           "legendFormat": "p95 {{http_route}}",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_duration_milliseconds_bucket{job=\"template-service\"}[2m])) by (le, http_route))",
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_duration_bucket{job=\"template-service\"}[2m])) by (le, http_route))",
           "legendFormat": "p50 {{http_route}}",
           "refId": "B"
         }

@@ -82,6 +82,30 @@ Symptoms: container fails to start; `nvidia-container-cli` errors.
    `cuda:12.4.1-cudnn-runtime-ubuntu22.04` base image (driver ≥ 535).
 2. Upgrade the host driver or downgrade the worker base image (rare).
 
+### § stranded-jobs (worker_lost / queue_lost / retry_exhausted)
+
+Symptoms: jobs stuck in `running` or `queued` long after the recording
+could have finished; a tenant hitting `concurrency_exceeded` on upload
+with no visible activity (every stranded row burns a slot in
+`MD_ASR_PER_TENANT_CONCURRENT_JOBS`).
+
+The worker is the only writer of a job's terminal status, and it cannot
+write one for the crash that killed it. Two backstops close that gap —
+the DLQ path (`retry_exhausted`) and the reaper in **asr-service**
+(`worker_lost` for `running`, `queue_lost` for `queued`). Full vocabulary:
+`docs/api/asr-job-errors.md`.
+
+1. Check the reaper is running at all: `asr.job_reaper_swept` in
+   asr-service logs, and `MD_ASR_JOB_REAPER_ENABLED` (default true).
+2. Check the DLQ: `XLEN mdx.asr.jobs:dlq`. Entries carry
+   `x-final-error-kind` — that is the failure that kept repeating.
+3. If jobs are being reaped that were merely slow (a reaped job whose
+   audio is long), the grace window is too tight. It must exceed
+   `MD_ASR_MAX_DURATION_SECONDS × MD_ASR_MAX_INFERENCE_SECONDS_MULTIPLIER`
+   plus a redelivery; raise `MD_ASR_JOB_REAPER_RUNNING_GRACE_S`.
+4. Reaping is safe to re-run and never overwrites a finished job: the
+   update is conditional on the status the sweep scanned.
+
 ### § audit-chain-divergence (touching asr.*)
 
 Same procedure as sprint-02 auth audit divergence; ASR kinds are

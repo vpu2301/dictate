@@ -6,7 +6,9 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
+
+from .errors import spec_for
 
 
 class JobStatus(StrEnum):
@@ -45,8 +47,12 @@ class TranscriptionJobView(BaseModel):
     language: str
     model: str
     status: JobStatus
+    # One of `JobErrorKind` — typed as `str` on the wire so a job failed by
+    # a newer worker than this reader still deserializes instead of 500ing
+    # the list endpoint. `spec_for` maps anything unrecognised to UNKNOWN.
     error_kind: str | None = None
     error_detail: str | None = None
+
     result_url: str | None = None  # populated only when status == complete
     queued_at: datetime
     started_at: datetime | None = None
@@ -71,5 +77,43 @@ class TranscriptionJobView(BaseModel):
     patient_id: UUID | None = None
     patient_name_uk: str | None = None
     patient_name_en: str | None = None
+
+    # ── Derived from `error_kind`; never stored, never settable ──────
+    # A client should not have to carry a copy of the failure vocabulary to
+    # know whether "try again" is honest advice. These three read straight
+    # off the spec table, so the SPA, the runbooks, and the dashboards all
+    # follow one source.
+    #
+    # Computed rather than validated-in: `model_copy(update=...)` skips
+    # validators, and the list endpoint copies these views to build its
+    # PHI-free projection. Stored fields would silently desync there —
+    # a job whose `error_kind` says one thing and whose `error_stage` says
+    # nothing at all.
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def error_stage(self) -> str | None:
+        """Where the job died — ``decode``, ``inference``, ``lifecycle``, …"""
+        spec = spec_for(self.error_kind)
+        return str(spec.stage) if spec else None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def error_retryable(self) -> bool | None:
+        """Whether re-running this same job could plausibly have succeeded."""
+        spec = spec_for(self.error_kind)
+        return spec.retryable if spec else None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def error_message(self) -> str | None:
+        """PHI-free explanation, safe to show.
+
+        Built from the kind alone. ``error_detail`` is assembled from an
+        exception that may quote the audio it choked on, and is not
+        (ADR-0031).
+        """
+        spec = spec_for(self.error_kind)
+        return spec.message if spec else None
 
 

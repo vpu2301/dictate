@@ -187,6 +187,31 @@ def test_result_409_when_not_complete(
     assert "running" in resp.text
 
 
+def test_result_409_on_a_failed_job_carries_the_failure_vocabulary(
+    rig: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A client polling for a transcript should learn in one response that
+    it is not coming, and whether resubmitting would help — not keep
+    polling a job that failed hours ago."""
+    from asr_service.routers import jobs
+
+    view = _job_view(JobStatus.FAILED).model_copy(update={"error_kind": "corrupt_audio"})
+
+    async def _get_job(conn, *, job_id):  # noqa: ANN001
+        return view
+
+    monkeypatch.setattr(jobs.repository, "get_job", _get_job)
+
+    resp = rig.client.get(f"/asr/jobs/{uuid4()}/result")
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["job_status"] == "failed"
+    assert body["error_kind"] == "corrupt_audio"
+    assert body["error_stage"] == "decode"
+    assert body["error_retryable"] is False
+    assert "decoded" in body["error_message"]
+
+
 def test_result_404_when_missing(
     rig: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:

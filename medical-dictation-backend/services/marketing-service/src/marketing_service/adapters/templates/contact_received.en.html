@@ -1,0 +1,68 @@
+{% extends "_layout.html" %}
+{# contact_received.en — translated copy only; the design is in _layout.html. #}
+{% block html_lang %}en{% endblock %}
+{% block title %}Thank you for getting in touch — Klarnote{% endblock %}
+{% block eyebrow %}Message received{% endblock %}
+{% block preheader %}A manager will reply personally. Or book a demo now and pick a time that suits you.{% endblock %}
+{% block headline %}Thank you —<br />your message<br />has reached us.{% endblock %}
+{% block lead %}A manager will read it and reply to you personally. We answer within one business day.{% endblock %}
+{% block signoff %}Talk soon,{% endblock %}
+{% block role %}Solutions Lead, Klarnote{% endblock %}
+{% block why %}You're receiving this because you wrote to us at klarnote.com.{% endblock %}
+{% block unsub %}Unsubscribe{% endblock %}
+{% block privacy %}Privacy{% endblock %}
+{% block content %}
+   <tr><td style="padding:28px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:6px 22px 10px 22px;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">We reply to</td>
+             <td style="padding:12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ email }}</td>
+           </tr>
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:0;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Message received</td>
+             <td style="padding:12px 0;border-bottom:0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ requested_at }}</td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <p style="margin:0 0 8px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">If you would rather not wait</p>
+     <p style="margin:0 0 20px 0;font-family:{{ sans }};font-size:15px;line-height:25px;mso-line-height-rule:exactly;color:#4A5450;">Book a demo straight away and pick a time that suits you. It runs 40 minutes on Google Meet — a live walk through the product and answers to whatever you bring.</p>
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
+       <tr><td align="center" bgcolor="#141B19" style="background-color:#141B19;border-radius:999px;">
+         <a target="_blank" rel="noopener" href="{{ booking_url }}" style="display:inline-block;padding:16px 30px;font-family:{{ sans }};font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:600;color:#FFFFFF;text-decoration:none;">Book a demo</a>
+       </td></tr>
+       <tr><td align="center" style="padding:11px 0 0 0;font-family:{{ sans }};font-size:12.5px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;">Slots over the next two weeks · 40 minutes · Google Meet</td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:34px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #EEF0EF;">
+       <tr><td style="padding:24px 0 0 0;">
+         <p style="margin:0 0 16px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">What happens next</p>
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">A manager reads it</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Not an autoresponder queue — a person on the team reads what you wrote and answers the question you actually asked.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">You get a real answer</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">If it is quicker to show than to write, we will suggest a time; otherwise the answer is in the reply.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 0 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Nothing else happens</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Writing to us does not sign you up for anything. No account is created and no sequence starts.</p>
+             </td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+{% endblock %}

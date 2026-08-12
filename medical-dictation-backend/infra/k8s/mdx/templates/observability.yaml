@@ -21,8 +21,14 @@ data:
     processors:
       batch: {}
     exporters:
+      # add_metric_suffixes: false — keep exported names identical to the
+      # instrument names in each service's metrics.py; the exporter would
+      # otherwise append the OTel unit (unit="1" -> _ratio, "ms" ->
+      # _milliseconds) and every alert rule would query a name that does
+      # not exist. Must stay in sync with infra/otel/otel-collector-config.yaml.
       prometheus:
         endpoint: 0.0.0.0:8889
+        add_metric_suffixes: false
       # Traces are accepted (services export unconditionally) and dropped
       # in staging; prod routes them to Tempo (observability.md).
       debug:

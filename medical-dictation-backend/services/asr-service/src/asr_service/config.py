@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from secret import Secret
+
+# ``Secret[str]`` is a generic, so pydantic-settings classes it as a complex
+# type and json.loads() the raw env value — any plain string (including "")
+# blows up with a JSONDecodeError before the field is ever validated. NoDecode
+# hands the raw string straight to Secret's validator. Every Secret field fed
+# from the environment must use this alias.
+SecretStrEnv = Annotated[Secret[str], NoDecode]
 
 
 class Settings(BaseSettings):
@@ -96,7 +105,7 @@ class Settings(BaseSettings):
     # fallback for rows not yet re-wrapped (scripts/kms/rewrap-tenant-keks.py).
     master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
     vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
-    vault_token: Secret[str] = Field(
+    vault_token: SecretStrEnv = Field(
         default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
     )
     vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")
@@ -105,6 +114,10 @@ class Settings(BaseSettings):
     # ── Upload validation ───────────────────────────────────────────────
     max_upload_mb: int = Field(default=100, alias="MD_ASR_MAX_UPLOAD_MB")
     max_duration_seconds: int = Field(default=30 * 60, alias="MD_ASR_MAX_DURATION_SECONDS")
+    # Floor, not a cap: below this an upload cannot carry a clinical
+    # utterance, and Whisper answers a fraction of a second of noise with a
+    # confident hallucination. Rejecting is safer than charting it.
+    min_duration_ms: int = Field(default=400, alias="MD_ASR_MIN_DURATION_MS")
     min_sample_rate_hz: int = Field(default=8000, alias="MD_ASR_MIN_SAMPLE_RATE_HZ")
     max_channels: int = Field(default=2, alias="MD_ASR_MAX_CHANNELS")
     monthly_quota_bytes: int = Field(
@@ -115,6 +128,30 @@ class Settings(BaseSettings):
 
     # ── Concurrency limits ──────────────────────────────────────────────
     per_tenant_concurrent_jobs: int = Field(default=10, alias="MD_ASR_PER_TENANT_CONCURRENT_JOBS")
+
+    # ── Stranded-job reaper ─────────────────────────────────────────────
+    # The only terminal writer for a job is the worker that owns it, so a
+    # worker killed mid-inference leaves its row in `running` forever —
+    # burning a per_tenant_concurrent_jobs slot and showing the clinician a
+    # job that never resolves. The reaper is the out-of-process backstop
+    # (asr_service.domain.reaper).
+    #
+    # The grace windows are the ONLY interlock: asr-worker publishes no
+    # heartbeat. Keep `running` comfortably above the worst case the worker
+    # allows itself — max_duration_seconds × the worker's inference
+    # multiplier (30 min × 5 = 2.5 h at the defaults), plus a redelivery.
+    job_reaper_enabled: bool = Field(default=True, alias="MD_ASR_JOB_REAPER_ENABLED")
+    job_reaper_interval_s: float = Field(
+        default=300.0, alias="MD_ASR_JOB_REAPER_INTERVAL_S"
+    )
+    job_reaper_running_grace_s: float = Field(
+        default=3 * 3600.0, alias="MD_ASR_JOB_REAPER_RUNNING_GRACE_S"
+    )
+    # A job nobody has claimed in this long is not backlogged, it is lost.
+    job_reaper_queued_grace_s: float = Field(
+        default=6 * 3600.0, alias="MD_ASR_JOB_REAPER_QUEUED_GRACE_S"
+    )
+    job_reaper_batch_limit: int = Field(default=100, alias="MD_ASR_JOB_REAPER_BATCH_LIMIT")
 
     # ── NLP batch enrichment (sprint 05 pipeline over batch results) ────
     # GET /asr/jobs/{id}/result runs the raw transcript through

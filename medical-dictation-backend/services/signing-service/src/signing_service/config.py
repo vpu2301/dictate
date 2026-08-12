@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from secret import Secret
+
+# ``Secret[str]`` is a generic, so pydantic-settings classes it as a complex
+# type and json.loads() the raw env value — any plain string (including "")
+# blows up with a JSONDecodeError before the field is ever validated. NoDecode
+# hands the raw string straight to Secret's validator. Every Secret field fed
+# from the environment must use this alias.
+SecretStrEnv = Annotated[Secret[str], NoDecode]
 
 
 class Settings(BaseSettings):
@@ -87,7 +95,7 @@ class Settings(BaseSettings):
     public_verify_ip_hmac_key_hex: str = Field(default="11" * 32, alias="PUBLIC_VERIFY_IP_HMAC_KEY")
     hmac_keys_from_vault: bool = Field(default=False, alias="MDX_HMAC_KEYS_FROM_VAULT")
     vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
-    vault_token: Secret[str] = Field(
+    vault_token: SecretStrEnv = Field(
         default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
     )
     vault_hmac_kv_path: str = Field(default="mdx/signing", alias="MDX_VAULT_HMAC_KV_PATH")

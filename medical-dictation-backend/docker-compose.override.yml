@@ -21,6 +21,8 @@
 #   autocomplete-service  :8007
 #   signing-service       :8008
 #   generation-service    :8009   (S15 Layer C inline completion)
+#   marketing-service     :8012   (public demo booking funnel — no auth;
+#                                  8010/8011/8013-8015 belong to evidence-backend)
 #   llama-server          :8089   (S15 inference backend — mounts the
 #                                  host's `ollama pull gemma3:1b` blob)
 #   asr-worker            (no port — Redis-stream consumer)
@@ -175,6 +177,30 @@ services:
       DB_AUDIT_READER_DSN: postgresql://audit_reader:audit_reader@postgres:5432/medical_dictation
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_REALM: medical-dictation
+      # ── Password recovery ────────────────────────────────────────
+      # ON in the dev stack so the flow is exercised locally, with mail
+      # captured by Mailpit (http://localhost:8025) rather than sent.
+      # Every value below is `${VAR:-<mailpit default>}`, so with no
+      # `.env` present nothing can escape to a real mailbox.
+      MDX_PASSWORD_RESET_ENABLED: "${MDX_PASSWORD_RESET_ENABLED:-true}"
+      MDX_EMAIL_PROVIDER: "${MDX_EMAIL_PROVIDER:-smtp}"
+      MDX_AUTH_SMTP_HOST: "${MDX_AUTH_SMTP_HOST:-mailpit}"
+      MDX_AUTH_SMTP_PORT: "${MDX_AUTH_SMTP_PORT:-1025}"
+      MDX_AUTH_SMTP_USE_TLS: "${MDX_AUTH_SMTP_USE_TLS:-false}"
+      MDX_AUTH_SMTP_USERNAME: "${MDX_AUTH_SMTP_USERNAME:-}"
+      MDX_AUTH_SMTP_PASSWORD: "${MDX_AUTH_SMTP_PASSWORD:-}"
+      MDX_AUTH_EMAIL_FROM: "${MDX_AUTH_EMAIL_FROM:-sales@klarnote.com}"
+      MDX_AUTH_EMAIL_FROM_NAME: "${MDX_AUTH_EMAIL_FROM_NAME:-Klarnote}"
+      MDX_AUTH_EMAIL_REPLY_TO: "${MDX_AUTH_EMAIL_REPLY_TO:-sales@klarnote.com}"
+      # Where the mailed links point. Must be the origin the SPA is
+      # actually served from, or every reset link 404s.
+      MDX_APP_BASE_URL: "${MDX_APP_BASE_URL:-http://localhost:5173}"
+      MDX_SUPPORT_URL: "${MDX_SUPPORT_URL:-https://klarnote.com/contact}"
+      # Per-deployment salt for the stored IP hashes. The dev default is
+      # a known string on purpose — it is not a secret here, and it MUST
+      # be overridden in staging/prod.
+      MDX_PASSWORD_RESET_IP_HASH_SALT: "${MDX_PASSWORD_RESET_IP_HASH_SALT:-dev-ip-hash-salt-change-in-prod}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck: *svc-healthcheck
@@ -182,6 +208,8 @@ services:
       postgres:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
@@ -329,7 +357,16 @@ services:
       - /run/dictation:size=2g,mode=0700,uid=65532,gid=65532
     ports:
       - "127.0.0.1:8002:8000"
-    healthcheck: *svc-healthcheck
+    # NOT *svc-healthcheck: the shared 30 s start_period is sized for a
+    # stateless FastAPI app. This container loads whisper large-v3 (int8,
+    # CPU) AND warms ECAPA before it binds — measured 137–176 s on this
+    # box. With start_period=30s the container reports UNHEALTHY for the
+    # whole of a perfectly normal start, so `depends_on: service_healthy`
+    # times out and a genuine crash-loop is indistinguishable from a
+    # cold start. Warmup timings: docs/models/PINS.md.
+    healthcheck:
+      <<: *svc-healthcheck
+      start_period: 300s
     depends_on:
       postgres:
         condition: service_healthy
@@ -574,6 +611,61 @@ services:
       redis:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # ── marketing-service — public demo booking funnel (:8010) ────────
+  #
+  # No auth env and no Redis: it authenticates nobody and holds no
+  # tenant data.
+  #
+  # MAIL TARGET IS A SWITCH, not a constant. Every SMTP/IMAP setting
+  # below is `${VAR:-<mailpit default>}`, so with no `.env` present this
+  # behaves exactly as before — mail is captured by Mailpit on :8025 and
+  # reaches no real inbox. Drop a `.env` in this directory (gitignored)
+  # with the sales@klarnote.com App Password and the same stack sends
+  # for real and watches the mailbox for bookings.
+  # See docs/runbooks/demo-booking.md.
+  marketing-service:
+    build:
+      context: .
+      dockerfile: services/marketing-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: [*common-env, *postgres-dsns, *cors-env]
+      MDX_EMAIL_PROVIDER: smtp
+      MDX_MARKETING_SMTP_HOST: ${MDX_MARKETING_SMTP_HOST:-mailpit}
+      MDX_MARKETING_SMTP_PORT: "${MDX_MARKETING_SMTP_PORT:-1025}"
+      MDX_MARKETING_SMTP_USE_TLS: "${MDX_MARKETING_SMTP_USE_TLS:-false}"
+      MDX_MARKETING_SMTP_USERNAME: ${MDX_MARKETING_SMTP_USERNAME:-}
+      MDX_MARKETING_SMTP_PASSWORD: ${MDX_MARKETING_SMTP_PASSWORD:-}
+      MDX_MARKETING_EMAIL_FROM: ${MDX_MARKETING_EMAIL_FROM:-sales@klarnote.com}
+      MDX_MARKETING_EMAIL_FROM_NAME: Klarnote
+      MDX_MARKETING_REPLY_TO: ${MDX_MARKETING_REPLY_TO:-sales@klarnote.com}
+      # Booking watcher — needs the same App Password over IMAP. Off by
+      # default; the service logs a WARNING at startup when it is off so
+      # a missing confirmation can't be mistaken for a broken one.
+      MDX_DEMO_WATCH_ENABLED: "${MDX_DEMO_WATCH_ENABLED:-false}"
+      MDX_DEMO_IMAP_HOST: ${MDX_DEMO_IMAP_HOST:-imap.gmail.com}
+      MDX_DEMO_IMAP_PORT: "${MDX_DEMO_IMAP_PORT:-993}"
+      MDX_DEMO_IMAP_USERNAME: ${MDX_DEMO_IMAP_USERNAME:-}
+      MDX_DEMO_IMAP_PASSWORD: ${MDX_DEMO_IMAP_PASSWORD:-}
+      MDX_DEMO_BOOKING_URL: https://calendar.app.google/336HQrX67TV9UNJr8
+      MDX_PUBLIC_BASE_URL: ${MDX_PUBLIC_BASE_URL:-http://localhost:5173}
+      # Only turn this on once MDX_PUBLIC_BASE_URL actually SERVES
+      # /unsubscribe over HTTPS. Claiming RFC 8058 one-click against a URL
+      # that 404s — or a host with no certificate — gets the mail accepted
+      # with a 250 and then dropped at the far end. Default off.
+      MDX_MARKETING_UNSUBSCRIBE_ONE_CLICK: "${MDX_MARKETING_UNSUBSCRIBE_ONE_CLICK:-false}"
+      MDX_DEMO_IP_HASH_SALT: ${MDX_DEMO_IP_HASH_SALT:-dev-marketing-salt}
+    ports:
+      - "127.0.0.1:8012:8000"
+    healthcheck: *svc-healthcheck
+    depends_on:
+      postgres:
         condition: service_healthy
       mailpit:
         condition: service_healthy

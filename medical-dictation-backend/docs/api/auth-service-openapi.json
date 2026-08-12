@@ -30,6 +30,29 @@
         "title": "Body_upload_logo_tenants__tenant_id__logo_put",
         "type": "object"
       },
+      "ChangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "current_password": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangeRequest",
+        "type": "object"
+      },
       "EnrolResponse": {
         "additionalProperties": false,
         "properties": {
@@ -57,6 +80,50 @@
           "account"
         ],
         "title": "EnrolResponse",
+        "type": "object"
+      },
+      "ForgotRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "enum": [
+                  "en",
+                  "de",
+                  "uk"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lang"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ForgotRequest",
+        "type": "object"
+      },
+      "ForgotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "accepted",
+            "default": "accepted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "ForgotResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -138,6 +205,47 @@
           "status"
         ],
         "title": "InviteResponse",
+        "type": "object"
+      },
+      "LockdownRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "maxLength": 256,
+            "minLength": 16,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "LockdownRequest",
+        "type": "object"
+      },
+      "LockdownResponse": {
+        "additionalProperties": false,
+        "description": "What the lockdown page needs to finish the job.\n\nA fresh reset token comes back in the body rather than by email: the\nuser has already proved possession of the mailbox by following the\nlink, and sending a second mail would make them wait for a relay\nwhile an attacker is in their account.",
+        "properties": {
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "reset_token": {
+            "title": "Reset Token",
+            "type": "string"
+          },
+          "sessions_revoked": {
+            "title": "Sessions Revoked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reset_token",
+          "expires_in",
+          "sessions_revoked"
+        ],
+        "title": "LockdownResponse",
         "type": "object"
       },
       "LoginResponse": {
@@ -300,6 +408,55 @@
         "title": "MemberRoleUpdate",
         "type": "object"
       },
+      "PasswordEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "client_label": {
+            "title": "Client Label",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "via": {
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "via",
+          "client_label",
+          "created_at"
+        ],
+        "title": "PasswordEvent",
+        "type": "object"
+      },
+      "PolicyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "min_length": {
+            "title": "Min Length",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min_length",
+          "max_length"
+        ],
+        "title": "PolicyResponse",
+        "type": "object"
+      },
       "ReauthRequest": {
         "additionalProperties": false,
         "properties": {
@@ -367,6 +524,29 @@
         "title": "ReauthResponse",
         "type": "object"
       },
+      "ResetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "new_password": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "New Password",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 256,
+            "minLength": 16,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "ResetRequest",
+        "type": "object"
+      },
       "RolesRequest": {
         "properties": {
           "roles": {
@@ -403,6 +583,56 @@
           "roles"
         ],
         "title": "RolesResponse",
+        "type": "object"
+      },
+      "SessionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ip_address": {
+            "title": "Ip Address",
+            "type": "string"
+          },
+          "last_access_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Access At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          }
+        },
+        "required": [
+          "id",
+          "ip_address",
+          "started_at",
+          "last_access_at",
+          "current"
+        ],
+        "title": "SessionSummary",
         "type": "object"
       },
       "SwitchOut": {
@@ -2140,6 +2370,208 @@
         ]
       }
     },
+    "/auth/password/change": {
+      "post": {
+        "operationId": "change_password_auth_password_change_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change your own password",
+        "tags": [
+          "password"
+        ]
+      }
+    },
+    "/auth/password/events": {
+      "get": {
+        "operationId": "password_events_auth_password_events_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PasswordEvent"
+                  },
+                  "title": "Response Password Events Auth Password Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recent security activity on your account",
+        "tags": [
+          "password"
+        ]
+      }
+    },
+    "/auth/password/forgot": {
+      "post": {
+        "operationId": "forgot_password_auth_password_forgot_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request a password-reset link",
+        "tags": [
+          "password"
+        ]
+      }
+    },
+    "/auth/password/policy": {
+      "get": {
+        "description": "So the SPA's strength meter agrees with the server.\n\nUnauthenticated: the reset page needs it before anyone has a\nsession, and the numbers are not a secret \u2014 an attacker learns the\nminimum length by trying a short password once.",
+        "operationId": "password_policy_info_auth_password_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The password rules this deployment enforces",
+        "tags": [
+          "password"
+        ]
+      }
+    },
+    "/auth/password/reset": {
+      "post": {
+        "operationId": "reset_password_auth_password_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set a new password using a mailed token",
+        "tags": [
+          "password"
+        ]
+      }
+    },
     "/auth/reauth": {
       "post": {
         "operationId": "reauth_auth_reauth_post",
@@ -2245,6 +2677,143 @@
         "summary": "Rotate refresh cookie; return a new access token",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/auth/security/lockdown": {
+      "post": {
+        "description": "The button in the security-notification email.\n\nOrdered so the destructive half happens first: sessions die, then\noutstanding links die, and only then do we mint the replacement. If\nanything fails after the revocation, the attacker is already out and\nthe user can fall back to the ordinary forgot-password flow. Minting\nfirst and revoking second would leave a window where both the\nattacker and a fresh token are live.",
+        "operationId": "account_lockdown_auth_security_lockdown_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LockdownRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockdownResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "'This wasn't me' \u2014 end every session and retake the account",
+        "tags": [
+          "password"
+        ]
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "operationId": "list_sessions_auth_sessions_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionSummary"
+                  },
+                  "title": "Response List Sessions Auth Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Devices currently signed in to your account",
+        "tags": [
+          "password"
+        ]
+      }
+    },
+    "/auth/sessions/revoke-all": {
+      "post": {
+        "operationId": "revoke_all_sessions_auth_sessions_revoke_all_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign out of every device, including this one",
+        "tags": [
+          "password"
         ]
       }
     },

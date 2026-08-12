@@ -1,0 +1,105 @@
+{#
+  contact_internal.en — the sales mailbox's copy of a contact-form enquiry.
+
+  NOT built on _layout.html, unlike every other template here. The layout is a
+  designed marketing letter: brand webfonts, a booking CTA, an unsubscribe
+  footer. None of that belongs on a notification addressed to our own team, and
+  an unsubscribe link on our own inbox would be absurd.
+
+  So this is deliberately plain. The one job is triage: who wrote, why, and
+  what they said, in a shape that survives a preview pane. The facts sit in a
+  table at the top and the message — the longest and least predictable part —
+  goes last, verbatim.
+
+  AUTOESCAPING IS DOING REAL WORK HERE. `message`, `first_name`, `organisation`
+  and `source_page` all came off an unauthenticated form. The environment
+  autoescapes (adapters/templates.py), so a message containing `<script>` or a
+  stray `<` renders as text. Do not add `| safe` to anything on this page.
+
+  `| e` is NOT written explicitly: select_autoescape covers .html templates, and
+  writing it as well would double-escape. `nl2br` is likewise avoided — the
+  message sits in a <pre> so its own line breaks are preserved without a filter
+  that would have to be marked safe to work.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Contact form — a new message is waiting</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F5F6F5;">
+{# Preheader: what a mailbox list shows next to the subject. #}
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ first_name or email }} wrote through the contact form on klarnote.com.</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;">
+  <tr><td align="center" style="padding:24px 12px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background-color:#FFFFFF;border:1px solid #E3E6E4;border-radius:12px;">
+
+      <tr><td style="padding:24px 28px 0 28px;">
+        <p style="margin:0 0 4px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;line-height:18px;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Contact form · klarnote.com</p>
+        <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#1B2422;">A new message is waiting</p>
+      </td></tr>
+
+      <tr><td style="padding:20px 28px 0 28px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:10px;">
+          <tr><td style="padding:6px 18px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              {# Every row is conditional: an absent value shows no row, rather
+                 than a row with an em dash that the reader has to decode. The
+                 email row is unconditional because it is the one field the
+                 form always has. #}
+              {% if first_name %}
+              <tr>
+                <td width="104" style="width:104px;padding:10px 12px 10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#808A86;vertical-align:top;">Name</td>
+                <td style="padding:10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;font-weight:600;color:#1B2422;vertical-align:top;">{{ first_name }}</td>
+              </tr>
+              {% endif %}
+              <tr>
+                <td width="104" style="width:104px;padding:10px 12px 10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#808A86;vertical-align:top;">Email</td>
+                <td style="padding:10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;font-weight:600;color:#1B2422;vertical-align:top;"><a href="mailto:{{ email }}" style="color:#1B2422;text-decoration:none;">{{ email }}</a></td>
+              </tr>
+              {% if organisation %}
+              <tr>
+                <td width="104" style="width:104px;padding:10px 12px 10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#808A86;vertical-align:top;">Company</td>
+                <td style="padding:10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;color:#1B2422;vertical-align:top;">{{ organisation }}</td>
+              </tr>
+              {% endif %}
+              {% if reason %}
+              <tr>
+                <td width="104" style="width:104px;padding:10px 12px 10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#808A86;vertical-align:top;">Reason</td>
+                <td style="padding:10px 0;border-bottom:1px solid #E3E6E4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;color:#1B2422;vertical-align:top;">{{ reason }}</td>
+              </tr>
+              {% endif %}
+              <tr>
+                <td width="104" style="width:104px;padding:10px 12px 10px 0;border-bottom:{% if source_page %}1px solid #E3E6E4{% else %}0{% endif %};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#808A86;vertical-align:top;">Received</td>
+                <td style="padding:10px 0;border-bottom:{% if source_page %}1px solid #E3E6E4{% else %}0{% endif %};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;color:#1B2422;vertical-align:top;">{{ requested_at }}{% if form_lang %} · form language: {{ form_lang }}{% endif %}</td>
+              </tr>
+              {% if source_page %}
+              <tr>
+                <td width="104" style="width:104px;padding:10px 12px 10px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:20px;color:#808A86;vertical-align:top;">Page</td>
+                <td style="padding:10px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:21px;color:#4A5450;vertical-align:top;word-break:break-all;">{{ source_page }}</td>
+              </tr>
+              {% endif %}
+            </table>
+          </td></tr>
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:22px 28px 0 28px;">
+        <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;line-height:18px;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Their message, verbatim</p>
+        {# <pre> keeps the sender's own line breaks without a filter that would
+           have to be marked safe. white-space:pre-wrap so long lines wrap in a
+           phone client instead of forcing a horizontal scroll. #}
+        <pre style="margin:0;padding:16px 18px;background-color:#FFFFFF;border:1px solid #E3E6E4;border-left:3px solid #1B2422;border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#1B2422;white-space:pre-wrap;word-wrap:break-word;">{{ message }}</pre>
+      </td></tr>
+
+      <tr><td style="padding:20px 28px 26px 28px;">
+        <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:21px;color:#4A5450;">Reply to this email and the answer goes straight to {{ email }} — Reply-To is already set to the sender.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

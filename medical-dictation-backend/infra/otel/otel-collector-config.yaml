@@ -31,8 +31,21 @@ exporters:
   # `namespace: medical_dictation` silently prefixed every exported metric
   # and left ALL sprint dashboards/alerts querying nonexistent names
   # (found in the sprint-10 verification pass).
+  #
+  # add_metric_suffixes: false — same class of bug as the namespace above,
+  # one layer down. The exporter otherwise appends the OTel *unit* to the
+  # exported name: a unit="1" gauge becomes `..._ratio`, a unit="ms"
+  # histogram becomes `..._milliseconds`, unit="MB" becomes `..._MB`. That
+  # silently broke every rule/dashboard querying the instrument name as
+  # declared in `metrics.py` ("Names match sprint-04 spec §9 verbatim").
+  # Most just never fired; DictationConversationFleetUnavailable has an
+  # `or vector(0)` fallback, so a NONEXISTENT metric name paged as "no
+  # worker can take a conversation session" while the fleet was healthy.
+  # Counters are already declared with a `_total` suffix in code, so
+  # turning this off does not change their exported names.
   prometheus:
     endpoint: "0.0.0.0:8889"
+    add_metric_suffixes: false
 
   # Logs → Loki
   loki:

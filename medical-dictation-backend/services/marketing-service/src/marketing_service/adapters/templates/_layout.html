@@ -1,0 +1,158 @@
+{#
+  _layout.html — the frame every marketing email shares.
+
+  WHY A LAYOUT AND NOT NINE COPIES. The rule in this directory used to be
+  "whole documents, so a translator who does not read Python can proofread
+  them". That rule is about the COPY, and it survives: every translated
+  sentence still lives in its own per-language file, inside a block. What
+  moved out is the chrome — palette, typography, the card, the footer —
+  which was identical in nine files and therefore drifted in nine files.
+  Restyling the brand is now one edit instead of nine.
+
+  THE DESIGN IS THE WEBSITE'S. The old letters were a separate identity: a
+  cream ground (#E6E1D6), a terracotta accent and Georgia headlines, none of
+  which appears anywhere on klarnote.com. These use the marketing site's own
+  tokens (src/app-extra.css `.lp`): paper #FFFFFF, the one grey #F5F6F5, the
+  hairline #E3E6E4, ink #1B2422 for headlines, #4A5450 for lead paragraphs,
+  and the ink band #141B19 for the primary button — the same inversion the
+  site's CTA band uses.
+
+  FONTS, and why the display type is a picture. Geist for text and Galgo for
+  the headline, self-hosted at the public origin and declared here as
+  @font-face. That reaches Apple Mail, iOS Mail and Thunderbird — and nothing
+  else: Gmail and Outlook strip @font-face outright, so in the clients these
+  letters are mostly read in, Galgo had never rendered once. The two places
+  the brand actually lives, the wordmark and the hero headline, are therefore
+  pre-rendered PNGs attached as `cid:` parts (adapters/mail_images.py, and
+  tools/render_mail_images.py for the rest of the reasoning). Everything else
+  stays live text: a letter set entirely in images is unreadable with images
+  off, unselectable, untranslatable and a spam signal.
+
+  The text stacks below still matter — they set every other line, and they are
+  what the headline falls back to when a language has no PNG yet. Galgo is a
+  condensed display face, so its chain reaches for other condensed faces first
+  (Arial Narrow, Haettenschweiler) before giving up to Geist: a condensed
+  headline that falls back to a normal one changes the line count. Outlook is
+  given Arial outright through an mso conditional, because its font stack
+  parsing is not to be trusted with four fallbacks.
+
+  `public_base_url` arrives through the render fields. It is filtered through
+  `default` on purpose: the outbox freezes render_fields at enqueue time, so a
+  mail queued by the previous deploy has no such key, and StrictUndefined
+  would fail its retry rather than send it.
+#}
+{% set base = public_base_url | default('https://klarnote.com', true) -%}
+{# `| safe` HERE, on the definition, not on the 159 use sites in the twelve
+   letter files. Autoescaping is on (it has to be — every other variable in
+   these templates came off an unauthenticated form), and it does not know a
+   font stack from a display name: without this, every `{{ sans }}` in a child
+   template renders `font-family:&#39;Geist&#39;, …`. Inside a style attribute a
+   conformant parser decodes that back, but not every mail client's inline-CSS
+   parser is one, and a declaration that fails to parse takes the whole
+   font-family with it — the letter then falls back past Geist to the client's
+   default, which on several is a serif. Marking the stacks safe once is what
+   keeps the twelve files free of a filter nobody would remember to add. #}
+{% set sans = "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" | safe -%}
+{% set cond = "'Galgo', 'Arial Narrow', 'Haettenschweiler', 'Geist', Helvetica, Arial, sans-serif" | safe -%}
+<!doctype html>
+<html lang="{% block html_lang %}en{% endblock %}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<meta name="supported-color-schemes" content="light" />
+<title>{% block title %}Klarnote{% endblock %}</title>
+<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+<style>
+  @font-face{font-family:'Geist';font-style:normal;font-weight:400 600;font-display:swap;src:url('{{ base }}/fonts/geist-latin.woff2') format('woff2');}
+  @font-face{font-family:'Galgo';font-style:normal;font-weight:200 700;font-display:swap;src:url('{{ base }}/fonts/galgo-condensed.woff2') format('woff2');}
+  @media only screen and (max-width:700px){
+    .wrap{width:100% !important;}
+    .pad{padding-left:24px !important;padding-right:24px !important;}
+    .h1{font-size:36px !important;line-height:38px !important;}
+    .cta a{display:block !important;}
+  }
+</style>
+<!--[if mso]>
+<style>
+  /* Outlook loads neither face and mis-parses long stacks — give it one name
+     it already has. Its own conditional block on purpose: inside the sheet
+     above, `<!--[if mso]>` is a CSS parse error that takes the rules after it
+     down with it. */
+  *{font-family:Arial, Helvetica, sans-serif !important;}
+</style>
+<![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#F5F6F5;">
+<span style="display:none;font-size:1px;color:#F5F6F5;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">{% block preheader %}{% endblock %}</span>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;">
+ <tr><td align="center" style="padding:36px 12px 44px 12px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="640" class="wrap" style="width:640px;max-width:640px;">
+
+   {# Wordmark + section label. The wordmark is set in the display face at the
+      site's own tracking, so the letter opens the way the site does. #}
+   <tr><td style="padding:0 4px 16px 4px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+       <td style="font-family:{{ cond | safe }};font-size:23px;line-height:28px;mso-line-height-rule:exactly;letter-spacing:0.10em;text-transform:uppercase;color:#1B2422;">
+{% if wordmark_cid is defined %}
+         {# alt is the word itself, so images-off and a screen reader both
+            still open on the brand rather than on a broken-image icon. #}
+         <img src="cid:{{ wordmark_cid }}" width="{{ wordmark_w }}" height="{{ wordmark_h }}" alt="Klarnote" style="display:block;border:0;outline:none;text-decoration:none;width:{{ wordmark_w }}px;max-width:100%;height:auto;" />
+{% else %}
+         Klarnote
+{% endif %}
+       </td>
+       <td align="right" style="font-family:{{ sans | safe }};font-size:10px;line-height:28px;mso-line-height-rule:exactly;letter-spacing:0.14em;text-transform:uppercase;color:#808A86;">{% block eyebrow %}{% endblock %}</td>
+     </tr></table>
+   </td></tr>
+
+   <tr><td style="background-color:#FFFFFF;border:1px solid #E3E6E4;border-radius:16px;padding:0;">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+
+       <tr><td style="padding:48px 48px 0 48px;" class="pad">
+         <p style="margin:0 0 14px 0;font-family:{{ sans | safe }};font-size:13px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;">{{ greeting }}</p>
+         {# Galgo, uppercase, tight — the hero treatment from the site, at the
+            one size in the letter that can carry a display face. #}
+{% if headline_cid is defined %}
+         {# The hero as a raster, and the block's own words as `alt`: the copy
+            still lives in one place per language, it is still what a reader
+            with images off gets, and `{{ self.headline() }}` below is the same
+            block — Jinja lets it render twice, so the two cannot drift.
+
+            `<br />` inside alt would be literal, so the line breaks the image
+            already carries are stripped back to spaces there. #}
+         <img src="cid:{{ headline_cid }}" width="{{ headline_w }}" height="{{ headline_h }}" alt="{{ self.headline() | alt_text }}" style="display:block;border:0;outline:none;text-decoration:none;width:{{ headline_w }}px;max-width:100%;height:auto;margin:0 0 18px 0;" />
+{% else %}
+         <p class="h1" style="margin:0 0 18px 0;font-family:{{ cond | safe }};font-size:52px;line-height:52px;mso-line-height-rule:exactly;letter-spacing:0.005em;text-transform:uppercase;color:#1B2422;">{% block headline %}{% endblock %}</p>
+{% endif %}
+         <p style="margin:0;font-family:{{ sans | safe }};font-size:16px;line-height:26px;mso-line-height-rule:exactly;color:#4A5450;">{% block lead %}{% endblock %}</p>
+       </td></tr>
+
+       {% block content %}{% endblock %}
+
+       <tr><td style="padding:38px 48px 44px 48px;" class="pad">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #EEF0EF;">
+           <tr><td style="padding:24px 0 0 0;">
+             <p style="margin:0 0 2px 0;font-family:{{ sans | safe }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;color:#808A86;">{% block signoff %}{% endblock %}</p>
+             <p style="margin:0;font-family:{{ sans | safe }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">{{ host_name }}</p>
+             <p style="margin:0;font-family:{{ sans | safe }};font-size:13px;line-height:21px;mso-line-height-rule:exactly;color:#808A86;">{% block role %}Solutions Lead, Klarnote{% endblock %}</p>
+           </td></tr>
+         </table>
+       </td></tr>
+
+     </table>
+   </td></tr>
+
+   <tr><td style="padding:22px 4px 0 4px;" class="pad">
+     <p style="margin:0 0 5px 0;font-family:{{ sans | safe }};font-size:12px;line-height:19px;mso-line-height-rule:exactly;color:#808A86;">{% block why %}{% endblock %}</p>
+     <p style="margin:0 0 5px 0;font-family:{{ sans | safe }};font-size:12px;line-height:19px;mso-line-height-rule:exactly;color:#808A86;">Klarnote · 100 Velyka Vasylkivska St, Kyiv 03150, Ukraine</p>
+     <p style="margin:0;font-family:{{ sans | safe }};font-size:12px;line-height:19px;mso-line-height-rule:exactly;color:#808A86;">
+       <a target="_blank" rel="noopener" href="{{ unsubscribe_url }}" style="color:#808A86;text-decoration:underline;">{% block unsub %}Unsubscribe{% endblock %}</a><span> · </span><a target="_blank" rel="noopener" href="{{ privacy_url }}" style="color:#808A86;text-decoration:underline;">{% block privacy %}Privacy{% endblock %}</a>
+     </p>
+   </td></tr>
+
+  </table>
+ </td></tr>
+</table>
+</body>
+</html>

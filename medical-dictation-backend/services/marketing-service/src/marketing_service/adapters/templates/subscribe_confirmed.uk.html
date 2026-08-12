@@ -1,0 +1,68 @@
+{% extends "_layout.html" %}
+{# subscribe_confirmed.uk — translated copy only; the design is in _layout.html. #}
+{% block html_lang %}uk{% endblock %}
+{% block title %}Ви підписані — Klarnote{% endblock %}
+{% block eyebrow %}Підписано{% endblock %}
+{% block preheader %}Приблизно раз на місяць. Відписатися — один клік, із першого ж листа.{% endblock %}
+{% block headline %}Ви<br />в списку.{% endblock %}
+{% block lead %}Приблизно раз на місяць: що вийшло нового, чого ми навчилися, будуючи систему медичної документації, і час від часу — про регулювання, яке справді стосується клініки.{% endblock %}
+{% block signoff %}До зв'язку,{% endblock %}
+{% block role %}Solutions Lead, Klarnote{% endblock %}
+{% block why %}Ви отримали цей лист, бо підписалися на klarnote.com.{% endblock %}
+{% block unsub %}Відписатися{% endblock %}
+{% block privacy %}Приватність{% endblock %}
+{% block content %}
+   <tr><td style="padding:28px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:6px 22px 10px 22px;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Ваша адреса</td>
+             <td style="padding:12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ email }}</td>
+           </tr>
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:0;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Підписано</td>
+             <td style="padding:12px 0;border-bottom:0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ requested_at }}</td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:34px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #EEF0EF;">
+       <tr><td style="padding:24px 0 0 0;">
+         <p style="margin:0 0 16px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Чого очікувати</p>
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Раз на місяць, а не раз на тиждень</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Один лист, написаний тоді, коли є що сказати. Якщо місяць тихий — ви не отримаєте нічого.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Продукт і практика</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Що вийшло, що зламалося, і скільки насправді коштує медична документація за GDPR.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 0 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Один клік — і все</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Відписка працює з першого ж листа, і ми не питаємо причин.</p>
+             </td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <p style="margin:0 0 8px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Цікаво раніше?</p>
+     <p style="margin:0 0 20px 0;font-family:{{ sans }};font-size:15px;line-height:25px;mso-line-height-rule:exactly;color:#4A5450;">Не обов'язково чекати наступного випуску — забронюйте демо й побачте весь цикл живцем, на власному типі запису.</p>
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
+       <tr><td align="center" bgcolor="#141B19" style="background-color:#141B19;border-radius:999px;">
+         <a target="_blank" rel="noopener" href="{{ booking_url }}" style="display:inline-block;padding:16px 30px;font-family:{{ sans }};font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:600;color:#FFFFFF;text-decoration:none;">Забронювати демо</a>
+       </td></tr>
+       <tr><td align="center" style="padding:11px 0 0 0;font-family:{{ sans }};font-size:12.5px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;">40 хвилин · Google Meet · без встановлення</td></tr>
+     </table>
+   </td></tr>
+{% endblock %}

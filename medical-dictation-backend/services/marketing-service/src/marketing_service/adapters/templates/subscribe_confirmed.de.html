@@ -1,0 +1,68 @@
+{% extends "_layout.html" %}
+{# subscribe_confirmed.de — translated copy only; the design is in _layout.html. #}
+{% block html_lang %}de{% endblock %}
+{% block title %}Ihr Abo ist bestätigt — Klarnote{% endblock %}
+{% block eyebrow %}Angemeldet{% endblock %}
+{% block preheader %}Etwa einmal im Monat. Ein Klick zum Abmelden, schon ab der ersten E-Mail.{% endblock %}
+{% block headline %}Sie sind<br />dabei.{% endblock %}
+{% block lead %}Etwa einmal im Monat: was neu ist, was wir beim Bau eines klinischen Dokumentationssystems gelernt haben, und gelegentlich eine Notiz zu Regulierung, die eine Praxis wirklich betrifft.{% endblock %}
+{% block signoff %}Bis bald,{% endblock %}
+{% block role %}Solutions Lead, Klarnote{% endblock %}
+{% block why %}Sie erhalten diese E-Mail, weil Sie sich auf klarnote.com angemeldet haben.{% endblock %}
+{% block unsub %}Abmelden{% endblock %}
+{% block privacy %}Datenschutz{% endblock %}
+{% block content %}
+   <tr><td style="padding:28px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:6px 22px 10px 22px;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Ihre Adresse</td>
+             <td style="padding:12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ email }}</td>
+           </tr>
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:0;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Angemeldet</td>
+             <td style="padding:12px 0;border-bottom:0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ requested_at }}</td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:34px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #EEF0EF;">
+       <tr><td style="padding:24px 0 0 0;">
+         <p style="margin:0 0 16px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Was Sie erwartet</p>
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Einmal im Monat, nicht einmal pro Woche</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Eine E-Mail, geschrieben wenn es etwas zu sagen gibt. In einem ruhigen Monat hören Sie nichts.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Produkt und Praxis</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Was neu ist, was schiefging, und was eine Patientendokumentation unter DSGVO wirklich kostet.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 0 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Ein Klick genügt</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Das Abmelden funktioniert ab der ersten E-Mail, und wir fragen nicht nach dem Grund.</p>
+             </td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <p style="margin:0 0 8px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Neugierig auf mehr?</p>
+     <p style="margin:0 0 20px 0;font-family:{{ sans }};font-size:15px;line-height:25px;mso-line-height-rule:exactly;color:#4A5450;">Sie müssen nicht auf die nächste Ausgabe warten — buchen Sie eine Demo und sehen Sie den ganzen Ablauf live, an Ihrer eigenen Art von Bericht.</p>
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
+       <tr><td align="center" bgcolor="#141B19" style="background-color:#141B19;border-radius:999px;">
+         <a target="_blank" rel="noopener" href="{{ booking_url }}" style="display:inline-block;padding:16px 30px;font-family:{{ sans }};font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:600;color:#FFFFFF;text-decoration:none;">Demo buchen</a>
+       </td></tr>
+       <tr><td align="center" style="padding:11px 0 0 0;font-family:{{ sans }};font-size:12.5px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;">40 Minuten · Google Meet · keine Installation</td></tr>
+     </table>
+   </td></tr>
+{% endblock %}

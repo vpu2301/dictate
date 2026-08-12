@@ -45,11 +45,15 @@ async def run_all(
     if not r.ok:
         return r, facts
 
-    r = validate_magic_bytes(mime_type, payload[:64])
+    # Size before magic bytes: it is the cheaper check, and it owns the
+    # zero-byte case. Sniffing an empty upload first would report it as a
+    # format mismatch, which sends the clinician looking for a codec
+    # problem in a file that simply never arrived.
+    r = validate_size(len(payload), max_mb=settings.max_upload_mb)
     if not r.ok:
         return r, facts
 
-    r = validate_size(len(payload), max_mb=settings.max_upload_mb)
+    r = validate_magic_bytes(mime_type, payload[:64])
     if not r.ok:
         return r, facts
 
@@ -72,7 +76,11 @@ async def run_all(
         with contextlib.suppress(OSError):
             os.unlink(tmp_path)
 
-    r = validate_duration(probe, max_seconds=settings.max_duration_seconds)
+    r = validate_duration(
+        probe,
+        max_seconds=settings.max_duration_seconds,
+        min_ms=settings.min_duration_ms,
+    )
     if not r.ok or probe is None:
         return r, facts
 

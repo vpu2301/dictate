@@ -38,6 +38,7 @@ from asr_models import (
     ConfidenceSpanView,
     EnrichedSegment,
     JobEnqueuePayload,
+    JobErrorKind,
     JobStatus,
     TranscriptionJobView,
     TranscriptionOutput,
@@ -52,7 +53,7 @@ from .. import audit_kinds
 from ..config import settings
 from ..deps import get_state, requires, requires_any
 from ..domain import repository
-from ..validators import run_all
+from ..validators import ValidationCode, run_all
 from ..validators.quota import validate_quota
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,43 @@ _jobs_counter = _meter.create_counter(
 )
 
 
+def _reject(
+    code: ValidationCode | str,
+    detail: str,
+    *,
+    title: str,
+    status_code: int = status.HTTP_400_BAD_REQUEST,
+    type_uri: str | None = None,
+    **extra: object,
+) -> HTTPException:
+    """Build one submit-time rejection.
+
+    Every reject on this endpoint — file shape, linkage, budget — leaves
+    through here, so ``type``/``code``/``detail`` are assembled once and a
+    client can switch on ``code`` alone. Counting happens here too: a
+    rejection that is raised but never counted is a rejection nobody sees
+    on the dashboard.
+
+    ``problem_extras`` rather than a dict ``detail``: the shared handler
+    renders ``str(exc.detail)``, so a dict arrives at the client as a
+    stringified Python repr — single quotes and all — with the real
+    document left at ``type: about:blank``. Extension members put ``code``
+    and ``type`` where RFC 9457 says they go, and where a client can parse
+    them. ``title`` is set by the handler from the status code and cannot
+    be passed here, so it lands as ``reason``.
+    """
+    _validation_rejects_counter.add(1, {"code": str(code)})
+    _uploads_counter.add(1, {"status": "rejected"})
+    exc = HTTPException(status_code=status_code, detail=detail)
+    exc.problem_extras = {  # type: ignore[attr-defined]
+        "type_uri": type_uri or f"urn:mdx:asr:validation:{code}",
+        "code": str(code),
+        "reason": title,
+        **extra,
+    }
+    return exc
+
+
 @router.post(
     "/jobs",
     status_code=status.HTTP_202_ACCEPTED,
@@ -98,57 +136,55 @@ async def submit_job(
     # Steps 2–7: synchronous file-shape validation.
     result, facts = await run_all(mime_type=mime_type, payload=payload)
     if not result.ok:
-        _validation_rejects_counter.add(1, {"code": result.code})
-        _uploads_counter.add(1, {"status": "rejected"})
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "type": f"urn:mdx:asr:validation:{result.code}",
-                "title": "audio rejected by validation",
-                "code": result.code,
-                "detail": result.detail,
-            },
+        raise _reject(
+            result.code, result.detail, title="audio rejected by validation"
         )
 
     # S11 step 02: a named encounter must exist in-tenant (RLS makes a
     # foreign one look nonexistent) and not be cancelled — rejected before
-    # the ciphertext is even uploaded. Rate limit shares the connection.
+    # the ciphertext is even uploaded. Prompt check and rate limit share
+    # the connection.
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         if encounter_id is not None:
             enc_status = await repository.fetch_encounter_status(
                 conn, encounter_id=encounter_id
             )
-            enc_code = (
-                "encounter_invalid"
-                if enc_status is None
-                else ("encounter_closed" if enc_status == "cancelled" else None)
-            )
-            if enc_code is not None:
-                _validation_rejects_counter.add(1, {"code": enc_code})
-                _uploads_counter.add(1, {"status": "rejected"})
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "type": f"urn:mdx:asr:validation:{enc_code}",
-                        "title": "encounter linkage rejected",
-                        "code": enc_code,
-                        "detail": (
-                            "encounter not found in this tenant"
-                            if enc_code == "encounter_invalid"
-                            else "encounter is cancelled; upload is not allowed"
-                        ),
-                    },
+            if enc_status is None:
+                raise _reject(
+                    ValidationCode.ENCOUNTER_INVALID,
+                    "encounter not found in this tenant",
+                    title="encounter linkage rejected",
                 )
+            if enc_status == "cancelled":
+                raise _reject(
+                    ValidationCode.ENCOUNTER_CLOSED,
+                    "encounter is cancelled; upload is not allowed",
+                    title="encounter linkage rejected",
+                )
+        # The FK on transcription_jobs.prompt_id would otherwise turn a
+        # stale prompt id into a 500 at INSERT time, after the audio had
+        # already been encrypted and uploaded.
+        if not await repository.prompt_exists(conn, prompt_id=prompt_id):
+            raise _reject(
+                ValidationCode.PROMPT_INVALID,
+                f"prompt {prompt_id} is not in the prompt catalogue",
+                title="prompt rejected",
+            )
         active = await repository.count_active_jobs(conn, tenant_id=claims.tid)
         if active >= settings.per_tenant_concurrent_jobs:
-            raise HTTPException(
+            raise _reject(
+                ValidationCode.CONCURRENCY_EXCEEDED,
+                (
+                    f"tenant has {active} queued/running jobs; the concurrent "
+                    f"limit is {settings.per_tenant_concurrent_jobs}. Wait for "
+                    "one to finish and resubmit."
+                ),
+                title="too many active jobs for tenant",
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "type": "urn:mdx:asr:rate_limit:per_tenant_concurrent",
-                    "title": "too many active jobs for tenant",
-                    "active": active,
-                    "limit": settings.per_tenant_concurrent_jobs,
-                },
+                # Pre-dates the `code` field and clients may match on it.
+                type_uri="urn:mdx:asr:rate_limit:per_tenant_concurrent",
+                active=active,
+                limit=settings.per_tenant_concurrent_jobs,
             )
 
     # Step 8: quota check, inside the same transaction as the row inserts.
@@ -173,20 +209,15 @@ async def submit_job(
             monthly_quota_bytes=settings.monthly_quota_bytes,
         )
         if not qr.ok:
-            _validation_rejects_counter.add(1, {"code": qr.code})
-            _uploads_counter.add(1, {"status": "rejected"})
             # Best-effort: delete the orphan ciphertext; cleanup cron
             # picks up any leftover.
             await state.audio_store.delete(key=storage_key)
             await _audit_quota_exceeded(state, claims, audio_id)
-            raise HTTPException(
+            raise _reject(
+                qr.code,
+                qr.detail,
+                title="monthly tenant quota exceeded",
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "type": f"urn:mdx:asr:validation:{qr.code}",
-                    "title": "monthly tenant quota exceeded",
-                    "code": qr.code,
-                    "detail": qr.detail,
-                },
             )
 
         await repository.insert_audio_row(
@@ -240,15 +271,53 @@ async def submit_job(
         model="large-v3",
         requester_sub=claims.sub,
     )
-    await state.queue_producer.send(
-        value=queue_payload.model_dump_json().encode("utf-8"),
-        key=str(job_id).encode("utf-8"),
-        headers={
-            "tenant_id": str(claims.tid),
+    try:
+        await state.queue_producer.send(
+            value=queue_payload.model_dump_json().encode("utf-8"),
+            key=str(job_id).encode("utf-8"),
+            headers={
+                "tenant_id": str(claims.tid),
+                "job_id": str(job_id),
+                "schema_version": "1",
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 — every publish failure is the same failure
+        # The row exists and the audio is stored, but nothing will ever
+        # transcribe it. Left as-is the job sits in `queued` forever, holds
+        # a slot in the tenant's concurrency budget, and shows the
+        # clinician a spinner for work that was never handed to anyone.
+        # Fail it here, where we still know why.
+        logger.error(
+            "asr.enqueue_failed",
+            extra={
+                "job_id": str(job_id),
+                "error": str(exc),
+                "error_class": type(exc).__name__,
+            },
+        )
+        async with tenant_connection(state.app_pool, claims.tid) as conn:
+            await repository.fail_job(
+                conn,
+                job_id=job_id,
+                error_kind=str(JobErrorKind.ENQUEUE_FAILED),
+                error_detail=f"{type(exc).__name__}: {exc}",
+            )
+        _uploads_counter.add(1, {"status": "rejected"})
+        _jobs_counter.add(1, {"status": "failed"})
+        http_exc = HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "the job was recorded but could not be queued; it has been "
+                "marked failed. Submit the recording again."
+            ),
+        )
+        http_exc.problem_extras = {  # type: ignore[attr-defined]
+            "type_uri": f"urn:mdx:asr:job:{JobErrorKind.ENQUEUE_FAILED}",
+            "code": str(JobErrorKind.ENQUEUE_FAILED),
+            "reason": "transcription queue unavailable",
             "job_id": str(job_id),
-            "schema_version": "1",
-        },
-    )
+        }
+        raise http_exc from exc
 
     await state.audit_writer.write_event(
         tenant_id=claims.tid,
@@ -333,19 +402,24 @@ async def get_job_result(
         # RFC 9457 problem detail — the result isn't ready (still queued/running)
         # or never will be (failed/cancelled). The client polls status and
         # retries; see spec §2.5 + retro E10 (FE retry-on-403-then-refetch).
-        raise HTTPException(
+        exc = HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "type": "urn:mdx:asr:result:not-ready",
-                "title": "Transcription result is not ready",
-                "status": status.HTTP_409_CONFLICT,
-                "detail": (
-                    f"job {job_id} is in status {view.status.value!r}, "
-                    "not 'complete'"
-                ),
-                "job_status": view.status.value,
-            },
+            detail=f"job {job_id} is in status {view.status.value!r}, not 'complete'",
         )
+        # For a terminal status the failure vocabulary travels with the
+        # 409, so a client polling for a transcript learns in one response
+        # that it is not coming and whether resubmitting would help —
+        # rather than polling a `failed` job until it gives up.
+        exc.problem_extras = {  # type: ignore[attr-defined]
+            "type_uri": "urn:mdx:asr:result:not-ready",
+            "reason": "Transcription result is not ready",
+            "job_status": view.status.value,
+            "error_kind": view.error_kind,
+            "error_stage": view.error_stage,
+            "error_retryable": view.error_retryable,
+            "error_message": view.error_message,
+        }
+        raise exc
     try:
         raw = await state.transcript_store.get(
             key=f"{claims.tid}/{job_id}.json.enc",
@@ -355,18 +429,19 @@ async def get_job_result(
     except ObjectNotFoundError:
         # Job says complete but the ciphertext is gone — retention TTL or
         # the S11 erasure engine removed it after the row was written.
-        raise HTTPException(
+        gone = HTTPException(
             status_code=status.HTTP_410_GONE,
-            detail={
-                "type": "urn:mdx:asr:result:erased",
-                "title": "Transcription result no longer exists",
-                "status": status.HTTP_410_GONE,
-                "detail": (
-                    f"job {job_id} is complete but its transcript object "
-                    "has been deleted (retention/erasure)"
-                ),
-            },
-        ) from None
+            detail=(
+                f"job {job_id} is complete but its transcript object "
+                "has been deleted (retention/erasure)"
+            ),
+        )
+        gone.problem_extras = {  # type: ignore[attr-defined]
+            "type_uri": "urn:mdx:asr:result:erased",
+            "reason": "Transcription result no longer exists",
+            "code": "transcript_erased",
+        }
+        raise gone from None
     output = TranscriptionOutput.model_validate_json(raw)
     await state.audit_writer.write_event(
         tenant_id=claims.tid,

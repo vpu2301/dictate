@@ -101,12 +101,23 @@ async def probe_audio(
     )
 
 
-def validate_duration(probe: ProbeOutput | None, *, max_seconds: int) -> ValidationResult:
+def validate_duration(
+    probe: ProbeOutput | None, *, max_seconds: int, min_ms: int = 0
+) -> ValidationResult:
     if probe is None:
         return reject(
             ValidationCode.UNPROBEABLE,
             "ffprobe could not probe the audio (corrupt header, unsupported "
             "container, or process timed out).",
+        )
+    # A recording too short to hold a clinical utterance is a mis-fire — a
+    # tapped record button, a browser that flushed one buffer. Whisper will
+    # happily "transcribe" it into a hallucinated phrase, which is worse
+    # than a rejection: it lands in the chart looking like dictation.
+    if probe.duration_ms < min_ms:
+        return reject(
+            ValidationCode.DURATION_TOO_SHORT,
+            f"audio is {probe.duration_ms} ms; the minimum is {min_ms} ms",
         )
     if probe.duration_ms <= max_seconds * 1000:
         return ok()

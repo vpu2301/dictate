@@ -332,6 +332,70 @@ class KeycloakClient:
         if resp.status_code not in (200, 204):
             raise KeycloakError(status=resp.status_code, body=_body(resp))
 
+    # ── Password recovery ────────────────────────────────────────────────
+
+    async def find_user_by_email(self, email: str) -> dict[str, Any] | None:
+        """Exact, case-insensitive email lookup. ``None`` when absent.
+
+        ``exact=true`` matters: without it Keycloak does an infix search,
+        so "an@x.com" would also match "juan@x.com" and a reset could be
+        aimed at the wrong account. The realm sets
+        ``duplicateEmailsAllowed=false``, so at most one row comes back —
+        but we still index [0] defensively rather than asserting.
+        """
+        resp = await self._client.get(
+            self._admin_users_url(),
+            params={"email": email, "exact": "true", "max": 2},
+            headers=await self._admin_headers(),
+        )
+        if resp.status_code != 200:
+            raise KeycloakError(status=resp.status_code, body=_body(resp))
+        rows: list[dict[str, Any]] = resp.json()
+        return rows[0] if rows else None
+
+    async def list_sessions(self, sub: UUID) -> list[dict[str, Any]]:
+        """Active Keycloak sessions for a user.
+
+        Used by the settings screen so somebody can see where they are
+        signed in before deciding to sign out everywhere. Keycloak
+        returns ``{id, ipAddress, start, lastAccess, clients}``; the
+        caller decides how much of that a user should see.
+        """
+        resp = await self._client.get(
+            f"{self._admin_users_url(str(sub))}/sessions",
+            headers=await self._admin_headers(),
+        )
+        if resp.status_code != 200:
+            raise KeycloakError(status=resp.status_code, body=_body(resp))
+        rows: list[dict[str, Any]] = resp.json()
+        return rows
+
+    async def set_password(
+        self, sub: UUID, *, new_password: str, temporary: bool = False
+    ) -> None:
+        """Replace the user's password.
+
+        ``temporary=False`` — a reset that lands the user on Keycloak's
+        "you must change your password" screen immediately after they
+        just chose one is a dead end in this topology: the SPA proxies
+        login through auth-service and never renders Keycloak's forms.
+
+        Keycloak enforces the realm password policy here and answers 400
+        with ``error_description`` when it refuses. That is surfaced as a
+        KeycloakError so the caller can turn it into a field-level
+        message rather than a 500 — but note the realm currently has no
+        password policy configured, so our own strength check in
+        ``domain/password_policy.py`` is the one that actually bites.
+        """
+        url = f"{self._admin_users_url(str(sub))}/reset-password"
+        resp = await self._client.put(
+            url,
+            json={"type": "password", "value": new_password, "temporary": temporary},
+            headers=await self._admin_headers(),
+        )
+        if resp.status_code not in (200, 204):
+            raise KeycloakError(status=resp.status_code, body=_body(resp))
+
 
 def _body(resp: httpx.Response) -> Any:
     try:

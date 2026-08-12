@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from secret import Secret
+
+# ``Secret[str]`` is a generic, so pydantic-settings classes it as a complex
+# type and json.loads() the raw env value — any plain string (including "")
+# blows up with a JSONDecodeError before the field is ever validated. NoDecode
+# hands the raw string straight to Secret's validator. Every Secret field fed
+# from the environment must use this alias.
+SecretStrEnv = Annotated[Secret[str], NoDecode]
 
 
 class Settings(BaseSettings):
@@ -126,7 +135,7 @@ class Settings(BaseSettings):
     # fallback for rows not yet re-wrapped (scripts/kms/rewrap-tenant-keks.py).
     master_key_provider: str = Field(default="file", alias="MDX_MASTER_KEY_PROVIDER")
     vault_addr: str = Field(default="http://localhost:8200", alias="MDX_VAULT_ADDR")
-    vault_token: Secret[str] = Field(
+    vault_token: SecretStrEnv = Field(
         default_factory=lambda: Secret(""), alias="MDX_VAULT_TOKEN"
     )
     vault_transit_key: str = Field(default="mdx-master", alias="MDX_VAULT_TRANSIT_KEY")

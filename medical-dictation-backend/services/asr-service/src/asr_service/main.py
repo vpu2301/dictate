@@ -10,9 +10,10 @@ Use ``create_app()`` for tests; production runs via
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,7 @@ from observability import bootstrap, register_exception_handlers
 
 from .config import settings
 from .deps import install_state
+from .domain.reaper import reaper_loop
 from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
 from .routers import health, jobs, prompts
@@ -44,6 +46,14 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.svc = state
     install_state(state)
 
+    # Out-of-process backstop for jobs stranded by a dead worker — the
+    # worker is the only writer of a job's terminal status, and it cannot
+    # write one for the crash that killed it.
+    reaper_stop = asyncio.Event()
+    reaper_task: asyncio.Task[None] | None = None
+    if settings.job_reaper_enabled:
+        reaper_task = asyncio.create_task(reaper_loop(state, reaper_stop))
+
     logger.info(
         "asr-service starting",
         extra={
@@ -51,11 +61,17 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "env": settings.environment,
             "issuer": settings.auth_issuer,
             "audio_bucket": settings.s3_audio_bucket,
+            "job_reaper": settings.job_reaper_enabled,
         },
     )
     try:
         yield
     finally:
+        reaper_stop.set()
+        if reaper_task is not None:
+            reaper_task.cancel()
+            with suppress(asyncio.CancelledError, Exception):
+                await reaper_task
         await teardown_state(state)
         logger.info("asr-service shutting down")
 

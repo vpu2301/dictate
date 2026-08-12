@@ -1,0 +1,68 @@
+{% extends "_layout.html" %}
+{# contact_received.uk — translated copy only; the design is in _layout.html. #}
+{% block html_lang %}uk{% endblock %}
+{% block title %}Дякуємо за звернення — Klarnote{% endblock %}
+{% block eyebrow %}Повідомлення отримано{% endblock %}
+{% block preheader %}Менеджер відповість особисто. Або забронюйте демо зараз і оберіть зручний час.{% endblock %}
+{% block headline %}Дякуємо —<br />ваше повідомлення<br />в нас.{% endblock %}
+{% block lead %}Менеджер прочитає його й особисто вам відповість. Ми відповідаємо протягом одного робочого дня.{% endblock %}
+{% block signoff %}До зв'язку,{% endblock %}
+{% block role %}Solutions Lead, Klarnote{% endblock %}
+{% block why %}Ви отримали цей лист, бо написали нам на klarnote.com.{% endblock %}
+{% block unsub %}Відписатися{% endblock %}
+{% block privacy %}Приватність{% endblock %}
+{% block content %}
+   <tr><td style="padding:28px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F5F6F5;border-radius:12px;">
+       <tr><td style="padding:6px 22px 10px 22px;">
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Відповідь надійде на</td>
+             <td style="padding:12px 0;border-bottom:1px solid #E3E6E4;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ email }}</td>
+           </tr>
+           <tr>
+             <td width="150" style="width:150px;padding:12px 14px 12px 0;border-bottom:0;font-family:{{ sans }};font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;vertical-align:top;">Повідомлення отримано</td>
+             <td style="padding:12px 0;border-bottom:0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;vertical-align:top;">{{ requested_at }}</td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:30px 48px 0 48px;" class="pad">
+     <p style="margin:0 0 8px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Якщо не хочете чекати</p>
+     <p style="margin:0 0 20px 0;font-family:{{ sans }};font-size:15px;line-height:25px;mso-line-height-rule:exactly;color:#4A5450;">Забронюйте демо одразу й оберіть зручний час. Воно триває 40 хвилин у Google Meet — живий огляд продукту та відповіді на ваші питання.</p>
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
+       <tr><td align="center" bgcolor="#141B19" style="background-color:#141B19;border-radius:999px;">
+         <a target="_blank" rel="noopener" href="{{ booking_url }}" style="display:inline-block;padding:16px 30px;font-family:{{ sans }};font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:600;color:#FFFFFF;text-decoration:none;">Забронювати демо</a>
+       </td></tr>
+       <tr><td align="center" style="padding:11px 0 0 0;font-family:{{ sans }};font-size:12.5px;line-height:20px;mso-line-height-rule:exactly;color:#808A86;">Слоти на найближчі два тижні · 40 хвилин · Google Meet</td></tr>
+     </table>
+   </td></tr>
+   <tr><td style="padding:34px 48px 0 48px;" class="pad">
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #EEF0EF;">
+       <tr><td style="padding:24px 0 0 0;">
+         <p style="margin:0 0 16px 0;font-family:{{ sans }};font-size:11px;line-height:18px;mso-line-height-rule:exactly;letter-spacing:0.12em;text-transform:uppercase;color:#808A86;">Що буде далі</p>
+         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Повідомлення читає менеджер</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Не черга автовідповідача — людина з команди читає те, що ви написали, і відповідає саме на ваше питання.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 20px 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Ви отримаєте справжню відповідь</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Якщо показати швидше, ніж описати, ми запропонуємо час; в іншому разі відповідь буде в листі.</p>
+             </td>
+           </tr>
+           <tr>
+             <td style="padding:0 0 0 0;">
+               <p style="margin:0 0 3px 0;font-family:{{ sans }};font-size:15px;line-height:24px;mso-line-height-rule:exactly;font-weight:600;color:#1B2422;">Більше нічого не відбувається</p>
+               <p style="margin:0;font-family:{{ sans }};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#4A5450;">Лист до нас — це не реєстрація. Жодного акаунта не створюється й жодної розсилки не починається.</p>
+             </td>
+           </tr>
+         </table>
+       </td></tr>
+     </table>
+   </td></tr>
+{% endblock %}

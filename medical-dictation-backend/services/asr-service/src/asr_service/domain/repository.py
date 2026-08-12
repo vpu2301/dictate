@@ -63,6 +63,24 @@ async def fetch_encounter_status(
     )
 
 
+async def prompt_exists(conn: asyncpg.Connection, *, prompt_id: UUID) -> bool:
+    """Whether ``prompt_id`` names a row in the global prompt catalogue.
+
+    ``transcription_jobs.prompt_id`` carries a NOT NULL FK to
+    ``medical_prompts``, so an unknown id used to surface as an asyncpg
+    ForeignKeyViolationError from the INSERT — a 500 on the SPA for what is
+    a caller mistake (a stale prompt id cached from a previous release).
+    Checked before any ciphertext is written so the reject costs nothing.
+
+    ``medical_prompts`` is a global catalogue with no RLS (ADR-0007), the
+    same table ``list_prompts`` serves the picker from, so existence here
+    is not a cross-tenant oracle.
+    """
+    return bool(
+        await conn.fetchval("SELECT 1 FROM medical_prompts WHERE id = $1", prompt_id)
+    )
+
+
 async def insert_job_row(
     conn: asyncpg.Connection,
     *,
@@ -169,6 +187,97 @@ async def request_cancel(conn: asyncpg.Connection, *, job_id: UUID) -> str | Non
         )
         return "cancel_requested"
     return None
+
+
+async def fail_job(
+    conn: asyncpg.Connection,
+    *,
+    job_id: UUID,
+    error_kind: str,
+    error_detail: str,
+    only_if_status: tuple[str, ...] = ("queued", "running"),
+) -> bool:
+    """Move a job to ``failed``; return whether this call is what moved it.
+
+    ``only_if_status`` is the interlock. The reaper and the enqueue path
+    both write terminal failures from outside the worker that owns the
+    job, and a job that came back to life between the read and the write
+    must keep its own outcome — a transcript already stored must never be
+    overwritten by a late "the worker looked dead".
+    """
+    row = await conn.fetchrow(
+        """
+        UPDATE transcription_jobs
+        SET status='failed',
+            error_kind=$2,
+            error_detail=$3,
+            finished_at=now()
+        WHERE id = $1 AND status = ANY($4::text[])
+        RETURNING id
+        """,
+        job_id,
+        error_kind,
+        error_detail[:1024],
+        list(only_if_status),
+    )
+    return row is not None
+
+
+@dataclass(slots=True)
+class StaleJobRow:
+    """A job that has outlived the process or the queue that owned it."""
+
+    id: UUID
+    status: str
+    requester_sub: UUID
+    started_at: datetime | None
+
+
+async def list_stale_jobs(
+    conn: asyncpg.Connection,
+    *,
+    running_grace_seconds: float,
+    queued_grace_seconds: float,
+    limit: int,
+) -> list[StaleJobRow]:
+    """Jobs stranded mid-flight, oldest first.
+
+    Two shapes, one query:
+
+    - ``running`` past ``running_grace_seconds`` — the worker that claimed
+      it died between marking it running and writing an outcome. Nothing
+      else in the system ever revisits that row.
+    - ``queued`` past ``queued_grace_seconds`` — the enqueue landed but the
+      message did not survive (a flushed Redis, a stream trimmed under
+      load), so no worker will ever claim it.
+
+    Both windows are wall-clock only; the reaper applies its own
+    liveness interlock before it collects anything.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT id, status, requester_sub, started_at
+        FROM transcription_jobs
+        WHERE (status = 'running' AND started_at < now()
+                   - make_interval(secs => $1::double precision))
+           OR (status = 'queued'  AND queued_at  < now()
+                   - make_interval(secs => $2::double precision))
+        ORDER BY queued_at
+        LIMIT $3
+        """,
+        float(running_grace_seconds),
+        float(queued_grace_seconds),
+        limit,
+    )
+    return [
+        StaleJobRow(
+            id=r["id"],
+            status=str(r["status"]),
+            requester_sub=r["requester_sub"],
+            started_at=r["started_at"],
+        )
+        for r in rows
+    ]
 
 
 async def count_active_jobs(conn: asyncpg.Connection, *, tenant_id: UUID) -> int:

@@ -34,6 +34,24 @@ USER_RESET_MFA: Final[str] = "user.reset_mfa"
 # ── Session revocation (sprint 16) ────────────────────────────────────
 AUTH_SESSION_REVOKED: Final[str] = "auth.session.revoked"
 
+# ── Password recovery ─────────────────────────────────────────────────
+# All `sec` severity. The *request* is recorded as well as the outcome
+# because a burst of requests against one account, none of them
+# completed, is the visible half of an attempt to take it over — and
+# without the request event the trail starts only once the attacker
+# succeeds.
+#
+# Note what is deliberately NOT recorded: a request for an address with
+# no account. Writing one would turn the audit log into the account
+# enumeration oracle the endpoint's uniform 202 exists to prevent.
+AUTH_PASSWORD_RESET_REQUESTED: Final[str] = "auth.password.reset_requested"
+AUTH_PASSWORD_RESET_COMPLETED: Final[str] = "auth.password.reset_completed"
+AUTH_PASSWORD_CHANGED: Final[str] = "auth.password.changed"
+# The "this wasn't me" button. Its own kind rather than a flavour of
+# session-revoked, because it is a user telling us an account was taken
+# over — the single highest-signal event this service can emit.
+AUTH_ACCOUNT_LOCKDOWN: Final[str] = "auth.account.lockdown"
+
 # ── User lifecycle ────────────────────────────────────────────────────
 USER_INVITED: Final[str] = "user.invited"
 USER_DEACTIVATED: Final[str] = "user.deactivated"
