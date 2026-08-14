@@ -29,9 +29,34 @@ Each utterance lives in its own directory under
   "language": "uk",
   "specialty": "cardiology",
   "duration_s": 18.3,
-  "dictation_source": "anonymized_real"  // or "authored_by_linguist"
+  "dictation_source": "anonymized_real",  // or "authored_by_linguist" / "authored_by_clinician"
+  "subset": "numbers_doses_units"          // optional, sprint-21 adversarial subsets only
 }
 ```
+
+`dictation_source` values: `anonymized_real`, `authored_by_linguist`,
+`authored_by_clinician` (sprint 21 — we have no linguist; "authored by
+clinician" is the honest value for clinician-recorded utterances).
+
+## Adversarial subsets (sprint 21 §8)
+
+A clean corpus flatters the WER number and hides what actually annoys
+clinicians. Sprint 21 adds hostile subsets under
+`eval/corpus/v1/subsets/<subset>/` (same per-utterance layout, listed in
+the same manifest, optional `subset` metadata field):
+
+| Subset directory | Why |
+| --- | --- |
+| `numbers_doses_units` | sprint-05 normalizer retro item; highest-harm error class |
+| `drug_names` | ДРЛЗ/formulary sampled; Whisper's worst category |
+| `abbreviations` | АТ, ЧСС, HbA1c — abbreviation policy vs muscle memory |
+| `code_switching` | UA clinician saying Latin/English drug + anatomy names mid-sentence |
+| `voice_commands` | commands mid-dictation; regression guard for sprint-05 matcher FPR |
+| `phone_mic_noisy` | phone-speaker distance + kitchen noise — **direct sprint-18 dependency**; record 3-5 even if nothing else lands |
+
+Recording is done by the clinician + colleagues through the frontend
+recorder, which writes 16 kHz mono PCM straight into this layout. Rebuild
+the manifest after adding utterances: `python scripts/eval/build_corpus_manifest.py`.
 
 ## Privacy
 

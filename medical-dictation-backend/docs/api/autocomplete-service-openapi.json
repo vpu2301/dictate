@@ -1,6 +1,153 @@
 {
   "components": {
     "schemas": {
+      "CandidateDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jury_votes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Jury Votes",
+            "type": "array"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "phrase": {
+            "title": "Phrase",
+            "type": "string"
+          },
+          "review_engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Engine"
+          },
+          "review_state": {
+            "title": "Review State",
+            "type": "string"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "section_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Hint"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "validator_report": {
+            "additionalProperties": true,
+            "title": "Validator Report",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "phrase",
+          "language",
+          "specialty",
+          "section_hint",
+          "source_kind",
+          "tier",
+          "risk_flags",
+          "review_state",
+          "review_engine",
+          "submitted_by",
+          "jury_votes",
+          "validator_report",
+          "created_at"
+        ],
+        "title": "CandidateDTO",
+        "type": "object"
+      },
+      "CandidateListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "CandidateListDTO",
+        "type": "object"
+      },
       "CreatePhraseRequest": {
         "additionalProperties": false,
         "properties": {
@@ -191,6 +338,17 @@
             "title": "Acceptance Count",
             "type": "integer"
           },
+          "corpus_release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Release"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -225,6 +383,10 @@
             "title": "Phrase",
             "type": "string"
           },
+          "review_state": {
+            "title": "Review State",
+            "type": "string"
+          },
           "section_hint": {
             "anyOf": [
               {
@@ -240,6 +402,10 @@
             "title": "Source",
             "type": "string"
           },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
           "specialty": {
             "anyOf": [
               {
@@ -250,6 +416,17 @@
               }
             ],
             "title": "Specialty"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
           }
         },
         "required": [
@@ -262,9 +439,213 @@
           "impression_count",
           "acceptance_count",
           "last_accepted_at",
-          "created_at"
+          "created_at",
+          "review_state",
+          "tier",
+          "source_kind",
+          "corpus_release"
         ],
         "title": "PhraseListItemDTO",
+        "type": "object"
+      },
+      "PromoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Ids"
+          }
+        },
+        "title": "PromoteRequest",
+        "type": "object"
+      },
+      "PromoteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "inserted": {
+            "title": "Inserted",
+            "type": "integer"
+          },
+          "promoted": {
+            "title": "Promoted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "promoted",
+          "inserted"
+        ],
+        "title": "PromoteResponse",
+        "type": "object"
+      },
+      "ReleaseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "phrase_count": {
+            "title": "Phrase Count",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "created_at",
+          "phrase_count",
+          "manifest_sha256",
+          "notes"
+        ],
+        "title": "ReleaseDTO",
+        "type": "object"
+      },
+      "ReleaseListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ReleaseListDTO",
+        "type": "object"
+      },
+      "RetirePhraseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Release"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "review_state": {
+            "const": "retired",
+            "title": "Review State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review_state",
+          "corpus_release"
+        ],
+        "title": "RetirePhraseResponse",
+        "type": "object"
+      },
+      "ReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "accept",
+              "reject",
+              "edit"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "edited_text": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Text"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "mode": {
+            "default": "review",
+            "enum": [
+              "review",
+              "audit"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ReviewRequest",
+        "type": "object"
+      },
+      "ReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "review_state": {
+            "title": "Review State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review_state"
+        ],
+        "title": "ReviewResponse",
         "type": "object"
       },
       "SnippetDTO": {
@@ -351,6 +732,144 @@
           "created_at"
         ],
         "title": "SnippetListItemDTO",
+        "type": "object"
+      },
+      "StatsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_rejections": {
+            "title": "Audit Rejections",
+            "type": "integer"
+          },
+          "by_quota_cell": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "By Quota Cell",
+            "type": "array"
+          },
+          "by_state": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By State",
+            "type": "object"
+          },
+          "by_tier": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Tier",
+            "type": "object"
+          },
+          "median_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Latency Ms"
+          },
+          "reviews_last_24h": {
+            "title": "Reviews Last 24H",
+            "type": "integer"
+          },
+          "reviews_total": {
+            "title": "Reviews Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "by_state",
+          "by_tier",
+          "reviews_total",
+          "reviews_last_24h",
+          "median_latency_ms",
+          "audit_rejections",
+          "by_quota_cell"
+        ],
+        "title": "StatsDTO",
+        "type": "object"
+      },
+      "SubmitCandidateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "capture": {
+            "default": "typed",
+            "enum": [
+              "typed",
+              "dictated"
+            ],
+            "title": "Capture",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "uk",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "phrase": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Phrase",
+            "type": "string"
+          },
+          "section_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Hint"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          }
+        },
+        "required": [
+          "phrase",
+          "language"
+        ],
+        "title": "SubmitCandidateRequest",
+        "type": "object"
+      },
+      "SubmitCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "review_state": {
+            "const": "candidate",
+            "title": "Review State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review_state"
+        ],
+        "title": "SubmitCandidateResponse",
         "type": "object"
       },
       "SuggestRequest": {
@@ -827,6 +1346,66 @@
         ]
       }
     },
+    "/autocomplete/phrases/{phrase_id}/retire": {
+      "post": {
+        "description": "Sprint 21: retire, never delete \u2014 provenance survives, serving stops\n(the trie feeds only review_state='accepted'). Tenant/user rows only;\nsystem (released) rows are retired by the corpus operator (see\ndocs/runbooks/corpus.md), so the admin console can't silently edit the\nglobal corpus.",
+        "operationId": "retire_phrase_autocomplete_phrases__phrase_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phrase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phrase Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetirePhraseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Phrase",
+        "tags": [
+          "autocomplete"
+        ]
+      }
+    },
     "/autocomplete/snippets": {
       "get": {
         "operationId": "list_snippets_autocomplete_snippets_get",
@@ -1150,6 +1729,433 @@
         "summary": "Receive Telemetry",
         "tags": [
           "autocomplete"
+        ]
+      }
+    },
+    "/corpus/candidates": {
+      "get": {
+        "description": "The review queue, oldest first. tier=3 is the human-mandatory queue.\nsample=random serves the spot-audit sampler: an unbiased draw over the\nwhole matching population (pagination is meaningless there \u2014 pass\noffset=0 and treat each call as a fresh sample).",
+        "operationId": "list_candidates_corpus_candidates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "review_state",
+            "required": false,
+            "schema": {
+              "default": "candidate",
+              "enum": [
+                "candidate",
+                "accepted",
+                "rejected",
+                "promoted"
+              ],
+              "title": "Review State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tier",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 3,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tier"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "uk",
+                    "en"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sample",
+            "required": false,
+            "schema": {
+              "default": "oldest",
+              "enum": [
+                "oldest",
+                "random"
+              ],
+              "title": "Sample",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Candidates",
+        "tags": [
+          "corpus"
+        ]
+      },
+      "post": {
+        "description": "Authored ingest: a phrase typed or dictated in the console fill\nworksheet becomes a GLOBAL candidate awaiting review \u2014 never anything\npre-accepted. PII is rejected here (422) before any row exists; the\nphrase-write rate limit is shared with the library POST.",
+        "operationId": "submit_candidate_corpus_candidates_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitCandidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Candidate",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/candidates/{candidate_id}/review": {
+      "post": {
+        "description": "Record one decision. mode='review' moves candidate\u2192accepted/rejected\n(409 once decided). mode='audit' spot-checks a jury-accepted row without\nchanging its state \u2014 an audit rejection is the jury-quality alert signal\n(`audit_rejections` in /corpus/stats).",
+        "operationId": "review_candidate_corpus_candidates__candidate_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Candidate",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/promote": {
+      "post": {
+        "description": "Accepted global candidates \u2192 serving corpus (system-scope phrases,\nlive immediately). Idempotent; never un-retires. Release manifests stay\na corpus-forge operator action.",
+        "operationId": "promote_candidates_corpus_promote_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Candidates",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/releases": {
+      "get": {
+        "operationId": "corpus_releases_corpus_releases_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Releases",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/stats": {
+      "get": {
+        "operationId": "corpus_stats_corpus_stats_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Stats",
+        "tags": [
+          "corpus"
         ]
       }
     },

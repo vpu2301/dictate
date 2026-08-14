@@ -198,17 +198,28 @@ def make_client(monkeypatch: pytest.MonkeyPatch, envelope: Envelope):
     )
     deps.install_state(state)  # type: ignore[arg-type]
 
+    # Statements the router ran against the doubled DB, so a test can
+    # assert the S21 reminder-resolving UPDATE actually fires rather than
+    # being swallowed by the best-effort try/except around it.
+    executed: list[str] = []
+
     @contextlib.asynccontextmanager
     async def _fake_conn(pool: Any, tenant_id: Any):
-        async def _execute(*a: Any, **k: Any) -> None:
-            return None
+        async def _execute(query: str, *a: Any, **k: Any) -> None:
+            executed.append(query)
 
         async def _fetchrow(query: str, *a: Any) -> Any:
             # users-table lookups resolve any known FakeKeycloak user.
             sub = a[0] if a else None
             return {"sub": sub} if sub in kc.users else None
 
-        yield SimpleNamespace(execute=_execute, fetchrow=_fetchrow)
+        @contextlib.asynccontextmanager
+        async def _transaction():
+            yield None
+
+        yield SimpleNamespace(
+            execute=_execute, fetchrow=_fetchrow, transaction=_transaction
+        )
 
     monkeypatch.setattr(mfa_router, "tenant_connection", _fake_conn)
 
@@ -218,6 +229,7 @@ def make_client(monkeypatch: pytest.MonkeyPatch, envelope: Envelope):
         c = TestClient(app)
         c.audit_calls = audit_calls  # type: ignore[attr-defined]
         c.kc = kc  # type: ignore[attr-defined]
+        c.executed = executed  # type: ignore[attr-defined]
         return c
 
     return _build
@@ -261,6 +273,25 @@ def test_enrol_verify_flow(make_client: Any) -> None:
     assert "totp_secret_enc" in attrs
     assert "totp_secret_enc_pending" not in attrs
     assert any(c["kind"] == "auth.mfa.enrolled" for c in client.audit_calls)
+
+
+def test_enrolment_closes_a_standing_reminder(make_client: Any) -> None:
+    """S21: enrolling is the ONLY way an access-review reminder closes.
+
+    There is no dismiss button anywhere in the product, so if this UPDATE
+    stops firing the banner never goes away for anyone who was reminded —
+    a failure that looks like a UI bug and is a backend one.
+    """
+    from auth_service import totp
+
+    client = make_client(_claims(roles=["clinician"]))
+    body = client.post("/auth/mfa/enrol").json()
+    client.post("/auth/mfa/verify", json={"code": totp.totp_at(body["secret"])})
+
+    resolves = [q for q in client.executed if "mfa_reminders" in q]
+    assert resolves, "verify did not resolve the standing reminder"
+    assert "resolved_at = now()" in resolves[0]
+    assert "resolved_at IS NULL" in resolves[0]
 
 
 def test_enrol_conflict_when_already_enrolled(make_client: Any) -> None:

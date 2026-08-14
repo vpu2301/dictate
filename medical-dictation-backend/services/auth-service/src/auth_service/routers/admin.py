@@ -24,6 +24,7 @@ from .. import audit_kinds
 from ..config import settings
 from ..deps import get_state, requires, requires_mfa
 from ..keycloak_client import KeycloakError
+from ..notifications import emit_mfa_reminder
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -205,13 +206,21 @@ class UserSummary(BaseModel):
     display_name: str
     role: str
     status: str
+    # S21: MFA state belongs in the LIST, not only in the per-user detail.
+    # The access review's whole question is "which of these accounts has a
+    # second factor" — answering it used to take one GET per row, so no
+    # screen asked it and the column did not exist.
+    mfa_enrolled_at: datetime | None = None
+    # The open reminder, if any. Nullable timestamps rather than a flag so
+    # a reviewer can see "asked, and it has been three weeks".
+    mfa_reminded_at: datetime | None = None
+    mfa_reminder_count: int = 0
 
 
 class UserDetail(UserSummary):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     last_login_at: datetime | None = None
-    mfa_enrolled_at: datetime | None = None
 
 
 @router.get(
@@ -228,24 +237,38 @@ async def list_users(
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         rows = await conn.fetch(
             """
-            SELECT sub, email, display_name, role, status
-            FROM users
-            ORDER BY created_at DESC, email
+            SELECT u.sub, u.email, u.display_name, u.role, u.status,
+                   u.mfa_enrolled_at,
+                   r.last_reminded_at, r.reminder_count
+            FROM users u
+            -- Only the OPEN reminder joins. A resolved one is history: the
+            -- roster's question is "is there an outstanding ask", and a
+            -- closed finding rendered as a live one would have every
+            -- enrolled user still wearing a warning chip.
+            LEFT JOIN mfa_reminders r
+                   ON r.tenant_id = u.tenant_id
+                  AND r.subject_sub = u.sub
+                  AND r.resolved_at IS NULL
+            ORDER BY u.created_at DESC, u.email
             LIMIT $1 OFFSET $2
             """,
             limit,
             offset,
         )
-    return [
-        UserSummary(
-            sub=str(r["sub"]),
-            email=r["email"],
-            display_name=r["display_name"],
-            role=r["role"],
-            status=r["status"],
-        )
-        for r in rows
-    ]
+    return [_summary(r) for r in rows]
+
+
+def _summary(row: Any) -> UserSummary:
+    return UserSummary(
+        sub=str(row["sub"]),
+        email=row["email"],
+        display_name=row["display_name"],
+        role=row["role"],
+        status=row["status"],
+        mfa_enrolled_at=row["mfa_enrolled_at"],
+        mfa_reminded_at=row["last_reminded_at"],
+        mfa_reminder_count=row["reminder_count"] or 0,
+    )
 
 
 @router.get(
@@ -263,25 +286,25 @@ async def get_user(
     async with tenant_connection(state.app_pool, claims.tid) as conn:
         row = await conn.fetchrow(
             """
-            SELECT sub, email, display_name, role, status,
-                   created_at, updated_at, last_login_at, mfa_enrolled_at
-            FROM users
-            WHERE sub = $1
+            SELECT u.sub, u.email, u.display_name, u.role, u.status,
+                   u.created_at, u.updated_at, u.last_login_at, u.mfa_enrolled_at,
+                   r.last_reminded_at, r.reminder_count
+            FROM users u
+            LEFT JOIN mfa_reminders r
+                   ON r.tenant_id = u.tenant_id
+                  AND r.subject_sub = u.sub
+                  AND r.resolved_at IS NULL
+            WHERE u.sub = $1
             """,
             sub,
         )
     if row is None:
         raise HTTPException(status_code=404, detail="user not found in this tenant")
     return UserDetail(
-        sub=str(row["sub"]),
-        email=row["email"],
-        display_name=row["display_name"],
-        role=row["role"],
-        status=row["status"],
+        **_summary(row).model_dump(),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         last_login_at=row["last_login_at"],
-        mfa_enrolled_at=row["mfa_enrolled_at"],
     )
 
 
@@ -344,6 +367,135 @@ async def reactivate_user(
     )
 
     return {"sub": str(sub), "status": "active"}
+
+
+# ── MFA reminders (S21 — the access review's one action) ─────────────────
+
+
+class MfaReminderResponse(BaseModel):
+    sub: str
+    first_reminded_at: datetime
+    last_reminded_at: datetime
+    reminder_count: int
+
+
+# Who may be recorded as having raised a reminder. Mirrors the CHECK on
+# `mfa_reminders.requested_by_role`; a caller holding both roles is
+# recorded as the more specific one for this act — the auditor.
+_REMINDER_ROLES: tuple[str, ...] = ("auditor", "tenant_admin")
+
+
+def _reminder_role(claims: Claims) -> str:
+    held = set(claims.roles or ())
+    for role in _REMINDER_ROLES:
+        if role in held:
+            return role
+    # Unreachable in practice: `requires("user.remind_mfa")` admits only
+    # those two roles. Fail loudly rather than writing a value the CHECK
+    # would reject at 3am.
+    raise HTTPException(status_code=403, detail="no role eligible to raise a reminder")
+
+
+@router.post(
+    "/users/{sub}/mfa-reminder",
+    response_model=MfaReminderResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Ask a user to enrol MFA; the request stands until they do",
+    # NOT MFA-gated, and that is deliberate. Every other mutation here
+    # demands a verified-MFA session — but this one is how a clinic climbs
+    # OUT of having no second factors, and an auditor who has not yet
+    # enrolled would otherwise be unable to raise the very finding that
+    # gets everyone enrolled. The act grants nothing and changes no
+    # account state, so the gate buys no safety and costs the bootstrap.
+)
+async def remind_mfa(
+    sub: UUID,
+    claims: Annotated[Claims, Depends(requires("user.remind_mfa", "user"))],
+) -> MfaReminderResponse:
+    state = get_state()
+    tenant_id = claims.tid
+
+    if sub == claims.sub:
+        # Reminding yourself is not oversight, it is noise in someone
+        # else's review — and it would put a banner in front of the only
+        # person who could already just enrol.
+        raise HTTPException(status_code=422, detail="cannot remind yourself")
+
+    async with tenant_connection(state.app_pool, tenant_id) as conn:
+        target = await conn.fetchrow(
+            "SELECT sub, status, mfa_enrolled_at FROM users WHERE sub = $1", sub
+        )
+    if target is None:
+        raise HTTPException(status_code=404, detail="user not found in this tenant")
+    if target["mfa_enrolled_at"] is not None:
+        # 409, not a silent no-op: the roster the caller was looking at is
+        # stale, and the UI should say so rather than show a reminder that
+        # will never render anywhere.
+        raise HTTPException(status_code=409, detail="user already has MFA enrolled")
+    if target["status"] == "deactivated":
+        raise HTTPException(
+            status_code=409,
+            detail="user is deactivated; reactivate before asking them to enrol",
+        )
+
+    actor_role = _reminder_role(claims)
+
+    # Upsert: one standing row per user. A repeat ask bumps the count and
+    # the timestamp, and REOPENS a row that a since-reset enrolment had
+    # resolved (resolved_at → NULL), which is exactly the lost-phone case:
+    # the user was enrolled, an admin reset it, they never re-enrolled.
+    async with tenant_connection(state.tenant_writer_pool, tenant_id) as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO mfa_reminders (
+                tenant_id, subject_sub, requested_by, requested_by_role
+            )
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (tenant_id, subject_sub) DO UPDATE
+                SET requested_by      = EXCLUDED.requested_by,
+                    requested_by_role = EXCLUDED.requested_by_role,
+                    last_reminded_at  = now(),
+                    reminder_count    = mfa_reminders.reminder_count + 1,
+                    resolved_at       = NULL
+            RETURNING first_reminded_at, last_reminded_at, reminder_count
+            """,
+            tenant_id,
+            sub,
+            claims.sub,
+            actor_role,
+        )
+
+    await state.audit_writer.write_event(
+        tenant_id=tenant_id,
+        kind=audit_kinds.USER_MFA_REMINDED,
+        actor_sub=claims.sub,
+        actor_role=actor_role,
+        target_kind="user",
+        target_id=str(sub),
+        payload={
+            "reminder_count": row["reminder_count"],
+            "first_reminded_at": row["first_reminded_at"].isoformat(),
+        },
+        severity=Severity.SEC,
+    )
+
+    # The bell/email half. Fire-and-forget: the row above is what makes
+    # the reminder stand, and a bus outage must not fail the request.
+    await emit_mfa_reminder(
+        state.notification_bus,
+        tenant_id=tenant_id,
+        subject_sub=sub,
+        actor_sub=claims.sub,
+        actor_role=actor_role,
+        reminder_count=row["reminder_count"],
+    )
+
+    return MfaReminderResponse(
+        sub=str(sub),
+        first_reminded_at=row["first_reminded_at"],
+        last_reminded_at=row["last_reminded_at"],
+        reminder_count=row["reminder_count"],
+    )
 
 
 # ── Role management (the sprint-02 deferred endpoint) ─────────────────────

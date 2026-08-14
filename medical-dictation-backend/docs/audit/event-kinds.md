@@ -22,7 +22,8 @@ typos at import.
 | `user.reactivated`                | sec      | auth-service /admin/users/{sub}/reactivate | Deactivated user re-enabled; status flipped back to active |
 | `user.role_changed`               | sec      | auth-service PUT /admin/users/{sub}/roles | Realm roles changed by tenant_admin. Payload carries old_roles → new_roles. |
 | `user.reset_mfa`                  | sec      | auth-service DELETE /auth/mfa/{sub} | S16 — MFA enrolment cleared by admin (secret attributes wiped, sessions revoked). Payload: sessions_revoked. |
-| `auth.mfa.enrolled`               | info     | auth-service POST /auth/mfa/verify | S16 — TOTP enrolment completed (first valid code). |
+| `user.mfa_reminded`               | sec      | auth-service POST /admin/users/{sub}/mfa-reminder | S21 — an access review asked a user to enrol MFA. The only write an `auditor` can make; it changes nothing about the account. Payload: reminder_count, first_reminded_at. Pairs with `auth.mfa.enrolled` to answer "how long did this account sit unprotected after we noticed". |
+| `auth.mfa.enrolled`               | info     | auth-service POST /auth/mfa/verify | S16 — TOTP enrolment completed (first valid code). Resolves any open `mfa_reminders` row. |
 | `auth.session.revoked`            | info/sec | auth-service logout / replay / deactivate / POST /auth/sessions/revoke-all | S16 — sid or sub pushed onto the revocation denylist (ADR-0040). Payload: reason (+ sid for logout). sec on refresh_replay / user.deactivated, info on plain logout. The self-service "sign out everywhere" in settings emits it with `scope=all, initiated_by=self`. |
 | `auth.password.reset_requested`   | sec      | auth-service POST /auth/password/forgot | Password-reset link minted and queued. Payload: ip_hash (salted). **Emitted only for an address that resolves to an active account** — writing one for an unknown address would rebuild the enumeration oracle the endpoint's uniform 202 exists to prevent. |
 | `auth.password.reset_completed`   | sec      | auth-service POST /auth/password/reset | A mailed token was redeemed and the password replaced. Every session revoked and all other outstanding tokens spent. Payload: ip_hash. |
@@ -307,3 +308,27 @@ Two payload decisions worth knowing:
 The question/answer *content* is in `questions`/`answers` under user-private
 RLS and, for the envelope, inside an `EncryptedObjectStore` object — not in
 the audit chain.
+
+## Sprint 21 — clinical corpus pipeline (`corpus-forge`)
+
+Constants: `services/corpus-forge/src/corpus_forge/audit_kinds.py`.
+All corpus events are fleet-level operator actions and are written under
+the **reserved global tenant** (nil UUID, migration 0068) via
+`MDX_CORPUS_AUDIT_DSN`; in dev, with the DSN unset, they are logged but
+not chained (the CLI warns).
+
+| kind | severity | emitter | meaning |
+|---|---|---|---|
+| `corpus.mining_run` | info | `corpus-forge mine` | one mining execution; payload: `run_id`, `query_sha256` (must equal the DPO-signed value in docs/signoffs/sprint-21-dpo.md), gram/insert/drop counts, k-anonymity parameters |
+| `corpus.candidate_generated` | info | `corpus-forge import` / `generate` | a batch of candidates entered staging; payload: source/batch id, counts incl. `dropped_malformed` (generation is dropped-not-repaired) |
+| `corpus.candidate_reviewed` | info | `corpus-forge review` / autocomplete-service `POST /corpus/candidates/{id}/review` | one human decision; payload: `candidate_id`, `decision`, `mode` (`review` or spot-`audit`), `latency_ms` (the 15 s/decision instrument). The HTTP path writes under the reviewer's tenant chain; the CLI under the global tenant. |
+| `corpus.auto_accepted` | info | `corpus-forge jury` | a machine acceptance; payload: `candidate_id`, `engine` (`jury:<model>:<prompt_version>`), `tier` — auto-accept exists only after the calibration gate |
+| `corpus.jury_disagreement` | info | `corpus-forge jury` | non-unanimous jury vote; the stream that tells us whether the jury is coherent |
+| `corpus.release_published` | info | `corpus-forge release` | immutable release registered; payload: `version`, `phrase_count`, `manifest_sha256` |
+| `corpus.candidate_submitted` | info | autocomplete-service `POST /corpus/candidates` | a console-authored (typed or dictated) phrase entered the review queue as a global candidate; payload: `candidate_id`, `language`, `capture` (`typed`/`dictated`), `text_length` — written under the submitter's tenant chain |
+| `corpus.candidates_promoted` | info | autocomplete-service `POST /corpus/promote` | accepted global candidates published into the serving corpus (system-scope phrases); payload: `promoted`, `inserted`, `requested_ids` (count or null for promote-all) — release manifests remain a `corpus-forge release` operator action |
+
+The candidate *text* is deliberately not in `corpus.candidate_*` payloads:
+mined candidates are PHI-derived until reviewed, and audit payloads are
+widely readable. The row in `corpus_candidates` (RLS) is the record; the
+audit event is the accounting.

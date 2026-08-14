@@ -1,0 +1,14 @@
+# Terminology dataset URLs for `make fetch-corpus-sources` (sprint 21).
+# Format: <dataset-name> <url>   — one per line, '#' comments.
+#
+# OPERATOR STEP: fill in the current dataset URLs before the first fetch.
+# data.gov.ua resource URLs carry revision ids that change per publication,
+# so they are deliberately not hardcoded here — pick the latest from:
+#   drlz       https://data.gov.ua/dataset/…  (Державний реєстр лікарських засобів, ;-separated Windows-1251 CSV)
+#   formulary  МОЗ Державний формуляр publication page
+#   nk025      НК 025 classifier publication (normalise to one term per line before import)
+#
+# The pull is recorded in sources.lock (committed); the downloaded data
+# lands in sources/ (gitignored). Licence register: docs/sprint-21/EXPLORE.md §2.
+#
+# drlz https://data.gov.ua/dataset/REPLACE-ME/resource/REPLACE-ME/download/drlz.csv

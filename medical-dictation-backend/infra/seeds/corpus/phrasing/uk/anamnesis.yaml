@@ -1,0 +1,7 @@
+language: uk
+section: anamnesis
+templates:
+  - "в анамнезі {term}"
+  - "хворіє на {term}"
+  - "скаржиться на {term}"
+  - "{term} в анамнезі заперечує"

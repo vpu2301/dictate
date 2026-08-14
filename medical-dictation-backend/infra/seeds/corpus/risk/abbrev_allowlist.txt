@@ -1,0 +1,11 @@
+# Abbreviations the risk flagger does NOT send to tier 3.
+# Deliberately short: over-flagging costs 15 s, under-flagging is how a
+# wrong expansion reaches a cursor. Additions require clinical review
+# (ADR-0043) — this file is itself under the medical-allowlist review rule.
+ЕКГ    # електрокардіограма — unambiguous
+УЗД    # ультразвукова діагностика — unambiguous
+МРТ    # магнітно-резонансна томографія
+КТ     # комп'ютерна томографія
+ECG
+MRI
+CT

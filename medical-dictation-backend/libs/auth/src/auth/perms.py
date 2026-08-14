@@ -70,6 +70,10 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("tenant_admin", "user.deactivate", "user"): True,
     ("tenant_admin", "user.reactivate", "user"): True,
     ("tenant_admin", "user.reset_mfa", "user"): True,
+    # S21: ask a user to enrol a second factor. Distinct from reset_mfa,
+    # which CLEARS one — this touches nothing about the account, which is
+    # why the auditor holds it too (see the auditor block below).
+    ("tenant_admin", "user.remind_mfa", "user"): True,
     ("tenant_admin", "audit.read", "audit"): True,
     ("tenant_admin", "audit.verify", "audit"): True,
     # clinician: routine clinical user (sprint 2 surface)
@@ -80,6 +84,13 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     # auditor read-only visibility of the tenant's user roster (CRUD task).
     ("auditor", "tenant.read", "tenant"): True,
     ("auditor", "user.read", "user"): True,
+    # The auditor's ONLY write in the whole matrix, and it is deliberate:
+    # an access review that can see an account without a second factor but
+    # cannot ask for one produces a finding nobody acts on. The act changes
+    # nothing about the account — no role, no status, no credential — it
+    # records a request that only the SUBJECT can close, by enrolling. That
+    # asymmetry is what keeps the read-only role read-only.
+    ("auditor", "user.remind_mfa", "user"): True,
     ("auditor", "audit.read", "audit"): True,
     ("auditor", "audit.verify", "audit"): True,
     # service: machine-to-machine identity (no human-facing perms today)
@@ -290,6 +301,37 @@ ALLOW: Final[dict[tuple[Role, Action, TargetKind], bool]] = {
     ("nurse", "autocomplete.read", "phrase"): True,
     ("nurse", "autocomplete.write", "phrase"): True,
     ("service", "autocomplete.read", "phrase"): True,
+    # ── Sprint 21: corpus review (ADR-0043/0044) ──────────────────────
+    # Gates the /admin/corpus review surface + the review-recording path.
+    # The reviewer is a clinician (tier-3 decisions are clinical safety
+    # judgements, human-mandatory); tenant_admin holds it for the admin
+    # console. Nurses/auditors don't review corpus candidates.
+    ("tenant_admin", "corpus.review", "phrase"): True,
+    ("clinician", "corpus.review", "phrase"): True,
+    ("nurse", "corpus.review", "phrase"): False,
+    ("auditor", "corpus.review", "phrase"): False,
+    ("service", "corpus.review", "phrase"): False,
+    ("knowledge_admin", "corpus.review", "phrase"): False,
+    # ── Corpus contribution + promotion (authored ingest over HTTP) ────
+    # `corpus.contribute` gates POST /corpus/candidates: a typed or
+    # dictated phrase from the console fill worksheet becomes a GLOBAL
+    # 'candidate' row awaiting review — never anything pre-accepted, so
+    # contributing is safe for the same roles that author clinical text.
+    # `corpus.promote` gates POST /corpus/promote (accepted → serving
+    # corpus): a curation/release act, admin-only — the reviewer who
+    # accepts must not be able to single-handedly publish to all tenants.
+    ("tenant_admin", "corpus.contribute", "phrase"): True,
+    ("clinician", "corpus.contribute", "phrase"): True,
+    ("nurse", "corpus.contribute", "phrase"): False,
+    ("auditor", "corpus.contribute", "phrase"): False,
+    ("service", "corpus.contribute", "phrase"): False,
+    ("knowledge_admin", "corpus.contribute", "phrase"): False,
+    ("tenant_admin", "corpus.promote", "phrase"): True,
+    ("clinician", "corpus.promote", "phrase"): False,
+    ("nurse", "corpus.promote", "phrase"): False,
+    ("auditor", "corpus.promote", "phrase"): False,
+    ("service", "corpus.promote", "phrase"): False,
+    ("knowledge_admin", "corpus.promote", "phrase"): False,
     # ── Sprint 15: medical synonyms (search query expansion, ADR-0038) ──
     # The dictionary is search metadata, not PHI: reading it rides along
     # with searching (clinical roles + service + admin); writing tenant

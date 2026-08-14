@@ -13,11 +13,10 @@ import hashlib
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import PlainTextResponse
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from .. import metrics

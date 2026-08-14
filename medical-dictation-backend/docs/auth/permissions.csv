@@ -49,6 +49,11 @@ clinician,user.reactivate,user,false,no admin authority
 nurse,user.reactivate,user,false,no admin authority
 auditor,user.reactivate,user,false,read-only
 service,user.reactivate,user,false,
+tenant_admin,user.remind_mfa,user,true,S21 — ask a user to enrol MFA (POST /admin/users/{sub}/mfa-reminder)
+clinician,user.remind_mfa,user,false,not an oversight role
+nurse,user.remind_mfa,user,false,not an oversight role
+auditor,user.remind_mfa,user,true,S21 — the access review's one action; changes nothing about the account
+service,user.remind_mfa,user,false,
 tenant_admin,asr.write,asr_job,false,admin ⟂ PHI (S14): ASR is a clinical surface; admins use break-glass instead
 tenant_admin,asr.read,asr_job,false,admin ⟂ PHI (S14): ASR is a clinical surface; admins use break-glass instead
 tenant_admin,asr.cancel,asr_job,false,admin ⟂ PHI (S14): ASR is a clinical surface; admins use break-glass instead
@@ -203,6 +208,24 @@ tenant_admin,autocomplete.write,phrase,true,"S14 — split out of report.write; 
 clinician,autocomplete.write,phrase,true,S14 — own user-scope phrases
 nurse,autocomplete.write,phrase,true,S14 — own user-scope phrases
 auditor,autocomplete.write,phrase,false,read-only role
+tenant_admin,corpus.review,phrase,true,"S21 — admin-console corpus review surface (ADR-0043)"
+clinician,corpus.review,phrase,true,"S21 — the clinical reviewer; tier-3 decisions are human-mandatory (ADR-0044)"
+nurse,corpus.review,phrase,false,corpus review is a clinical-safety judgement surface
+auditor,corpus.review,phrase,false,read-only role
+service,corpus.review,phrase,false,no S2S review path — reviews come from humans or the jury CLI
+knowledge_admin,corpus.review,phrase,false,evidence-corpus curation is a different corpus (ADR-0043 vs EVA)
+tenant_admin,corpus.contribute,phrase,true,"authored ingest — console fill worksheet submits typed/dictated candidates for review"
+clinician,corpus.contribute,phrase,true,"clinical authors contribute candidate phrases; everything lands in the review queue"
+nurse,corpus.contribute,phrase,false,corpus contribution follows clinical authorship roles
+auditor,corpus.contribute,phrase,false,read-only role
+service,corpus.contribute,phrase,false,no S2S submission path — contributions come from humans or the forge CLI
+knowledge_admin,corpus.contribute,phrase,false,evidence-corpus curation is a different corpus (ADR-0043 vs EVA)
+tenant_admin,corpus.promote,phrase,true,"promotion publishes to ALL tenants — admin curation act, separated from reviewing"
+clinician,corpus.promote,phrase,false,reviewer must not single-handedly publish to the serving corpus
+nurse,corpus.promote,phrase,false,not a curation role
+auditor,corpus.promote,phrase,false,read-only role
+service,corpus.promote,phrase,false,no S2S promotion path
+knowledge_admin,corpus.promote,phrase,false,evidence-corpus curation is a different corpus (ADR-0043 vs EVA)
 service,autocomplete.write,phrase,false,user-only authoring
 clinician,synonym.read,synonym,true,S15 — synonym dictionary read (search expansion)
 nurse,synonym.read,synonym,true,S15 — synonym dictionary read (search expansion)
@@ -256,6 +279,7 @@ knowledge_admin,user.invite,user,false,corpus curation role only (EVA-S01)
 knowledge_admin,user.manage_roles,user,false,corpus curation role only (EVA-S01)
 knowledge_admin,user.reactivate,user,false,corpus curation role only (EVA-S01)
 knowledge_admin,user.read,user,false,corpus curation role only (EVA-S01)
+knowledge_admin,user.remind_mfa,user,false,corpus curation role only (EVA-S01)
 knowledge_admin,user.reset_mfa,user,false,corpus curation role only (EVA-S01)
 tenant_admin,evidence.ask,evidence,true,generic Q&A only — never patient context (ADR-0033)
 clinician,evidence.ask,evidence,true,asks evidence questions

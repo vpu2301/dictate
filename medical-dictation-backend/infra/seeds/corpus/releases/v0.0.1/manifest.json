@@ -1,0 +1,12 @@
+{
+  "corpus_release": "v0.0.1",
+  "files": {
+    "phrases.csv": {
+      "sha256": "1c468cd748275398072cbf6a646cdbbec5f891dbb3a3e3baab7f6a24248c7641"
+    }
+  },
+  "fluency_filter": "heuristic-v1",
+  "notes": "sprint-21 dev smoke release",
+  "phrase_count": 32,
+  "schema_version": 1
+}

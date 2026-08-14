@@ -80,11 +80,29 @@ RUN uv pip install --system --no-cache \
     /build/libs/audit \
     /build/libs/db \
     /build/libs/asr_models \
-    /build/libs/secret \
- && uv pip install --system --no-cache \
-    --target /deps \
-    "transformers>=4.40" \
-    "torch>=2.2 ; platform_system != 'Darwin'"
+    /build/libs/secret
+
+# This image is CPU-only (the punctuation model runs under torch.no_grad on
+# CPU — nothing here ever touches a GPU), so torch comes from the PyTorch CPU
+# index. The default PyPI torch drags in ~2.9 GB of nvidia-* CUDA wheels that
+# are never loaded; besides bloating the image, that download is what broke
+# builds mid-stream on a home link. unsafe-best-match lets everything except
+# torch still resolve from PyPI.
+#
+# Retried like the model fetches above: uv has no internal retry for a
+# connection dropped mid-body, and losing one here costs the whole build.
+RUN for attempt in 1 2 3 4 5; do \
+      uv pip install --system --no-cache \
+        --target /deps \
+        --index-url https://download.pytorch.org/whl/cpu \
+        --extra-index-url https://pypi.org/simple \
+        --index-strategy unsafe-best-match \
+        "transformers>=4.40" \
+        "torch>=2.2" && break; \
+      echo "transformers/torch install attempt ${attempt} failed; retrying in 10s"; \
+      sleep 10; \
+      [ "${attempt}" = "5" ] && exit 1; \
+    done
 
 # Bake the verified punctuation weights from the fetch stage.
 COPY --from=model-fetch /opt/models/punctuation /opt/models/punctuation

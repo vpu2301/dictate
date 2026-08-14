@@ -1,0 +1,7 @@
+language: en
+section: plan
+templates:
+  - "{term}"
+  - "start {term}"
+  - "continue {term}"
+  - "recommended {term}"

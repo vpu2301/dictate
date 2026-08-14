@@ -52,6 +52,8 @@ Numbering is monotonic and global. Sprint 02 starts at ADR-0006; sprint
 | 0040  | [Session revocation — auth-service-pushed Redis denylist, fail-open checks](0040-session-revocation-denylist.md) | Accepted |
 | 0041  | [Scheduled jobs — shared in-process runner per service, CLI twin for cron](0041-in-process-scheduler-pattern.md) | Accepted |
 | 0042  | [HTTP/2 POST streaming fallback — closed with data, not built](0042-http2-post-fallback-closed.md) | Accepted |
+| 0043  | [Clinical corpus governance — provenance, tiers, releases](0043-corpus-governance.md) | Accepted |
+| 0044  | [LLM-assisted corpus review — jury, calibration, PHI boundary](0044-llm-assisted-corpus-review.md) | Accepted |
 
 ## Template
 

@@ -18,7 +18,7 @@ from .deps import install_state
 from .jobs import partition_rotation, rollup
 from .main_deps import build_state, teardown_state
 from .middleware import RequestIDMiddleware
-from .routers import health, phrases, suggest, telemetry
+from .routers import corpus, health, phrases, suggest, telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,7 @@ def create_app() -> FastAPI:
     app.include_router(suggest.router)
     app.include_router(phrases.router)
     app.include_router(telemetry.router)
+    app.include_router(corpus.router)
     FastAPIInstrumentor.instrument_app(app)
     return app
 

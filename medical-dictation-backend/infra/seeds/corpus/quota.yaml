@@ -1,0 +1,49 @@
+# Corpus quota matrix (sprint 21, plan §6). CI fails a release whose accepted
+# distribution lands outside [70%, 130%] of a cell target — without this the
+# corpus becomes 8k cardiology-examination phrases and nothing in plan/follow-up.
+#
+# Targets derive from docs/sprint-21/EXPLORE.md §5: v1.0.0 ≈ 3k phrases
+# (~2.4k uk / 0.6k en), sized by the human-review budget, not by ambition.
+# Length buckets: short = 3-5 tokens, long = 6-12 tokens.
+
+tolerance:
+  lower: 0.70
+  upper: 1.30
+
+cells:
+  # ── uk ─────────────────────────────────────────────────────────────
+  - {language: uk, specialty: cardiology,        section: diagnosis,      bucket: short, target: 120}
+  - {language: uk, specialty: cardiology,        section: diagnosis,      bucket: long,  target: 80}
+  - {language: uk, specialty: cardiology,        section: plan,           bucket: short, target: 100}
+  - {language: uk, specialty: cardiology,        section: plan,           bucket: long,  target: 60}
+  - {language: uk, specialty: cardiology,        section: examination,    bucket: short, target: 80}
+  - {language: uk, specialty: cardiology,        section: anamnesis,      bucket: long,  target: 80}
+  - {language: uk, specialty: radiology,         section: findings,       bucket: long,  target: 140}
+  - {language: uk, specialty: radiology,         section: impression,     bucket: short, target: 100}
+  - {language: uk, specialty: radiology,         section: technique,      bucket: short, target: 40}
+  - {language: uk, specialty: endocrinology,     section: diagnosis,      bucket: short, target: 90}
+  - {language: uk, specialty: endocrinology,     section: plan,           bucket: short, target: 90}
+  - {language: uk, specialty: endocrinology,     section: investigations, bucket: short, target: 60}
+  - {language: uk, specialty: internal_medicine, section: diagnosis,      bucket: short, target: 120}
+  - {language: uk, specialty: internal_medicine, section: plan,           bucket: short, target: 100}
+  - {language: uk, specialty: internal_medicine, section: anamnesis,      bucket: long,  target: 100}
+  - {language: uk, specialty: internal_medicine, section: examination,    bucket: short, target: 90}
+  - {language: uk, specialty: family_medicine,   section: diagnosis,      bucket: short, target: 110}
+  - {language: uk, specialty: family_medicine,   section: plan,           bucket: short, target: 100}
+  - {language: uk, specialty: family_medicine,   section: investigations, bucket: short, target: 60}
+  - {language: uk, specialty: general,           section: diagnosis,      bucket: short, target: 120}
+  - {language: uk, specialty: general,           section: plan,           bucket: short, target: 100}
+  - {language: uk, specialty: general,           section: anamnesis,      bucket: long,  target: 100}
+  - {language: uk, specialty: general,           section: examination,    bucket: short, target: 100}
+  - {language: uk, specialty: general,           section: investigations, bucket: short, target: 60}
+
+  # ── en ─────────────────────────────────────────────────────────────
+  - {language: en, specialty: cardiology,        section: diagnosis,      bucket: short, target: 70}
+  - {language: en, specialty: cardiology,        section: plan,           bucket: short, target: 60}
+  - {language: en, specialty: radiology,         section: findings,       bucket: long,  target: 80}
+  - {language: en, specialty: radiology,         section: impression,     bucket: short, target: 60}
+  - {language: en, specialty: endocrinology,     section: diagnosis,      bucket: short, target: 50}
+  - {language: en, specialty: general,           section: diagnosis,      bucket: short, target: 80}
+  - {language: en, specialty: general,           section: plan,           bucket: short, target: 70}
+  - {language: en, specialty: general,           section: examination,    bucket: short, target: 60}
+  - {language: en, specialty: general,           section: anamnesis,      bucket: long,  target: 70}

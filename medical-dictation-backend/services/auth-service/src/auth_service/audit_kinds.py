@@ -30,6 +30,11 @@ AUTH_MFA_ENROLLED: Final[str] = "auth.mfa.enrolled"
 # (docs/audit/event-kinds.md, permissions.csv) as `user.reset_mfa`; the
 # sprint-16 spec's `auth.mfa.reset` name lost to the existing catalogue.
 USER_RESET_MFA: Final[str] = "user.reset_mfa"
+# S21 — an access review asked a user to enrol. `sec` severity, because
+# the interesting question a year later is not "was anyone reminded" but
+# "how long did this account sit unprotected after we noticed", and that
+# answer needs the ask and the enrolment on the same trail.
+USER_MFA_REMINDED: Final[str] = "user.mfa_reminded"
 
 # ── Session revocation (sprint 16) ────────────────────────────────────
 AUTH_SESSION_REVOKED: Final[str] = "auth.session.revoked"

@@ -84,7 +84,8 @@ lint-fix: ## Run ruff with auto-fix
 	uv run ruff check --fix .
 
 typecheck: ## Run mypy --strict over the CI-gated foundation packages (mirrors .github/workflows/ci.yml)
-	uv run --with "mypy>=1.10" mypy --strict services/_template/src/ libs/observability/src/ libs/secret/src/ libs/auth/src/ libs/db/src/ libs/audit/src/ libs/messaging/src/
+	# corpus-forge is sprint-21 code: new package, no typing-debt exemption.
+	uv run --with "mypy>=1.10" mypy --strict services/_template/src/ libs/observability/src/ libs/secret/src/ libs/auth/src/ libs/db/src/ libs/audit/src/ libs/messaging/src/ services/corpus-forge/src/
 
 typecheck-all: ## Run mypy --strict over ALL packages (non-blocking; tracks feature-service typing debt — see Sprint A1 report)
 	uv run --with "mypy>=1.10" mypy --strict services/_template/src/ services/asr-service/src/ services/asr-worker/src/ services/dictation-service/src/ services/nlp-service/src/ services/report-service/src/ libs/observability/src/ libs/secret/src/ libs/auth/src/ libs/db/src/ libs/audit/src/ libs/messaging/src/ libs/crypto/src/ libs/storage/src/ libs/asr_models/src/ libs/template_models/src/
@@ -122,6 +123,7 @@ test: ## Run pytest across services and libs
 	uv run --project services/notification-service pytest services/notification-service/tests/unit/ -v
 	uv run --project services/marketing-service pytest services/marketing-service/tests/unit/ -v
 	uv run --project services/core-service pytest services/core-service/tests/unit/ -v
+	uv run --project services/corpus-forge pytest services/corpus-forge/tests/unit/ -v
 
 test-cov: ## Run pytest with coverage report (gate ≥ 80%)
 	uv run pytest services/_template/tests/ \
@@ -271,6 +273,27 @@ capacity-probe: ## Sprint-14 dual-model capacity probe (residency + per-window l
 check-autocomplete-corpus: ## CI gate — validate the autocomplete seed corpus (sprint 10)
 	uv run python scripts/validate-autocomplete-corpus.py
 
+.PHONY: corpus-forge
+corpus-forge: ## Run the corpus pipeline CLI (sprint 21): make corpus-forge ARGS="gaps"
+	uv run --project services/corpus-forge corpus-forge $(ARGS)
+
+.PHONY: fetch-corpus-sources
+fetch-corpus-sources: ## Download terminology source snapshots; SHA-256 + date land in the committed lockfile
+	uv run python scripts/corpus/fetch_sources.py
+
+.PHONY: check-corpus-releases
+check-corpus-releases: ## CI gate — validator v2 over every committed corpus release artifact (sprint 21)
+	@set -e; for dir in infra/seeds/corpus/releases/*/; do \
+	    v=$$(basename $$dir); \
+	    case $$v in v0.*) extra="--skip-quota";; *) extra="";; esac; \
+	    echo "validate $$v $$extra"; \
+	    uv run --project services/corpus-forge corpus-forge validate --release-dir $$dir $$extra; \
+	done
+
+.PHONY: check-corpus-log-hygiene
+check-corpus-log-hygiene: ## CI gate — no candidate phrase text / API keys in corpus-pipeline log calls (sprint 21)
+	uv run python scripts/ci/check-corpus-log-hygiene.py
+
 .PHONY: check-synonym-corpus
 check-synonym-corpus: ## CI gate — validate the medical synonym seed corpus + migration sync (sprint 15)
 	uv run python scripts/ci/check_synonym_corpus.py
@@ -334,7 +357,7 @@ test-integration-db: ## All integration tests against the live dev DB (needs mig
 	RUN_DB_INTEGRATION=1 uv run --project libs/audit pytest libs/audit/tests/integration/ -v
 	RUN_DB_INTEGRATION=1 RUN_KEYCLOAK_INTEGRATION=1 uv run --project services/auth-service pytest services/auth-service/tests/integration/ -v
 
-ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-synonym-corpus check-alert-rules check-metric-names ## Mirror CI gates locally
+ci: lint typecheck test security lint-imports check-no-os-environ check-no-direct-asyncpg check-audit-insert check-no-object-storage check-no-crypto check-no-dev-signing-in-prod-config check-no-demo-envvars-in-prod check-k8s-rendered check-notification-phi-free validate-templates check-corpus check-autocomplete-corpus check-synonym-corpus check-corpus-releases check-corpus-log-hygiene check-alert-rules check-metric-names ## Mirror CI gates locally
 
 ci-with-db: ci check-rls check-erasure-fanout openapi-check ## Full CI mirror — needs `make dev-up && make migrate-up`
 

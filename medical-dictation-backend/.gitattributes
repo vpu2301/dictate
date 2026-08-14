@@ -14,3 +14,8 @@ Makefile text eol=lf
 *.png   binary
 *.jpg   binary
 *.gz    binary
+
+# Eval-corpus audio via Git LFS. The sprint-07 spec intended this but it was
+# never wired (found in the sprint-21 deployment verification); wavs added
+# from here on are LFS pointers. Onboarding: `git lfs install` once per clone.
+eval/**/*.wav filter=lfs diff=lfs merge=lfs -text

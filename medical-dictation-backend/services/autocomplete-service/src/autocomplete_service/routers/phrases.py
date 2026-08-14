@@ -65,6 +65,11 @@ class PhraseListItemDTO(BaseModel):
     acceptance_count: int
     last_accepted_at: datetime | None
     created_at: datetime
+    # Sprint 21 corpus provenance (ADR-0043) — admin filters/columns.
+    review_state: str
+    tier: int | None
+    source_kind: str
+    corpus_release: str | None
 
 
 @router.get("/phrases", response_model=list[PhraseListItemDTO])
@@ -102,9 +107,57 @@ async def list_phrases(
             acceptance_count=int(r["acceptance_count"]),
             last_accepted_at=r["last_accepted_at"],
             created_at=r["created_at"],
+            review_state=r["review_state"],
+            tier=r["tier"],
+            source_kind=r["source_kind"],
+            corpus_release=r["corpus_release"],
         )
         for r in rows
     ]
+
+
+class RetirePhraseResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    review_state: Literal["retired"]
+    corpus_release: str | None  # non-null = the phrase shipped in a release
+
+
+@router.post("/phrases/{phrase_id}/retire", response_model=RetirePhraseResponse)
+async def retire_phrase(
+    phrase_id: UUID,
+    claims: Annotated[Claims, Depends(requires("autocomplete.write", "phrase"))],
+) -> RetirePhraseResponse:
+    """Sprint 21: retire, never delete — provenance survives, serving stops
+    (the trie feeds only review_state='accepted'). Tenant/user rows only;
+    system (released) rows are retired by the corpus operator (see
+    docs/runbooks/corpus.md), so the admin console can't silently edit the
+    global corpus."""
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        await conn.execute("SELECT set_config('app.user_id',   $1, true)", str(claims.sub))
+        await conn.execute(
+            "SELECT set_config('app.user_role', $1, true)", role_for_rls(claims)
+        )
+        row = await repo.retire_phrase(conn, phrase_id=phrase_id)
+    if row is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail="phrase not found in tenant scope, already retired, "
+            "or system-scope (operator-managed)",
+        )
+    await state.audit_writer.write_event(
+        tenant_id=claims.tid,
+        kind=audit_kinds.PHRASE_UPDATED,
+        actor_sub=claims.sub,
+        actor_role=(claims.roles[0] if claims.roles else None),
+        target_kind="phrase",
+        target_id=phrase_id,
+        payload={"action": "retire", "corpus_release": row["corpus_release"]},
+    )
+    return RetirePhraseResponse(
+        id=row["id"], review_state="retired", corpus_release=row["corpus_release"]
+    )
 
 
 async def _reject_pii(

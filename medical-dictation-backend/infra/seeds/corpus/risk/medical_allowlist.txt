@@ -1,0 +1,16 @@
+# Medical terms LanguageTool flags as misspellings but are correct clinical
+# vocabulary. Changing this file requires clinical review (plan §6) — an
+# allowlisted typo silently passes every future release.
+гіпертонічна
+кардіосклероз
+атеросклеротичний
+фібриляція
+екстрасистолія
+гіперглікемія
+гіпоглікемія
+тиреотоксикоз
+гіпотиреоз
+бісопролол
+аторвастатин
+метформін
+еналаприл

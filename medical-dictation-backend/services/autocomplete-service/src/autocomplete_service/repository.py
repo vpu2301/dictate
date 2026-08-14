@@ -36,6 +36,7 @@ async def fetch_corpus(
         FROM autocomplete_phrases
         WHERE language = $1
           AND enabled  = TRUE
+          AND review_state = 'accepted'
           AND (
               source = 'system'
               OR tenant_id = current_setting('app.tenant_id', true)::uuid
@@ -97,6 +98,24 @@ async def soft_delete_phrase(conn: asyncpg.Connection, *, phrase_id: UUID) -> bo
     return row is not None
 
 
+async def retire_phrase(
+    conn: asyncpg.Connection, *, phrase_id: UUID
+) -> asyncpg.Record | None:
+    """Sprint 21: retire replaces delete for corpus-governed rows — the row
+    (and its provenance) survives, it just stops serving (the trie predicate
+    is review_state='accepted'). RLS scopes this to tenant/user rows; system
+    (released) rows are retired by the corpus operator, not this API."""
+    return await conn.fetchrow(
+        """
+        UPDATE autocomplete_phrases
+        SET review_state = 'retired', updated_at = now()
+        WHERE id = $1 AND source <> 'system' AND review_state <> 'retired'
+        RETURNING id, corpus_release
+        """,
+        phrase_id,
+    )
+
+
 async def list_phrases(
     conn: asyncpg.Connection,
     *,
@@ -107,7 +126,8 @@ async def list_phrases(
 ) -> list[asyncpg.Record]:
     sql_parts = [
         "SELECT id, phrase, language, specialty, section_hint, source, "
-        "impression_count, acceptance_count, last_accepted_at, enabled, created_at "
+        "impression_count, acceptance_count, last_accepted_at, enabled, created_at, "
+        "review_state, tier, source_kind, corpus_release "
         "FROM autocomplete_phrases WHERE enabled = TRUE"
     ]
     args: list[Any] = []

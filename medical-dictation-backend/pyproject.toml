@@ -110,6 +110,7 @@ root_packages = [
     "generation_service",
     "clinical_access",
     "marketing_service",
+    "corpus_forge",
 ]
 
 [[tool.importlinter.contracts]]
@@ -248,6 +249,15 @@ layers = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "corpus-forge: cli → domain → adapters; reverse forbidden"
+type = "layers"
+layers = [
+    "corpus_forge.cli",
+    "corpus_forge.domain",
+    "corpus_forge.adapters",
+]
+
+[[tool.importlinter.contracts]]
 name = "notification_events is a leaf — pure Pydantic types"
 type = "forbidden"
 source_modules = ["notification_events"]
@@ -342,6 +352,7 @@ modules = [
     "core_service",
     "notification_service",
     "marketing_service",
+    "corpus_forge",
 ]
 ignore_imports = [
     "dictation_service.main_deps -> asr_worker.inference",

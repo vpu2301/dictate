@@ -1,0 +1,10 @@
+# Phrase-ification templates: plan section, Ukrainian — drug/therapy terms
+# (ДРЛЗ, formulary). Dose stays inside {term}; templates never invent numbers.
+language: uk
+section: plan
+templates:
+  - "{term}"
+  - "призначено {term}"
+  - "рекомендовано {term}"
+  - "продовжити прийом {term}"
+  - "розпочати терапію {term}"
