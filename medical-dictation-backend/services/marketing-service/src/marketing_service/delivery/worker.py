@@ -23,13 +23,13 @@ from typing import Any
 import asyncpg
 
 from .. import metrics
+from ..adapters import mail_images
 from ..adapters.email import (
     EmailDeliveryError,
     EmailPermanentError,
     EmailProvider,
     OutboundEmail,
 )
-from ..adapters import mail_images
 from ..adapters.templates import render
 from ..config import settings
 from ..domain import compose, copy

@@ -1,0 +1,7 @@
+language: uk
+section: investigations
+templates:
+  - "призначено {term}"
+  - "виконано {term}"
+  - "рекомендовано {term} в динаміці"
+  - "контроль {term}"

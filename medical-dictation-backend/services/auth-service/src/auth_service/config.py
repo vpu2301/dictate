@@ -168,6 +168,12 @@ class Settings(BaseSettings):
         default=1200, alias="MDX_REVOKED_SUB_TTL_SECONDS"
     )
 
+    # ── Notification bus (S21 — the MFA reminder producer) ─────────────
+    # Same kill switch and same env name as every other producer in the
+    # estate (ADR-0029). Off ⇒ the reminder is still RECORDED and still
+    # renders as a banner; only the bell/email half goes quiet.
+    notifications_enabled: bool = Field(default=True, alias="MDX_NOTIFICATIONS_ENABLED")
+
     # ── demo mode (sprint 07 HF Space) ─────────────────────────────────
     # When MDX_DEMO_MODE=true the DemoRateLimitMiddleware enforces per-IP/
     # per-user caps on session endpoints. Off everywhere but the public demo.

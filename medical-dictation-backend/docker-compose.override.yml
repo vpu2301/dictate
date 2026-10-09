@@ -23,7 +23,7 @@
 #   generation-service    :8009   (S15 Layer C inline completion)
 #   marketing-service     :8012   (public demo booking funnel — no auth;
 #                                  8010/8011/8013-8015 belong to evidence-backend)
-#   llama-server          :8089   (S15 inference backend — mounts the
+#   llama-server          :8090   (S15 inference backend — mounts the
 #                                  host's `ollama pull gemma3:1b` blob)
 #   asr-worker            (no port — Redis-stream consumer)
 #
@@ -201,6 +201,31 @@ services:
       # be overridden in staging/prod.
       MDX_PASSWORD_RESET_IP_HASH_SALT: "${MDX_PASSWORD_RESET_IP_HASH_SALT:-dev-ip-hash-salt-change-in-prod}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      # ── Notification producer (S21 — the MFA reminder) ───────────
+      # auth-service publishes `security.mfa_reminder` onto the same
+      # Redis stream every other producer uses. Off means the reminder
+      # is still recorded and still banners in the SPA; only the bell
+      # and the mail go quiet. Same env name across the estate.
+      MDX_NOTIFICATIONS_ENABLED: "${MDX_NOTIFICATIONS_ENABLED:-true}"
+      # ── MFA (ADR-0039) ───────────────────────────────────────────
+      # The enrolment SURFACE is on in the dev stack so `#/mfa` works
+      # (without this the SPA's "start enrolment" POST 403s with
+      # "not enabled on this deployment" and the page shows the
+      # "this clinic has not switched MFA on" banner). ENFORCEMENT
+      # stays off — enrolment is per-user opt-in here, and a user who
+      # enrols is asked for their TOTP code at login regardless
+      # (login.py enforces on enrolment, not on the flag).
+      MDX_MFA_ENROLMENT_ENABLED: "${MDX_MFA_ENROLMENT_ENABLED:-true}"
+      MDX_REQUIRE_MFA: "${MDX_REQUIRE_MFA:-false}"
+      MDX_MFA_TOTP_ISSUER: "${MDX_MFA_TOTP_ISSUER:-Klarnote (dev)}"
+      # Enrolment stores the TOTP secret envelope-encrypted (AAD =
+      # tenant‖sub‖purpose), so auth-service needs the master key and
+      # the crypto_writer pool — lazily built on the first MFA call,
+      # 503 "MFA secret store unavailable" without them.
+      DB_CRYPTO_WRITER_DSN: postgresql://crypto_writer:crypto_writer@postgres:5432/medical_dictation
+      MDX_MASTER_KEY_PATH: /etc/mdx/master.key
+    volumes:
+      - ./infra/dev/master.key:/etc/mdx/master.key:ro
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck: *svc-healthcheck
@@ -210,6 +235,12 @@ services:
       keycloak:
         condition: service_healthy
       mailpit:
+        condition: service_healthy
+      # Both Redis users here are fail-open (the reset limiter and the
+      # S21 notification publisher), so this is about a clean start
+      # rather than correctness — without it the first requests after a
+      # cold `up` log a connection failure and quietly degrade.
+      redis:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
@@ -489,6 +520,12 @@ services:
     environment:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
       REDIS_URL: redis://redis:6379/0
+      # WER eval scoring transcribes through the ordinary batch path
+      # (migration 0091) with the caller's own bearer forwarded — no
+      # service credential. Without asr-service reachable, recording,
+      # authoring and publishing still work; only scoring reports
+      # 'asr_unreachable'.
+      ASR_SERVICE_BASE_URL: http://asr-service:8000
     ports:
       - "127.0.0.1:8007:8000"
     healthcheck: *svc-healthcheck
@@ -526,7 +563,7 @@ services:
     volumes:
       - ~/.ollama/models/blobs/sha256-7cd4618c1faf8b7233c6c906dac1694b6a47684b37b8895d470ac688520b9c01:/models/gemma3-1b.gguf:ro
     ports:
-      - "127.0.0.1:8089:8080"
+      - "127.0.0.1:8090:8080"
 
   # ── generation-service — Layer C inline completion (S15) ──────────
   generation-service:

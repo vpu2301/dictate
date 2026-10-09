@@ -214,12 +214,25 @@ async def verify(
     except KeycloakError as exc:
         raise HTTPException(status_code=503, detail="identity provider error") from exc
 
-    # Keep the roster's mfa_enrolled_at column in step (admin listing).
+    # Keep the roster's mfa_enrolled_at column in step (admin listing), and
+    # close any standing access-review reminder in the SAME transaction.
+    #
+    # This is the only way an `mfa_reminders` row is ever closed — there is
+    # no dismiss button anywhere in the product. Enrolling is what makes the
+    # banner go away, which is the entire design of the reminder.
     try:
-        async with tenant_connection(state.tenant_writer_pool, claims.tid) as conn:
+        async with (
+            tenant_connection(state.tenant_writer_pool, claims.tid) as conn,
+            conn.transaction(),
+        ):
             await conn.execute(
                 "UPDATE users SET mfa_enrolled_at = now(), updated_at = now() "
                 "WHERE sub = $1",
+                claims.sub,
+            )
+            await conn.execute(
+                "UPDATE mfa_reminders SET resolved_at = now() "
+                "WHERE subject_sub = $1 AND resolved_at IS NULL",
                 claims.sub,
             )
     except Exception as db_exc:  # noqa: BLE001 — KC is the source of truth here
@@ -274,6 +287,12 @@ async def reset(
     except KeycloakError as exc:
         raise HTTPException(status_code=503, detail="identity provider error") from exc
 
+    # A resolved `mfa_reminders` row is deliberately left resolved here. A
+    # reset is the lost-phone path — the user is mid-recovery and the grace
+    # flow already walks them into enrolment — so silently reopening an old
+    # finding would put a scolding banner in front of someone who is doing
+    # the right thing. If they still have not enrolled by the next review, a
+    # reviewer raises it again and the upsert reopens the same row.
     try:
         async with tenant_connection(state.tenant_writer_pool, claims.tid) as conn:
             await conn.execute(

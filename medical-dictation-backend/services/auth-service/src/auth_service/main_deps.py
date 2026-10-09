@@ -43,6 +43,17 @@ class ServiceState:
     email_provider: EmailProvider | None = None
     password_rate_limiter: PasswordResetRateLimiter | None = None
     _redis: Any = None
+
+    @property
+    def notification_bus(self) -> Any:
+        """The Redis client S21's notification producer publishes on.
+
+        None when notifications are off or the client failed to build —
+        `emit_mfa_reminder` treats that as "don't publish", which is the
+        correct posture: the reminder's durable half is the DB row.
+        """
+        return self._redis if settings.notifications_enabled else None
+
     # ── Sprint 16 MFA: lazy envelope wiring ──────────────────────────────
     # The TOTP secret store needs libs/crypto, which needs the master key
     # and the crypto_writer pool. Built on FIRST use so an auth-service
@@ -128,7 +139,23 @@ async def build_state() -> ServiceState:
     # cannot trip the MockProvider production guard at startup.
     email_provider: EmailProvider | None = None
     password_rate_limiter: PasswordResetRateLimiter | None = None
+
+    # One connection for both Redis users in this service — the recovery
+    # rate limiter and (S21) the notification publisher. Built when EITHER
+    # is on: a deployment that mails no password resets but does remind
+    # users about MFA still needs a bus, and two clients to one server
+    # would be two connection pools for no reason. (The revocation
+    # denylist keeps its own client: it is built by libs/auth behind
+    # `build_session_denylist` and has its own failure posture.)
     redis_client: Any = None
+    if settings.password_reset_enabled or settings.notifications_enabled:
+        try:
+            import redis.asyncio as aioredis
+
+            redis_client = aioredis.from_url(settings.redis_url, decode_responses=False)
+        except Exception:  # noqa: BLE001 — both users are fail-open
+            logging.getLogger(__name__).warning("auth.redis_unavailable_fail_open")
+
     if settings.password_reset_enabled:
         email_provider = build_provider(
             kind=settings.email_provider,
@@ -142,11 +169,8 @@ async def build_state() -> ServiceState:
             password=settings.auth_smtp_password.value(),
         )
         try:
-            import redis.asyncio as aioredis
-
-            redis_client = aioredis.from_url(
-                settings.redis_url, decode_responses=False
-            )
+            if redis_client is None:
+                raise RuntimeError("no redis client")
             password_rate_limiter = PasswordResetRateLimiter(
                 redis_client,
                 ip_per_hour=settings.password_reset_ip_per_hour,

@@ -18,6 +18,11 @@ dev = [
     # Linux/CI resolution and the production images are unchanged.
     "silero-vad>=6.0.0 ; sys_platform == 'darwin'",
     "speechbrain>=1.0.0 ; sys_platform == 'darwin'",
+    # scripts/eval/wer_lib.py imports autocomplete_service.eval_normalize
+    # directly rather than keeping a second copy of the rules to drift
+    # against, and those rules are YAML (corpus-v3 Epic A). Declared here so
+    # `make wer-eval-corpus` does not depend on a transitive pyyaml.
+    "pyyaml>=6.0",
 ]
 
 
@@ -69,6 +74,7 @@ known-first-party = [
     "template_models",
     "report_models",
     "notification_events",
+    "corpus_risk",
 ]
 
 [tool.mypy]
@@ -110,6 +116,7 @@ root_packages = [
     "generation_service",
     "clinical_access",
     "marketing_service",
+    "corpus_forge",
 ]
 
 [[tool.importlinter.contracts]]
@@ -248,6 +255,15 @@ layers = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "corpus-forge: cli → domain → adapters; reverse forbidden"
+type = "layers"
+layers = [
+    "corpus_forge.cli",
+    "corpus_forge.domain",
+    "corpus_forge.adapters",
+]
+
+[[tool.importlinter.contracts]]
 name = "notification_events is a leaf — pure Pydantic types"
 type = "forbidden"
 source_modules = ["notification_events"]
@@ -287,6 +303,7 @@ forbidden_modules = [
     "observability", "secret", "auth", "db", "audit", "messaging",
     "crypto", "storage", "asr_models", "template_models", "report_models",
     "notification_events",
+    "corpus_risk",
 ]
 
 [[tool.importlinter.contracts]]
@@ -342,6 +359,7 @@ modules = [
     "core_service",
     "notification_service",
     "marketing_service",
+    "corpus_forge",
 ]
 ignore_imports = [
     "dictation_service.main_deps -> asr_worker.inference",

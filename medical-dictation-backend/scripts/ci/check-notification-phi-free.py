@@ -36,7 +36,11 @@ from uuid import uuid4  # noqa: E402
 from notification_events import Category, NotificationEvent  # noqa: E402
 from notification_service.adapters.templates import render_email  # noqa: E402
 from notification_service.domain.catalog import CATALOG, emailing_categories  # noqa: E402
-from notification_service.domain.render import deep_link, safe_payload  # noqa: E402
+from notification_service.domain.render import (  # noqa: E402
+    ALLOWED_PAYLOAD_KEYS,
+    deep_link,
+    safe_payload,
+)
 
 # Tokens that must NEVER reach a rendered email. Deliberately realistic:
 # a Cyrillic surname, a 10-digit ІПН, a Ukrainian diagnosis string, an
@@ -146,12 +150,26 @@ def main() -> int:
                     f"{category}: unrendered Jinja placeholder in {surface_name}"
                 )
 
-        # The report code is the whole point of the mail — a template
-        # that lost it is broken even though it leaks nothing.
-        if "RPT-2026-0042" not in rendered.subject + rendered.text_body:
+        # Actionability, checked against what this category is ABOUT.
+        #
+        # For a mail about a report, the code is the whole point: a
+        # template that lost it is broken even though it leaks nothing.
+        # For one that carries no resource pointer at all — S21's
+        # `security.mfa_reminder` is about the recipient's own account,
+        # and its allow-list is deliberately two non-identifying keys —
+        # the equivalent is the link: a security ask with nothing to
+        # click is a mail that cannot be acted on.
+        body = rendered.subject + rendered.text_body
+        if "report_code" in ALLOWED_PAYLOAD_KEYS.get(category, frozenset()):
+            if "RPT-2026-0042" not in body:
+                failures.append(
+                    f"{category}: report_code missing from the rendered mail — "
+                    "the pointer is what makes the notification actionable"
+                )
+        elif link not in rendered.text_body + rendered.html_body:
             failures.append(
-                f"{category}: report_code missing from the rendered mail — "
-                "the pointer is what makes the notification actionable"
+                f"{category}: neither a resource pointer nor the deep link "
+                "survived into the mail — nothing about it is actionable"
             )
 
     if failures:

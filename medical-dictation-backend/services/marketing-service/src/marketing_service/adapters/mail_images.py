@@ -18,10 +18,10 @@ is I/O in the middle of a transaction that holds an outbox row.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 import struct
+from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
 
 IMAGE_DIR = Path(__file__).parent / "mail_images"
 
@@ -76,12 +76,12 @@ def _load(name: str, cid: str) -> MailImage | None:
     )
 
 
-@lru_cache(maxsize=None)
+@cache
 def wordmark() -> MailImage | None:
     return _load("wordmark.png", WORDMARK_CID)
 
 
-@lru_cache(maxsize=None)
+@cache
 def headline(kind: str, lang: str) -> MailImage | None:
     """The hero for one letter in one language, or None if none was generated.
 

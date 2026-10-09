@@ -41,3 +41,7 @@ secrets/
 # Note: uv.lock IS committed (deterministic dependency resolution).
 # Only the build-time virtualenv is ignored; that's covered by `.venv/` above.
 infra/edge/certs/
+
+# Sprint 21: terminology source snapshots are fetched, never committed —
+# provenance lives in infra/seeds/corpus/sources.lock (committed).
+infra/seeds/corpus/sources/

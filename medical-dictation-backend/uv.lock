@@ -19,6 +19,8 @@ members = [
     "autocomplete-service",
     "clinical-access",
     "core-service",
+    "corpus-forge",
+    "corpus-risk",
     "crypto",
     "db",
     "demo",
@@ -43,6 +45,7 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "faster-whisper", marker = "sys_platform == 'darwin'", specifier = ">=1.0.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "silero-vad", marker = "sys_platform == 'darwin'", specifier = ">=6.0.0" },
     { name = "speechbrain", marker = "sys_platform == 'darwin'", specifier = ">=1.0.0" },
 ]
@@ -613,6 +616,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "jinja2" },
+    { name = "notification-events" },
     { name = "observability" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-sdk" },
@@ -647,6 +651,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
+    { name = "notification-events", editable = "libs/notification_events" },
     { name = "observability", editable = "libs/observability" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.45b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.24.0" },
@@ -671,9 +676,11 @@ dependencies = [
     { name = "asyncpg" },
     { name = "audit" },
     { name = "auth" },
+    { name = "corpus-risk" },
     { name = "crypto" },
     { name = "db" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "marisa-trie" },
     { name = "observability" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -681,6 +688,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-json-logger" },
+    { name = "pyyaml" },
     { name = "rapidfuzz" },
     { name = "redis" },
     { name = "secret" },
@@ -698,16 +706,21 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
+pdf = [
+    { name = "weasyprint" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "audit", editable = "libs/audit" },
     { name = "auth", editable = "libs/auth" },
+    { name = "corpus-risk", editable = "libs/corpus_risk" },
     { name = "crypto", editable = "libs/crypto" },
     { name = "db", editable = "libs/db" },
     { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.23" },
     { name = "fastapi", specifier = ">=0.111.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.103" },
     { name = "marisa-trie", specifier = ">=1.1.0" },
@@ -720,14 +733,16 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
     { name = "python-json-logger", specifier = ">=2.0.7" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "rapidfuzz", specifier = ">=3.6" },
     { name = "redis", specifier = ">=5.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "secret", editable = "libs/secret" },
     { name = "storage", editable = "libs/storage" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29.0" },
+    { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=62.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["pdf", "dev"]
 
 [[package]]
 name = "av"
@@ -1094,6 +1109,72 @@ requires-dist = [
     { name = "secret", editable = "libs/secret" },
     { name = "storage", editable = "libs/storage" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "corpus-forge"
+version = "0.1.0"
+source = { editable = "services/corpus-forge" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "audit" },
+    { name = "corpus-risk" },
+    { name = "db" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pyyaml" },
+    { name = "rapidfuzz" },
+    { name = "secret" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.29.0" },
+    { name = "audit", editable = "libs/audit" },
+    { name = "corpus-risk", editable = "libs/corpus_risk" },
+    { name = "db", editable = "libs/db" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
+    { name = "pydantic", specifier = ">=2.7.0" },
+    { name = "pydantic-settings", specifier = ">=2.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "rapidfuzz", specifier = ">=3.6.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
+    { name = "secret", editable = "libs/secret" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "corpus-risk"
+version = "0.1.0"
+source = { editable = "libs/corpus_risk" }
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
 ]
 provides-extras = ["dev"]
 
@@ -4738,6 +4819,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e4/51/9aed62104cea109b820bbd6c14245af756112017d309da813ef107d42e7e/typer-0.25.1.tar.gz", hash = "sha256:9616eb8853a09ffeabab1698952f33c6f29ffdbceb4eaeecf571880e8d7664cc", size = 122276, upload-time = "2026-04-30T19:32:16.964Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/f9/2b3ff4e56e5fa7debfaf9eb135d0da96f3e9a1d5b27222223c7296336e5f/typer-0.25.1-py3-none-any.whl", hash = "sha256:75caa44ed46a03fb2dab8808753ffacdbfea88495e74c85a28c5eefcf5f39c89", size = 58409, upload-time = "2026-04-30T19:32:18.271Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20260724"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/6f/a28f44bcd56bebed42b028a2894c79853e2f5e6b5279e633cb3f287a05e7/types_pyyaml-6.0.12.20260724.tar.gz", hash = "sha256:3c1ce1bb73cd5ec02e90390c2b1f00e810d241d8825fd73ff359696839271b6b", size = 17893, upload-time = "2026-07-24T04:58:43.453Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/42/0337fefc615e20ee55d1c8f71b774a9b2b734a04669139c20753b27a2a3a/types_pyyaml-6.0.12.20260724-py3-none-any.whl", hash = "sha256:d57db930a4b2efbc57cf430ec8882765d246929432fa253092f383902329a453", size = 20312, upload-time = "2026-07-24T04:58:42.486Z" },
 ]
 
 [[package]]

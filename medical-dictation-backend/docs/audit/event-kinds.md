@@ -22,7 +22,8 @@ typos at import.
 | `user.reactivated`                | sec      | auth-service /admin/users/{sub}/reactivate | Deactivated user re-enabled; status flipped back to active |
 | `user.role_changed`               | sec      | auth-service PUT /admin/users/{sub}/roles | Realm roles changed by tenant_admin. Payload carries old_roles → new_roles. |
 | `user.reset_mfa`                  | sec      | auth-service DELETE /auth/mfa/{sub} | S16 — MFA enrolment cleared by admin (secret attributes wiped, sessions revoked). Payload: sessions_revoked. |
-| `auth.mfa.enrolled`               | info     | auth-service POST /auth/mfa/verify | S16 — TOTP enrolment completed (first valid code). |
+| `user.mfa_reminded`               | sec      | auth-service POST /admin/users/{sub}/mfa-reminder | S21 — an access review asked a user to enrol MFA. The only write an `auditor` can make; it changes nothing about the account. Payload: reminder_count, first_reminded_at. Pairs with `auth.mfa.enrolled` to answer "how long did this account sit unprotected after we noticed". |
+| `auth.mfa.enrolled`               | info     | auth-service POST /auth/mfa/verify | S16 — TOTP enrolment completed (first valid code). Resolves any open `mfa_reminders` row. |
 | `auth.session.revoked`            | info/sec | auth-service logout / replay / deactivate / POST /auth/sessions/revoke-all | S16 — sid or sub pushed onto the revocation denylist (ADR-0040). Payload: reason (+ sid for logout). sec on refresh_replay / user.deactivated, info on plain logout. The self-service "sign out everywhere" in settings emits it with `scope=all, initiated_by=self`. |
 | `auth.password.reset_requested`   | sec      | auth-service POST /auth/password/forgot | Password-reset link minted and queued. Payload: ip_hash (salted). **Emitted only for an address that resolves to an active account** — writing one for an unknown address would rebuild the enumeration oracle the endpoint's uniform 202 exists to prevent. |
 | `auth.password.reset_completed`   | sec      | auth-service POST /auth/password/reset | A mailed token was redeemed and the password replaced. Every session revoked and all other outstanding tokens spent. Payload: ip_hash. |
@@ -307,3 +308,47 @@ Two payload decisions worth knowing:
 The question/answer *content* is in `questions`/`answers` under user-private
 RLS and, for the envelope, inside an `EncryptedObjectStore` object — not in
 the audit chain.
+
+## Sprint 21 — clinical corpus pipeline (`corpus-forge`)
+
+Constants: `services/corpus-forge/src/corpus_forge/audit_kinds.py`.
+All corpus events are fleet-level operator actions and are written under
+the **reserved global tenant** (nil UUID, migration 0068) via
+`MDX_CORPUS_AUDIT_DSN`; in dev, with the DSN unset, they are logged but
+not chained (the CLI warns).
+
+| kind | severity | emitter | meaning |
+|---|---|---|---|
+| `corpus.mining_run` | info | `corpus-forge mine` | one mining execution; payload: `run_id`, `query_sha256` (must equal the DPO-signed value in docs/signoffs/sprint-21-dpo.md), gram/insert/drop counts, k-anonymity parameters |
+| `corpus.candidate_generated` | info | `corpus-forge import` / `generate` | a batch of candidates entered staging; payload: source/batch id, counts incl. `dropped_malformed` (generation is dropped-not-repaired) |
+| `corpus.candidate_reviewed` | info | `corpus-forge review` / autocomplete-service `POST /corpus/candidates/{id}/review` | one human decision; payload: `candidate_id`, `decision`, `mode` (`review` or spot-`audit`), `latency_ms` (the 15 s/decision instrument). The HTTP path writes under the reviewer's tenant chain; the CLI under the global tenant. |
+| `corpus.auto_accepted` | info | `corpus-forge jury` | a machine acceptance; payload: `candidate_id`, `engine` (`jury:<model>:<prompt_version>`), `tier` — auto-accept exists only after the calibration gate |
+| `corpus.jury_disagreement` | info | `corpus-forge jury` | non-unanimous jury vote; the stream that tells us whether the jury is coherent |
+| `corpus.release_published` | info | `corpus-forge release` | immutable release registered; payload: `version`, `phrase_count`, `manifest_sha256` |
+| `corpus.candidate_submitted` | info | autocomplete-service `POST /corpus/candidates` | a console-authored (typed or dictated) phrase entered the review queue as a global candidate; payload: `candidate_id`, `language`, `capture` (`typed`/`dictated`), `text_length` — written under the submitter's tenant chain |
+| `corpus.candidates_promoted` | info | autocomplete-service `POST /corpus/promote` | accepted global candidates published into the serving corpus (system-scope phrases); payload: `promoted`, `inserted`, `requested_ids` (count or null for promote-all) — release manifests remain a `corpus-forge release` operator action |
+| `corpus.eval_take_saved` | info | autocomplete-service `PUT /corpus/eval/takes/{script_id}` | a WER eval recorder take stored or replaced server-side (migration 0089); payload: `script_id`, `condition`, `duration_ms`, `size_bytes` — never audio, never text |
+| `corpus.eval_take_deleted` | info | autocomplete-service `DELETE /corpus/eval/takes/{script_id}` | a stored eval take removed; payload: `script_id` |
+| `corpus.eval_exported` | info | autocomplete-service `GET /corpus/eval/export` | the tenant's eval takes downloaded as one `eval/corpus/v1/`-shaped archive (the repo-commit hand-off); payload: `utterances` (count), `snapshot_version` (null for the live set) |
+| `corpus.eval_line_added` | info | autocomplete-service `POST /corpus/eval/script` | a recording line authored in the console (migration 0091); payload: `script_id`, `language`, `specialty`, `subset`, `source` — the line's text is not in the payload |
+| `corpus.eval_line_updated` | info | autocomplete-service `PATCH /corpus/eval/script/{script_id}` | an authored line edited; payload: `script_id`, `subset`. Vendored lines are refused (409) and never appear here |
+| `corpus.eval_line_deleted` | info | autocomplete-service `DELETE /corpus/eval/script/{script_id}` | an authored line and its take removed; payload: `script_id` |
+| `corpus.eval_adhoc_captured` | info | autocomplete-service `POST /corpus/eval/adhoc` | audio recorded before its text existed, with the gold text written down afterwards; payload: `script_id`, `language`, `specialty`, `subset`, `duration_ms`, `no_patient_data_attested`. **The attestation is why this kind is separate**: it is the only control over patient names on the one path the scripted-only invariant cannot cover, so it needs a named actor and a chained record, not a boolean inside a generic event |
+| `corpus.eval_published` | info | autocomplete-service `POST /corpus/eval/publish` | the current takes frozen as an immutable numbered snapshot after a PII sweep of the whole set; payload: `version`, `utterances`, `manifest_sha256` |
+| `corpus.eval_imported` | info | autocomplete-service `POST /corpus/eval/import` | replicas bulk-authored from a §6 CSV (migration 0092); payload: `filename`, `file_sha256`, `dry_run`, `rows_total`, `rows_added`, `rows_skipped`, `rows_rejected`, `allow_test` — never a row's text. **Dry runs are audited too**: "we previewed importing 86 lines into the holdout and did not commit" is precisely the event worth having when the test set later looks larger than it should, and `allow_test` records who authorised writing into the frozen set |
+| `corpus.eval_gold_revised` | info / **warn** | autocomplete-service `POST /corpus/eval/gold-lint/apply` | gold transcripts rewritten into the spoken form the style guide requires (corpus-v3 Epic B, migration 0093); payload: `applied` (count), `script_ids` (first 50), `confirm_test_set`, `measurement_changed`, `normalizer_version` — never the text, which lives in `corpus_eval_gold_revisions` with both sides of the change. **Severity is `warn` when `measurement_changed > 0`**: most revisions only change how a reference is written and the normalised score does not move, but some change what the subset measures (rewriting the abbreviation gold `АТ` as the spoken `А Те` turns "does the pipeline expand it" into "does the ASR hear it"), and that is a change to the measurement itself. `confirm_test_set` records who authorised editing the frozen holdout |
+| `corpus.eval_take_flagged` | info | autocomplete-service `POST /corpus/eval/takes/{script_id}/flag` | a stored take was marked unusable, or the mark was lifted (corpus-v3 Epic E, migration 0096); payload: `script_id`, `condition`, `flagged`. **The only retake signal that is a human judgement** — silence, hallucination and condition mismatch are all derived from dated evidence and clear themselves when the line is re-recorded, so they need no event; "I listened to this and it is unusable" is not derivable from anything and needs a named actor |
+| `corpus.speaker_consent_granted` | info | autocomplete-service `POST /compliance/consents` | a speaker consented to their voice being part of the measurement corpus (corpus-v3 Epic F, migration 0097); payload: `speaker_id`, `scope` |
+| `corpus.speaker_consent_revoked` | **warn** | autocomplete-service `DELETE /compliance/consents/{speaker_id}` | a speaker withdrew that consent; payload: `speaker_id`, `scope`. **`warn` because it changes what may be measured**: the speaker's takes stop entering NEW snapshots from this moment. Published snapshots are unchanged — the basis that existed when they were frozen is not unmade by a later withdrawal — and no audio is deleted here; erasure is the separate act in the privacy runbook |
+| `corpus.data_register_exported` | info | autocomplete-service `GET /compliance/data-register/export.pdf` | the data register was exported for an auditor; payload: `datasets`, `consents`, `format`. Only the PDF export is audited: the JSON and HTML views are ordinary reads of the same console page, while a file leaving the building is the event worth being able to point at |
+| `corpus.eval_run_started` | info | autocomplete-service `POST /corpus/eval/runs` | a WER scoring run opened over one SET of a snapshot; payload: `snapshot_version`, `utterances`, `dataset` (`dev`/`test`), `normalizer_version`, `corpus_sha256`. The last three are the reproducibility record (corpus-v2 §1.3.5): a stored WER whose normalisation rules and corpus digest are unknown cannot be compared with any other WER |
+| `corpus.eval_run_completed` | info | autocomplete-service `POST /corpus/eval/runs/{id}/advance` (the tick that closes the run) | scoring finished; payload: `status` (`complete`/`failed`), `model`, `utterances_scored`, `wer`, `cer`. The model is in the payload because a WER without its engine is not a measurement — a laptop's `tiny` and the rig's `large-v3` produce numbers that must never be compared |
+
+A PII finding on any of the authoring paths writes
+`autocomplete.phrase.write_rejected_pii` (severity `sec`) with the pattern
+classes and text lengths — never the matched text.
+
+The candidate *text* is deliberately not in `corpus.candidate_*` payloads:
+mined candidates are PHI-derived until reviewed, and audit payloads are
+widely readable. The row in `corpus_candidates` (RLS) is the record; the
+audit event is the accounting.

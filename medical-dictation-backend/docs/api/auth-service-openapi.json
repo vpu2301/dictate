@@ -408,6 +408,36 @@
         "title": "MemberRoleUpdate",
         "type": "object"
       },
+      "MfaReminderResponse": {
+        "properties": {
+          "first_reminded_at": {
+            "format": "date-time",
+            "title": "First Reminded At",
+            "type": "string"
+          },
+          "last_reminded_at": {
+            "format": "date-time",
+            "title": "Last Reminded At",
+            "type": "string"
+          },
+          "reminder_count": {
+            "title": "Reminder Count",
+            "type": "integer"
+          },
+          "sub": {
+            "title": "Sub",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sub",
+          "first_reminded_at",
+          "last_reminded_at",
+          "reminder_count"
+        ],
+        "title": "MfaReminderResponse",
+        "type": "object"
+      },
       "PasswordEvent": {
         "additionalProperties": false,
         "properties": {
@@ -1264,6 +1294,23 @@
             ],
             "title": "Mfa Enrolled At"
           },
+          "mfa_reminded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Reminded At"
+          },
+          "mfa_reminder_count": {
+            "default": 0,
+            "title": "Mfa Reminder Count",
+            "type": "integer"
+          },
           "role": {
             "title": "Role",
             "type": "string"
@@ -1308,6 +1355,35 @@
           "email": {
             "title": "Email",
             "type": "string"
+          },
+          "mfa_enrolled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Enrolled At"
+          },
+          "mfa_reminded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Reminded At"
+          },
+          "mfa_reminder_count": {
+            "default": 0,
+            "title": "Mfa Reminder Count",
+            "type": "integer"
           },
           "role": {
             "title": "Role",
@@ -1666,6 +1742,65 @@
           }
         },
         "summary": "Soft-deactivate a user and revoke their sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/users/{sub}/mfa-reminder": {
+      "post": {
+        "operationId": "remind_mfa_admin_users__sub__mfa_reminder_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sub",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaReminderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask a user to enrol MFA; the request stands until they do",
         "tags": [
           "admin"
         ]

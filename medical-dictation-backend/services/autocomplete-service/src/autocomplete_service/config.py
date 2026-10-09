@@ -79,6 +79,26 @@ class Settings(BaseSettings):
     suggest_max_limit: int = Field(default=10, alias="MDX_SUGGEST_MAX_LIMIT")
 
     phrase_max_creates_per_hour: int = Field(default=100, alias="MDX_PHRASE_MAX_PER_HOUR")
+
+    # ── eval scoring (migration 0091) ───────────────────────────────────
+    # Where the WER runner sends eval audio. It is asr-service's ordinary
+    # batch path with the caller's own bearer forwarded — same model, same
+    # prompts, same NLP pass a clinician's dictation gets, because a WER
+    # measured against a different pipeline measures a different product.
+    asr_service_base_url: str = Field(
+        default="http://asr-service:8000", alias="ASR_SERVICE_BASE_URL"
+    )
+    asr_request_timeout_seconds: float = Field(
+        default=20.0, alias="MDX_EVAL_ASR_TIMEOUT_S"
+    )
+    # How many eval utterances may sit in asr-service at once. Kept below
+    # the per-tenant concurrent-job cap so an eval run cannot monopolise the
+    # queue a clinician's real dictation is waiting in.
+    eval_max_in_flight: int = Field(default=2, alias="MDX_EVAL_MAX_IN_FLIGHT")
+    # A claimed utterance whose submit never landed (closed tab mid-upload)
+    # goes back in the queue after this long. Only ever claims with no job
+    # id — real transcription is never interrupted, however slow the rig.
+    eval_claim_stale_seconds: int = Field(default=120, alias="MDX_EVAL_CLAIM_STALE_S")
     telemetry_flush_interval_s: float = Field(default=5.0, alias="MDX_TELEMETRY_FLUSH_S")
     telemetry_flush_batch: int = Field(default=100, alias="MDX_TELEMETRY_FLUSH_BATCH")
 

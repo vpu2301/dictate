@@ -56,7 +56,20 @@ ALLOWED_PAYLOAD_KEYS: Final[dict[Category, frozenset[str]]] = {
     Category.PHI_ACCESS_GRANTED: frozenset(
         {"report_code", "reason_code", "requested_by_display", "expires_at"}
     ),
+    # No patient ever appears in this one — it is about the recipient's own
+    # account. `requested_by_role` is the closed vocabulary from the
+    # mfa_reminders CHECK (tenant_admin | auditor), not a name: who filed
+    # an access-review finding is between the reviewer and the audit log,
+    # and naming them turns a security ask into an interpersonal one.
+    # `reminder_count` is admitted so a second ask reads as a second ask.
+    Category.SECURITY_MFA_REMINDER: frozenset({"requested_by_role", "reminder_count"}),
     Category.SYSTEM_DIGEST: frozenset({"count", "period"}),
+}
+
+# Ukrainian labels for the reminder's requester vocabulary.
+_REMINDER_ROLE_LABELS_UK: Final[dict[str, str]] = {
+    "tenant_admin": "Адміністратор клініки",
+    "auditor": "Аудитор",
 }
 
 # Ukrainian labels for the break-glass reason vocabulary. A raw
@@ -131,6 +144,8 @@ def render_title(event: NotificationEvent) -> str:
             return "Не вдалося розшифрувати аудіо"
         case Category.PHI_ACCESS_GRANTED:
             return f"Адміністратор відкрив звіт {code}"
+        case Category.SECURITY_MFA_REMINDER:
+            return "Увімкніть двофакторну автентифікацію"
         case Category.SYSTEM_DIGEST:
             return f"Ваші сповіщення: {fields.get('count', '0')}"
     # Unreachable: spec_for() has already rejected unknown categories.
@@ -183,6 +198,18 @@ def render_body(event: NotificationEvent) -> str:
                 f"{who} отримав(-ла) тимчасовий доступ до звіту {code}. "
                 f"Підстава: {reason}.{suffix}"
             )
+        case Category.SECURITY_MFA_REMINDER:
+            raw_role = fields.get("requested_by_role", "")
+            who = _REMINDER_ROLE_LABELS_UK.get(raw_role, "Служба безпеки клініки")
+            try:
+                again = int(fields.get("reminder_count", "1")) > 1
+            except (TypeError, ValueError):
+                again = False
+            prefix = f"{who} повторно просить" if again else f"{who} просить"
+            return (
+                f"{prefix} вас увімкнути двофакторну автентифікацію (TOTP) "
+                "для вашого облікового запису. Це займає близько хвилини."
+            )
         case Category.SYSTEM_DIGEST:
             return f"Підсумок за {fields.get('period', 'день')}."
     raise KeyError(event.category)
@@ -222,4 +249,10 @@ def notification_deep_link(resource_type: str, resource_id: UUID, *, base_url: s
         return f"{base}/dictations/{resource_id}"
     if resource_type == "transcription_job":
         return f"{base}/asr/jobs/{resource_id}"
+    # The MFA reminder's resource is the USER — and the only useful place to
+    # send them is enrolment, not a profile page. `{sub}` is deliberately not
+    # in the path: the SPA enrols whoever is signed in, and a link carrying
+    # somebody's id would be a link that looks actionable by anyone.
+    if resource_type == "user":
+        return f"{base}/mfa"
     return base

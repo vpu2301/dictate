@@ -369,8 +369,9 @@ def test_the_image_and_the_text_carry_the_same_words(kind: str, lang: str) -> No
 
 
 def test_the_alt_filter_keeps_the_words_and_drops_the_markup() -> None:
-    from marketing_service.adapters.templates import alt_text
     from markupsafe import Markup
+
+    from marketing_service.adapters.templates import alt_text
 
     assert alt_text(Markup("Thank you —<br />your message")) == "Thank you — your message"
     assert alt_text(Markup("It&#39;s booked —<br />see you then.")) == (

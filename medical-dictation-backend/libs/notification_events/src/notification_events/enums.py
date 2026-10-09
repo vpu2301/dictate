@@ -34,6 +34,12 @@ class Category(StrEnum):
     # control that makes an immediate grant safe, so it is the one
     # category a recipient cannot be left unaware of.
     PHI_ACCESS_GRANTED = "phi_access.granted"
+    # S21: an access review found this account without a second factor and
+    # asked for one. The standing half of the reminder lives in
+    # `mfa_reminders` and renders as a banner until enrolment; this is the
+    # arriving half. `exclude_actor` is irrelevant here — the actor is the
+    # reviewer, the audience is the subject, and they are never the same.
+    SECURITY_MFA_REMINDER = "security.mfa_reminder"
     SYSTEM_DIGEST = "system.digest"
 
 

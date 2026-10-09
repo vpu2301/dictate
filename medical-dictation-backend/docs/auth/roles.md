@@ -8,7 +8,7 @@ The realm defines six roles. The permission matrix lives at
 | `tenant_admin` | Onboarding, **user read/list, role management, deactivation/reactivation**, MFA reset, audit read/verify, tenant settings, templates, the patient roster (redacted to name + id since S15), PHI-free usage stats | Cross-tenant operations; **all clinical content** — notes, dictations, ASR jobs, reports (S14, ADR-0033) — and, since S15, a patient's demographics/timeline without a per-patient break-glass grant |
 | `clinician`    | Routine clinical user. Tenant-read. Notes, dictations, ASR, reports (read/write/sign) | User admin (incl. user read); audit |
 | `nurse`        | Limited clinical user. Same clinical reads/writes as clinician, minus `asr.cancel` | Most admin; user read     |
-| `auditor`      | Read-only audit + tenant context + **read-only user roster (`user.read`)** | Any write                   |
+| `auditor`      | Read-only audit + tenant context + **read-only user roster (`user.read`)** + **one write: `user.remind_mfa`** (S21 — ask a user to enrol a second factor; changes nothing about the account) | Any write that alters an account: invite, roles, (de)activation, MFA reset |
 | `service`      | Machine-to-machine token identity                       | Any user-facing operation today |
 | `knowledge_admin` | Evidence-corpus curation only (EVA-S01): upload/review/approve/expire tenant corpus documents (`evidence.corpus.manage`), web-search domain allowlist (`evidence.domains.manage`) | Everything else — every pre-existing action carries an explicit `false` row; no clinical content, no user admin, no audit |
 
@@ -84,6 +84,30 @@ Other user-management endpoints: `GET /admin/users` (list, paginated),
 `POST /admin/users/{sub}/deactivate`, and
 `POST /admin/users/{sub}/reactivate`. All are RLS-scoped to the caller's
 tenant; a cross-tenant `sub` returns 404 (no existence leak).
+
+### MFA reminders (S21)
+
+`POST /admin/users/{sub}/mfa-reminder` — `user.remind_mfa`, held by
+`tenant_admin` **and `auditor`**. Records a standing request that the target
+enrols a second factor:
+
+- One row per (tenant, user) in `mfa_reminders`. A repeat ask bumps
+  `reminder_count` and reopens a resolved row rather than inserting a second.
+- It closes in exactly one place: `POST /auth/mfa/verify` stamps
+  `resolved_at` in the same transaction that sets `users.mfa_enrolled_at`.
+  There is no dismiss endpoint, by design — a reminder the subject can wave
+  away measures nothing.
+- Refusals: 409 already enrolled or deactivated, 422 reminding yourself, 404
+  outside the tenant.
+- Audited `user.mfa_reminded` at `sec`, and published as the
+  `security.mfa_reminder` notification (bell + email) to the subject alone.
+- **Not** behind `requires_mfa()`, unlike every other mutation here: it is how
+  a clinic with no enrolments bootstraps, and it grants nothing.
+
+`GET /admin/users` and `GET /auth/me` were widened to carry the state these
+surfaces read — `mfa_enrolled_at` + `mfa_reminded_at`/`mfa_reminder_count` on
+the roster, and `db_user.mfa_reminder` (requester's **role**, never their name)
+for the subject's own banner.
 
 ## How role changes propagate
 

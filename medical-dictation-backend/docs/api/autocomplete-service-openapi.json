@@ -1,6 +1,538 @@
 {
   "components": {
     "schemas": {
+      "AdhocRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_wav_base64": {
+            "maxLength": 6000000,
+            "minLength": 64,
+            "title": "Audio Wav Base64",
+            "type": "string"
+          },
+          "condition": {
+            "enum": [
+              "headset",
+              "laptop-mic",
+              "phone-speaker-distance",
+              "noisy"
+            ],
+            "title": "Condition",
+            "type": "string"
+          },
+          "dataset": {
+            "default": "dev",
+            "enum": [
+              "dev",
+              "test"
+            ],
+            "title": "Dataset",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "no_patient_data": {
+            "default": false,
+            "title": "No Patient Data",
+            "type": "boolean"
+          },
+          "paired": {
+            "default": false,
+            "title": "Paired",
+            "type": "boolean"
+          },
+          "say": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Say",
+            "type": "string"
+          },
+          "specialty": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Specialty",
+            "type": "string"
+          },
+          "subset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subset"
+          },
+          "transcript": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript"
+          }
+        },
+        "required": [
+          "language",
+          "specialty",
+          "say",
+          "condition",
+          "audio_wav_base64"
+        ],
+        "title": "AdhocRequest",
+        "type": "object"
+      },
+      "AdhocResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/LineDTO"
+          },
+          "take": {
+            "$ref": "#/components/schemas/EvalTakeDTO"
+          }
+        },
+        "required": [
+          "line",
+          "take"
+        ],
+        "title": "AdhocResponse",
+        "type": "object"
+      },
+      "AttemptDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_n": {
+            "title": "Attempt N",
+            "type": "integer"
+          },
+          "condition": {
+            "title": "Condition",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "speaker": {
+            "format": "uuid",
+            "title": "Speaker",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "superseded": {
+            "title": "Superseded",
+            "type": "boolean"
+          },
+          "take_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Id"
+          }
+        },
+        "required": [
+          "id",
+          "script_id",
+          "attempt_n",
+          "take_id",
+          "speaker",
+          "device",
+          "condition",
+          "duration_ms",
+          "status",
+          "reason",
+          "superseded",
+          "created_at"
+        ],
+        "title": "AttemptDTO",
+        "type": "object"
+      },
+      "AttemptJournalDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AttemptDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "per_line": {
+            "items": {
+              "$ref": "#/components/schemas/AttemptSummaryDTO"
+            },
+            "title": "Per Line",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "per_line"
+        ],
+        "title": "AttemptJournalDTO",
+        "type": "object"
+      },
+      "AttemptSummaryDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "discarded": {
+            "title": "Discarded",
+            "type": "integer"
+          },
+          "last_attempt_at": {
+            "format": "date-time",
+            "title": "Last Attempt At",
+            "type": "string"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "integer"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "speakers": {
+            "title": "Speakers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "script_id",
+          "attempts",
+          "saved",
+          "discarded",
+          "rejected",
+          "speakers",
+          "last_attempt_at"
+        ],
+        "title": "AttemptSummaryDTO",
+        "type": "object"
+      },
+      "CandidateDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jury_votes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Jury Votes",
+            "type": "array"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "phrase": {
+            "title": "Phrase",
+            "type": "string"
+          },
+          "review_engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Engine"
+          },
+          "review_state": {
+            "title": "Review State",
+            "type": "string"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "section_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Hint"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "validator_report": {
+            "additionalProperties": true,
+            "title": "Validator Report",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "phrase",
+          "language",
+          "specialty",
+          "section_hint",
+          "source_kind",
+          "tier",
+          "risk_flags",
+          "review_state",
+          "review_engine",
+          "submitted_by",
+          "jury_votes",
+          "validator_report",
+          "created_at"
+        ],
+        "title": "CandidateDTO",
+        "type": "object"
+      },
+      "CandidateListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "CandidateListDTO",
+        "type": "object"
+      },
+      "CompareDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_run": {
+            "$ref": "#/components/schemas/RunDTO"
+          },
+          "candidate_run": {
+            "$ref": "#/components/schemas/RunDTO"
+          },
+          "comparison": {
+            "additionalProperties": true,
+            "title": "Comparison",
+            "type": "object"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseline_run",
+          "candidate_run",
+          "metric",
+          "comparison"
+        ],
+        "title": "CompareDTO",
+        "type": "object"
+      },
+      "ConsentDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "granted_at": {
+            "format": "date-time",
+            "title": "Granted At",
+            "type": "string"
+          },
+          "granted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Granted By"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "speaker_id": {
+            "format": "uuid",
+            "title": "Speaker Id",
+            "type": "string"
+          },
+          "takes_recorded": {
+            "default": 0,
+            "title": "Takes Recorded",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "speaker_id",
+          "scope",
+          "granted_at",
+          "granted_by",
+          "revoked_at",
+          "revoked_by",
+          "note"
+        ],
+        "title": "ConsentDTO",
+        "type": "object"
+      },
       "CreatePhraseRequest": {
         "additionalProperties": false,
         "properties": {
@@ -106,6 +638,929 @@
         "title": "CreateSnippetRequest",
         "type": "object"
       },
+      "DataRegisterDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "consents": {
+            "items": {
+              "$ref": "#/components/schemas/ConsentDTO"
+            },
+            "title": "Consents",
+            "type": "array"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetEntryDTO"
+            },
+            "title": "Datasets",
+            "type": "array"
+          },
+          "disclaimer": {
+            "title": "Disclaimer",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "datasets",
+          "consents",
+          "generated_at",
+          "disclaimer"
+        ],
+        "title": "DataRegisterDTO",
+        "type": "object"
+      },
+      "DatasetEntryDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "contains_patient_data": {
+            "title": "Contains Patient Data",
+            "type": "boolean"
+          },
+          "contains_personal_data": {
+            "title": "Contains Personal Data",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_origin": {
+            "title": "Data Origin",
+            "type": "string"
+          },
+          "frozen": {
+            "title": "Frozen",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "legal_basis": {
+            "title": "Legal Basis",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "retention_period": {
+            "title": "Retention Period",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "speakers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Speakers",
+            "type": "array"
+          },
+          "storage_location": {
+            "title": "Storage Location",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "utterances": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Utterances"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "sha256",
+          "purpose",
+          "data_origin",
+          "contains_patient_data",
+          "contains_personal_data",
+          "speakers",
+          "legal_basis",
+          "retention_period",
+          "storage_location",
+          "frozen",
+          "source_kind",
+          "source_id",
+          "utterances",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DatasetEntryDTO",
+        "type": "object"
+      },
+      "DiscardTakeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "enum": [
+              "headset",
+              "laptop-mic",
+              "phone-speaker-distance",
+              "noisy"
+            ],
+            "title": "Condition",
+            "type": "string"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "duration_ms": {
+            "maximum": 120000.0,
+            "minimum": 0.0,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "condition",
+          "duration_ms"
+        ],
+        "title": "DiscardTakeRequest",
+        "type": "object"
+      },
+      "EvalScriptDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "dictation_source": {
+            "title": "Dictation Source",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvalScriptRowDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "subsets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subsets",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "dictation_source",
+          "subsets",
+          "conditions",
+          "items"
+        ],
+        "title": "EvalScriptDTO",
+        "type": "object"
+      },
+      "EvalScriptRowDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "dataset": {
+            "default": "test",
+            "title": "Dataset",
+            "type": "string"
+          },
+          "editable": {
+            "default": false,
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "paired": {
+            "default": false,
+            "title": "Paired",
+            "type": "boolean"
+          },
+          "say": {
+            "title": "Say",
+            "type": "string"
+          },
+          "source": {
+            "default": "builtin",
+            "title": "Source",
+            "type": "string"
+          },
+          "specialty": {
+            "title": "Specialty",
+            "type": "string"
+          },
+          "subset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subset"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subset",
+          "language",
+          "specialty",
+          "say",
+          "transcript",
+          "condition"
+        ],
+        "title": "EvalScriptRowDTO",
+        "type": "object"
+      },
+      "EvalTakeDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_sha256": {
+            "title": "Audio Sha256",
+            "type": "string"
+          },
+          "condition": {
+            "title": "Condition",
+            "type": "string"
+          },
+          "condition_confirmed": {
+            "default": true,
+            "title": "Condition Confirmed",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "flagged_bad": {
+            "default": false,
+            "title": "Flagged Bad",
+            "type": "boolean"
+          },
+          "flagged_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flagged Note"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "recorded_by": {
+            "format": "uuid",
+            "title": "Recorded By",
+            "type": "string"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "script_version": {
+            "title": "Script Version",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "specialty": {
+            "title": "Specialty",
+            "type": "string"
+          },
+          "subset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subset"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "script_id",
+          "script_version",
+          "recorded_by",
+          "language",
+          "specialty",
+          "subset",
+          "condition",
+          "duration_ms",
+          "audio_sha256",
+          "size_bytes",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EvalTakeDTO",
+        "type": "object"
+      },
+      "EvalTakeListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvalTakeDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total_duration_ms": {
+            "title": "Total Duration Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total_duration_ms"
+        ],
+        "title": "EvalTakeListDTO",
+        "type": "object"
+      },
+      "FlagTakeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "enum": [
+              "headset",
+              "laptop-mic",
+              "phone-speaker-distance",
+              "noisy"
+            ],
+            "title": "Condition",
+            "type": "string"
+          },
+          "flagged": {
+            "default": true,
+            "title": "Flagged",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "condition"
+        ],
+        "title": "FlagTakeRequest",
+        "type": "object"
+      },
+      "GapDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "accepts": {
+            "title": "Accepts",
+            "type": "integer"
+          },
+          "all_timeouts": {
+            "title": "All Timeouts",
+            "type": "boolean"
+          },
+          "impressions": {
+            "title": "Impressions",
+            "type": "integer"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prefix",
+          "impressions",
+          "accepts",
+          "all_timeouts"
+        ],
+        "title": "GapDTO",
+        "type": "object"
+      },
+      "GapListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GapDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "GapListDTO",
+        "type": "object"
+      },
+      "GoldLintApplyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm_test_set": {
+            "default": false,
+            "title": "Confirm Test Set",
+            "type": "boolean"
+          },
+          "script_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Script Ids"
+          }
+        },
+        "title": "GoldLintApplyRequest",
+        "type": "object"
+      },
+      "GoldLintApplyResultDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applied",
+            "type": "array"
+          },
+          "measurement_changed": {
+            "title": "Measurement Changed",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/GoldLintSkipDTO"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied",
+          "skipped",
+          "measurement_changed"
+        ],
+        "title": "GoldLintApplyResultDTO",
+        "type": "object"
+      },
+      "GoldLintCheckRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "maxLength": 5,
+            "minLength": 2,
+            "title": "Language",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "language"
+        ],
+        "title": "GoldLintCheckRequest",
+        "type": "object"
+      },
+      "GoldLintDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/GoldLintFindingDTO"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          }
+        },
+        "title": "GoldLintDTO",
+        "type": "object"
+      },
+      "GoldLintFindingDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "GoldLintFindingDTO",
+        "type": "object"
+      },
+      "GoldLintLineDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "applicable": {
+            "title": "Applicable",
+            "type": "boolean"
+          },
+          "canonical_equal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Equal"
+          },
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/GoldLintFindingDTO"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "needs_test_confirmation": {
+            "title": "Needs Test Confirmation",
+            "type": "boolean"
+          },
+          "say": {
+            "title": "Say",
+            "type": "string"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "script_id",
+          "language",
+          "dataset",
+          "source",
+          "say",
+          "transcript",
+          "suggestion",
+          "findings",
+          "canonical_equal",
+          "applicable",
+          "needs_test_confirmation"
+        ],
+        "title": "GoldLintLineDTO",
+        "type": "object"
+      },
+      "GoldLintReportDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "fixable": {
+            "title": "Fixable",
+            "type": "integer"
+          },
+          "flagged": {
+            "title": "Flagged",
+            "type": "integer"
+          },
+          "flagged_in_test_set": {
+            "title": "Flagged In Test Set",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GoldLintLineDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "lines_total": {
+            "title": "Lines Total",
+            "type": "integer"
+          },
+          "normalizer_version": {
+            "title": "Normalizer Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines_total",
+          "flagged",
+          "fixable",
+          "flagged_in_test_set",
+          "normalizer_version",
+          "items"
+        ],
+        "title": "GoldLintReportDTO",
+        "type": "object"
+      },
+      "GoldLintSkipDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "script_id",
+          "code"
+        ],
+        "title": "GoldLintSkipDTO",
+        "type": "object"
+      },
+      "GoldRevisionDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_equal": {
+            "title": "Canonical Equal",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "new_transcript": {
+            "title": "New Transcript",
+            "type": "string"
+          },
+          "normalizer_version": {
+            "title": "Normalizer Version",
+            "type": "string"
+          },
+          "old_transcript": {
+            "title": "Old Transcript",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "revised_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revised By"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "script_id",
+          "dataset",
+          "old_transcript",
+          "new_transcript",
+          "reason",
+          "normalizer_version",
+          "canonical_equal",
+          "revised_by",
+          "created_at"
+        ],
+        "title": "GoldRevisionDTO",
+        "type": "object"
+      },
+      "GoldRevisionListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GoldRevisionDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "GoldRevisionListDTO",
+        "type": "object"
+      },
+      "GrantConsentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "speaker_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Id"
+          }
+        },
+        "title": "GrantConsentRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -117,6 +1572,415 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImportJournalDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportJournalEntryDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ImportJournalDTO",
+        "type": "object"
+      },
+      "ImportJournalEntryDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "file_sha256": {
+            "title": "File Sha256",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "imported_by": {
+            "format": "uuid",
+            "title": "Imported By",
+            "type": "string"
+          },
+          "rows_added": {
+            "title": "Rows Added",
+            "type": "integer"
+          },
+          "rows_rejected": {
+            "title": "Rows Rejected",
+            "type": "integer"
+          },
+          "rows_skipped": {
+            "title": "Rows Skipped",
+            "type": "integer"
+          },
+          "rows_total": {
+            "title": "Rows Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "file_sha256",
+          "dry_run",
+          "rows_total",
+          "rows_added",
+          "rows_skipped",
+          "rows_rejected",
+          "imported_by",
+          "created_at"
+        ],
+        "title": "ImportJournalEntryDTO",
+        "type": "object"
+      },
+      "ImportReportDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "coverage": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Coverage",
+            "type": "array"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "file_sha256": {
+            "title": "File Sha256",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowResultDTO"
+            },
+            "title": "Rejected",
+            "type": "array"
+          },
+          "rows_added": {
+            "title": "Rows Added",
+            "type": "integer"
+          },
+          "rows_rejected": {
+            "title": "Rows Rejected",
+            "type": "integer"
+          },
+          "rows_skipped": {
+            "title": "Rows Skipped",
+            "type": "integer"
+          },
+          "rows_total": {
+            "title": "Rows Total",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowResultDTO"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dry_run",
+          "filename",
+          "file_sha256",
+          "rows_total",
+          "rows_added",
+          "rows_skipped",
+          "rows_rejected",
+          "added",
+          "skipped",
+          "rejected",
+          "warnings",
+          "coverage"
+        ],
+        "title": "ImportReportDTO",
+        "type": "object"
+      },
+      "ImportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_test": {
+            "default": false,
+            "title": "Allow Test",
+            "type": "boolean"
+          },
+          "csv_base64": {
+            "maxLength": 6000000,
+            "minLength": 8,
+            "title": "Csv Base64",
+            "type": "string"
+          },
+          "dry_run": {
+            "default": true,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "csv_base64"
+        ],
+        "title": "ImportRequest",
+        "type": "object"
+      },
+      "ImportRowResultDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line_no",
+          "script_id",
+          "code"
+        ],
+        "title": "ImportRowResultDTO",
+        "type": "object"
+      },
+      "LineDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "format": "uuid",
+            "title": "Created By",
+            "type": "string"
+          },
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "lint": {
+            "$ref": "#/components/schemas/GoldLintDTO"
+          },
+          "paired": {
+            "default": false,
+            "title": "Paired",
+            "type": "boolean"
+          },
+          "say": {
+            "title": "Say",
+            "type": "string"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "specialty": {
+            "title": "Specialty",
+            "type": "string"
+          },
+          "subset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subset"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "script_id",
+          "language",
+          "specialty",
+          "subset",
+          "say",
+          "transcript",
+          "condition",
+          "source",
+          "dataset",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "LineDTO",
+        "type": "object"
+      },
+      "LineRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "dataset": {
+            "default": "dev",
+            "enum": [
+              "dev",
+              "test"
+            ],
+            "title": "Dataset",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "paired": {
+            "default": false,
+            "title": "Paired",
+            "type": "boolean"
+          },
+          "say": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Say",
+            "type": "string"
+          },
+          "specialty": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Specialty",
+            "type": "string"
+          },
+          "subset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subset"
+          },
+          "transcript": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript"
+          }
+        },
+        "required": [
+          "language",
+          "specialty",
+          "say"
+        ],
+        "title": "LineRequest",
         "type": "object"
       },
       "PhraseDTO": {
@@ -191,6 +2055,17 @@
             "title": "Acceptance Count",
             "type": "integer"
           },
+          "corpus_release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Release"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -225,6 +2100,10 @@
             "title": "Phrase",
             "type": "string"
           },
+          "review_state": {
+            "title": "Review State",
+            "type": "string"
+          },
           "section_hint": {
             "anyOf": [
               {
@@ -240,6 +2119,10 @@
             "title": "Source",
             "type": "string"
           },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
           "specialty": {
             "anyOf": [
               {
@@ -250,6 +2133,17 @@
               }
             ],
             "title": "Specialty"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
           }
         },
         "required": [
@@ -262,9 +2156,917 @@
           "impression_count",
           "acceptance_count",
           "last_accepted_at",
-          "created_at"
+          "created_at",
+          "review_state",
+          "tier",
+          "source_kind",
+          "corpus_release"
         ],
         "title": "PhraseListItemDTO",
+        "type": "object"
+      },
+      "PromoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Ids"
+          }
+        },
+        "title": "PromoteRequest",
+        "type": "object"
+      },
+      "PromoteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "inserted": {
+            "title": "Inserted",
+            "type": "integer"
+          },
+          "promoted": {
+            "title": "Promoted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "promoted",
+          "inserted"
+        ],
+        "title": "PromoteResponse",
+        "type": "object"
+      },
+      "ReleaseDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "phrase_count": {
+            "title": "Phrase Count",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "created_at",
+          "phrase_count",
+          "manifest_sha256",
+          "notes"
+        ],
+        "title": "ReleaseDTO",
+        "type": "object"
+      },
+      "ReleaseListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ReleaseListDTO",
+        "type": "object"
+      },
+      "ReplicaDTO": {
+        "additionalProperties": false,
+        "description": "One replica, everything the recording station needs \u2014 Epic C.\n\nNamed after the spec's `GET /replicas/{id}`; it lives under this\nservice's own prefix so the corpus surface stays one namespace.",
+        "properties": {
+          "category_instructions": {
+            "title": "Category Instructions",
+            "type": "string"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "condition_confirmed_required": {
+            "default": true,
+            "title": "Condition Confirmed Required",
+            "type": "boolean"
+          },
+          "condition_instructions": {
+            "title": "Condition Instructions",
+            "type": "string"
+          },
+          "conditions_recorded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions Recorded",
+            "type": "array"
+          },
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "paired": {
+            "title": "Paired",
+            "type": "boolean"
+          },
+          "recording_instructions": {
+            "title": "Recording Instructions",
+            "type": "string"
+          },
+          "say": {
+            "title": "Say",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "specialty": {
+            "title": "Specialty",
+            "type": "string"
+          },
+          "subset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subset"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subset",
+          "language",
+          "specialty",
+          "say",
+          "transcript",
+          "source",
+          "editable",
+          "dataset",
+          "paired",
+          "condition",
+          "recording_instructions",
+          "condition_instructions",
+          "category_instructions",
+          "conditions_recorded"
+        ],
+        "title": "ReplicaDTO",
+        "type": "object"
+      },
+      "RetakeItemDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "title": "Condition",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "script_id",
+          "condition",
+          "reasons",
+          "note",
+          "duration_ms",
+          "recorded_at"
+        ],
+        "title": "RetakeItemDTO",
+        "type": "object"
+      },
+      "RetakeQueueDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "by_reason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Reason",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RetakeItemDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "by_reason"
+        ],
+        "title": "RetakeQueueDTO",
+        "type": "object"
+      },
+      "RetirePhraseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "corpus_release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Release"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "review_state": {
+            "const": "retired",
+            "title": "Review State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review_state",
+          "corpus_release"
+        ],
+        "title": "RetirePhraseResponse",
+        "type": "object"
+      },
+      "ReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "accept",
+              "reject",
+              "edit"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "edited_text": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Text"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "mode": {
+            "default": "review",
+            "enum": [
+              "review",
+              "audit"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ReviewRequest",
+        "type": "object"
+      },
+      "ReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "review_state": {
+            "title": "Review State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review_state"
+        ],
+        "title": "ReviewResponse",
+        "type": "object"
+      },
+      "RunDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrap_seed": {
+            "default": 20260814,
+            "title": "Bootstrap Seed",
+            "type": "integer"
+          },
+          "corpus_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Sha256"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "dataset": {
+            "default": "test",
+            "title": "Dataset",
+            "type": "string"
+          },
+          "engine": {
+            "additionalProperties": true,
+            "title": "Engine",
+            "type": "object"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "normalizer_version": {
+            "default": "v0",
+            "title": "Normalizer Version",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "snapshot_version": {
+            "title": "Snapshot Version",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "started_by": {
+            "format": "uuid",
+            "title": "Started By",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "id",
+          "snapshot_id",
+          "snapshot_version",
+          "status",
+          "model",
+          "started_by",
+          "started_at",
+          "finished_at",
+          "summary",
+          "counts"
+        ],
+        "title": "RunDTO",
+        "type": "object"
+      },
+      "RunDetailDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunItemDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "run": {
+            "$ref": "#/components/schemas/RunDTO"
+          }
+        },
+        "required": [
+          "run",
+          "items"
+        ],
+        "title": "RunDetailDTO",
+        "type": "object"
+      },
+      "RunItemDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "cer": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cer"
+          },
+          "cer_norm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cer Norm"
+          },
+          "dose_exact": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dose Exact"
+          },
+          "dose_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dose Tokens"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "gold_revised": {
+            "default": false,
+            "title": "Gold Revised",
+            "type": "boolean"
+          },
+          "hypothesis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis"
+          },
+          "ref_words": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Words"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "speech_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speech Ms"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "wer": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wer"
+          },
+          "wer_norm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wer Norm"
+          }
+        },
+        "required": [
+          "script_id",
+          "status",
+          "hypothesis",
+          "wer",
+          "cer",
+          "ref_words",
+          "error",
+          "updated_at"
+        ],
+        "title": "RunItemDTO",
+        "type": "object"
+      },
+      "RunListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RunListDTO",
+        "type": "object"
+      },
+      "SaveTakeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_wav_base64": {
+            "maxLength": 6000000,
+            "minLength": 64,
+            "title": "Audio Wav Base64",
+            "type": "string"
+          },
+          "condition": {
+            "enum": [
+              "headset",
+              "laptop-mic",
+              "phone-speaker-distance",
+              "noisy"
+            ],
+            "title": "Condition",
+            "type": "string"
+          },
+          "condition_confirmed": {
+            "default": false,
+            "title": "Condition Confirmed",
+            "type": "boolean"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "say": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Say"
+          }
+        },
+        "required": [
+          "condition",
+          "audio_wav_base64"
+        ],
+        "title": "SaveTakeRequest",
+        "type": "object"
+      },
+      "SnapshotDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "published_by": {
+            "format": "uuid",
+            "title": "Published By",
+            "type": "string"
+          },
+          "total_duration_ms": {
+            "title": "Total Duration Ms",
+            "type": "integer"
+          },
+          "utterance_count": {
+            "title": "Utterance Count",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "utterance_count",
+          "total_duration_ms",
+          "manifest_sha256",
+          "published_by",
+          "created_at"
+        ],
+        "title": "SnapshotDTO",
+        "type": "object"
+      },
+      "SnapshotDetailDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Dataset Counts",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotItemDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/SnapshotDTO"
+          }
+        },
+        "required": [
+          "snapshot",
+          "items"
+        ],
+        "title": "SnapshotDetailDTO",
+        "type": "object"
+      },
+      "SnapshotItemDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_sha256": {
+            "title": "Audio Sha256",
+            "type": "string"
+          },
+          "condition": {
+            "title": "Condition",
+            "type": "string"
+          },
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "script_id": {
+            "title": "Script Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "specialty": {
+            "title": "Specialty",
+            "type": "string"
+          },
+          "subset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subset"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "script_id",
+          "language",
+          "specialty",
+          "subset",
+          "transcript",
+          "condition",
+          "duration_ms",
+          "audio_sha256",
+          "source",
+          "dataset"
+        ],
+        "title": "SnapshotItemDTO",
+        "type": "object"
+      },
+      "SnapshotListDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SnapshotListDTO",
         "type": "object"
       },
       "SnippetDTO": {
@@ -351,6 +3153,181 @@
           "created_at"
         ],
         "title": "SnippetListItemDTO",
+        "type": "object"
+      },
+      "StartRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset": {
+            "default": "test",
+            "enum": [
+              "dev",
+              "test"
+            ],
+            "title": "Dataset",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id"
+        ],
+        "title": "StartRunRequest",
+        "type": "object"
+      },
+      "StatsDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_rejections": {
+            "title": "Audit Rejections",
+            "type": "integer"
+          },
+          "by_quota_cell": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "By Quota Cell",
+            "type": "array"
+          },
+          "by_state": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By State",
+            "type": "object"
+          },
+          "by_tier": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Tier",
+            "type": "object"
+          },
+          "median_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Latency Ms"
+          },
+          "reviews_last_24h": {
+            "title": "Reviews Last 24H",
+            "type": "integer"
+          },
+          "reviews_total": {
+            "title": "Reviews Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "by_state",
+          "by_tier",
+          "reviews_total",
+          "reviews_last_24h",
+          "median_latency_ms",
+          "audit_rejections",
+          "by_quota_cell"
+        ],
+        "title": "StatsDTO",
+        "type": "object"
+      },
+      "SubmitCandidateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "capture": {
+            "default": "typed",
+            "enum": [
+              "typed",
+              "dictated"
+            ],
+            "title": "Capture",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "uk",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "phrase": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Phrase",
+            "type": "string"
+          },
+          "section_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Hint"
+          },
+          "specialty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specialty"
+          }
+        },
+        "required": [
+          "phrase",
+          "language"
+        ],
+        "title": "SubmitCandidateRequest",
+        "type": "object"
+      },
+      "SubmitCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "review_state": {
+            "const": "candidate",
+            "title": "Review State",
+            "type": "string"
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "review_state",
+          "tier",
+          "risk_flags"
+        ],
+        "title": "SubmitCandidateResponse",
         "type": "object"
       },
       "SuggestRequest": {
@@ -827,6 +3804,66 @@
         ]
       }
     },
+    "/autocomplete/phrases/{phrase_id}/retire": {
+      "post": {
+        "description": "Sprint 21: retire, never delete \u2014 provenance survives, serving stops\n(the trie feeds only review_state='accepted'). Tenant/user rows only;\nsystem (released) rows are retired by the corpus operator (see\ndocs/runbooks/corpus.md), so the admin console can't silently edit the\nglobal corpus.",
+        "operationId": "retire_phrase_autocomplete_phrases__phrase_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phrase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phrase Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetirePhraseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Phrase",
+        "tags": [
+          "autocomplete"
+        ]
+      }
+    },
     "/autocomplete/snippets": {
       "get": {
         "operationId": "list_snippets_autocomplete_snippets_get",
@@ -1150,6 +4187,2615 @@
         "summary": "Receive Telemetry",
         "tags": [
           "autocomplete"
+        ]
+      }
+    },
+    "/compliance/consents": {
+      "get": {
+        "description": "Consent history including withdrawals \u2014 a table showing only the\ncurrent state cannot answer \"was this lawful in March\".",
+        "operationId": "list_consents_compliance_consents_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConsentDTO"
+                  },
+                  "title": "Response List Consents Compliance Consents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Consents",
+        "tags": [
+          "compliance"
+        ]
+      },
+      "post": {
+        "description": "Record that a speaker consented to their voice being in the corpus.\n\nWith no ``speaker_id`` this records the CALLER's own consent \u2014 what the\nrecorder asks for when a first take is refused, in the words that\ndescribe what is being agreed to.",
+        "operationId": "grant_consent_compliance_consents_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grant Consent",
+        "tags": [
+          "compliance"
+        ]
+      }
+    },
+    "/compliance/consents/{speaker_id}": {
+      "delete": {
+        "description": "Withdraw a consent. The speaker's takes drop out of FUTURE snapshots;\npublished ones are unchanged, and no audio is deleted here.",
+        "operationId": "revoke_consent_compliance_consents__speaker_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "speaker_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Speaker Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Consent",
+        "tags": [
+          "compliance"
+        ]
+      }
+    },
+    "/compliance/data-register": {
+      "get": {
+        "description": "Every dataset this platform measures itself against, and whose voices\nare in each.",
+        "operationId": "data_register_compliance_data_register_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataRegisterDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Data Register",
+        "tags": [
+          "compliance"
+        ]
+      }
+    },
+    "/compliance/data-register/export.html": {
+      "get": {
+        "description": "The same document the PDF renders, always available.\n\nThe PDF needs native libraries the image may not carry; this never does,\nso an auditor is never blocked on a deployment detail.",
+        "operationId": "export_html_compliance_data_register_export_html_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Html",
+        "tags": [
+          "compliance"
+        ]
+      }
+    },
+    "/compliance/data-register/export.pdf": {
+      "get": {
+        "description": "The register as a file to hand over.",
+        "operationId": "export_pdf_compliance_data_register_export_pdf_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Pdf",
+        "tags": [
+          "compliance"
+        ]
+      }
+    },
+    "/corpus/candidates": {
+      "get": {
+        "description": "The review queue, oldest first. tier=3 is the human-mandatory queue.\nsample=random serves the spot-audit sampler: an unbiased draw over the\nwhole matching population (pagination is meaningless there \u2014 pass\noffset=0 and treat each call as a fresh sample).",
+        "operationId": "list_candidates_corpus_candidates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "review_state",
+            "required": false,
+            "schema": {
+              "default": "candidate",
+              "enum": [
+                "candidate",
+                "accepted",
+                "rejected",
+                "promoted"
+              ],
+              "title": "Review State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tier",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 3,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tier"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "uk",
+                    "en"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sample",
+            "required": false,
+            "schema": {
+              "default": "oldest",
+              "enum": [
+                "oldest",
+                "random"
+              ],
+              "title": "Sample",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Candidates",
+        "tags": [
+          "corpus"
+        ]
+      },
+      "post": {
+        "description": "Authored ingest: a phrase typed or dictated in the console fill\nworksheet becomes a GLOBAL candidate awaiting review \u2014 never anything\npre-accepted. PII is rejected here (422) before any row exists; the\nphrase-write rate limit is shared with the library POST.\n\nTIER ROUTING (migration 0098). The phrase is risk-flagged and routed with\ncorpus_risk \u2014 the module corpus-forge runs on mined, generated and\nimported candidates \u2014 so a dose, a drug, a laterality, a negation, an ICD\ncode or an unknown abbreviation lands in tier 3 and reaches the human\nreview queue. Until 0098 this route wrote tier 2 with no flags for\neverything it was given, which meant nothing submitted from the console\ncould appear in that queue at all, and a phrase carrying a dose was one\njury majority from a clinician's cursor unread.",
+        "operationId": "submit_candidate_corpus_candidates_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitCandidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Candidate",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/candidates/{candidate_id}/review": {
+      "post": {
+        "description": "Record one decision. mode='review' moves candidate\u2192accepted/rejected\n(409 once decided). mode='audit' spot-checks a jury-accepted row without\nchanging its state \u2014 an audit rejection is the jury-quality alert signal\n(`audit_rejections` in /corpus/stats).",
+        "operationId": "review_candidate_corpus_candidates__candidate_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Candidate",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/adhoc": {
+      "post": {
+        "description": "Record first, write the gold text after \u2014 one call, one transaction.\n\nThis is the path for the utterance nobody thought to script: the phrasing\na clinician actually uses, captured while it is still in the room. It\ncreates the line and its take together, because a line authored from a\nrecording and never attached to it would be a script entry nobody can\naccount for.\n\nTHREE THINGS GUARD IT, and they are not interchangeable:\n  \u00b7 the attestation (``no_patient_data``), refused when false \u2014 the only\n    control over names, which no regex catches;\n  \u00b7 the PII sweep over the typed text, which catches identifiers a tired\n    human misses;\n  \u00b7 ``capture: adhoc`` in the corpus metadata, so a reader of the corpus\n    knows the gold text was reconstructed from speech rather than read\n    from a page.",
+        "operationId": "save_adhoc_corpus_eval_adhoc_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdhocRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdhocResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Adhoc",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/attempts": {
+      "get": {
+        "description": "The recording journal: every attempt, kept or not (\u00a77).\n\n``per_line`` is the question it exists to answer \u2014 how many takes a line\nactually cost, and how many different voices have read it. A line at six\nattempts and one speaker is a line whose text is hard to read aloud; a\nline at two attempts and three speakers is the variance decomposition\n\u00a71.2 asks for.",
+        "operationId": "list_attempts_corpus_eval_attempts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "script_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Script Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptJournalDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Attempts",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/compare": {
+      "get": {
+        "description": "\u0394 WER between two runs, with a paired bootstrap CI (\u00a77).\n\nTHREE REFUSALS, and they are the point of the endpoint rather than\nobstacles to it (\u00a77 \"\u043f\u0440\u0430\u0432\u0438\u043b\u0430 \u0447\u0435\u0441\u043d\u043e\u0441\u0442\u0456\"):\n\n  \u00b7 different sets \u2014 a dev run against a test run is not a comparison,\n    it is two answers to two questions;\n  \u00b7 different snapshots \u2014 different audio and different gold text, so any\n    difference is unattributable;\n  \u00b7 different normaliser versions \u2014 the rules moved under the metric.\n\nEach is a 409 naming what differs, so the operator can pick a comparable\npair rather than being told \"no\".",
+        "operationId": "compare_runs_corpus_eval_compare_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "baseline",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Baseline",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "default": "wer_norm",
+              "enum": [
+                "wer",
+                "wer_norm"
+              ],
+              "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compare Runs",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/export": {
+      "get": {
+        "description": "The corpus as files: audio.wav + transcript.txt + metadata.json per\nutterance in eval/corpus/v1/ shape, plus a manifest FRAGMENT whose\nper-file SHA-256 lets build_corpus_manifest.py's rebuild be checked\nrather than trusted.\n\nWithout ``snapshot_id`` this is the live set \u2014 every take in the tenant\nas it stands right now. With one, it is exactly what that snapshot\npublished, and the route REFUSES to build an archive that would differ\nfrom it: a take deleted since publication (409 ``take_missing``) or\nre-recorded since (409 ``take_drifted``) means the bytes on hand are no\nlonger the bytes that were published, and quietly substituting them\nwould break the one promise a snapshot makes. Publish a new version.\n\nCommitting the archive into the repo stays the operator step it always\nwas \u2014 but it now happens once, over everyone's work.",
+        "operationId": "export_takes_corpus_eval_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "snapshot_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Snapshot Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Takes",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/gold-lint": {
+      "get": {
+        "description": "Every gold transcript that breaks the Epic B style guide, with the\nrewrite that would fix it \u2014 the \"\u0431\u0443\u043b\u043e \u2192 \u0441\u0442\u0430\u043d\u0435\" preview.\n\nRead-only by construction. The sweep exists because a style guide that\nonly applies to new lines leaves the corpus permanently half-converted,\nand because the operator has to see the damage before authorising it:\nten of these revisions change nothing but the writing, and some change\nwhat the subset measures. ``canonical_equal`` tells them apart, and it\nis computed, not asserted.",
+        "operationId": "gold_lint_preview_corpus_eval_gold_lint_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoldLintReportDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gold Lint Preview",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/gold-lint/apply": {
+      "post": {
+        "description": "Accept the proposed rewrites, journalling every one (migration 0093).\n\nNothing here computes a new suggestion from the request body \u2014 the\nserver re-derives it from the stored text, so a client cannot smuggle\narbitrary gold text through a route whose name says \"apply the linter\".\n\nSkips are reported per line rather than failing the batch, because the\ninteresting ones are informative: `builtin_line_immutable` means the\nrepo's own script needs a commit, and `test_requires_confirmation`\nmeans somebody has to decide, on purpose, to move the holdout.",
+        "operationId": "gold_lint_apply_corpus_eval_gold_lint_apply_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoldLintApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoldLintApplyResultDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gold Lint Apply",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/gold-lint/check": {
+      "post": {
+        "description": "Lint one gold transcript that has not been saved yet.\n\nThe line editor calls this while the author is still looking at the\nfield, which is the only moment fixing the style is free. Stateless and\nread-only \u2014 it writes nothing and reads nothing, it just runs the same\nrules the sweep runs.\n\nTHE CONSOLE DOES NOT LINT LOCALLY. A second copy of the rules in the\nbrowser bundle would be a second style guide, and the one that drifts is\nalways the one the author actually sees.",
+        "operationId": "gold_lint_check_corpus_eval_gold_lint_check_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoldLintCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoldLintDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gold Lint Check",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/gold-revisions": {
+      "get": {
+        "description": "The reference-change journal \u2014 what moved, when, and whether it moved\nthe measurement with it.",
+        "operationId": "list_gold_revisions_corpus_eval_gold_revisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "script_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Script Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoldRevisionListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Gold Revisions",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/import": {
+      "post": {
+        "description": "Import replicas from a \u00a76 CSV \u2014 preview first, commit second.\n\nONE TRANSACTION. ``tenant_connection`` wraps the whole block, so a file\nthat fails halfway leaves nothing behind: 86 rows or none.\n\nA dry run walks the identical path \u2014 same parse, same existence check,\nsame skip list \u2014 and stops short of the inserts. There is one\nimplementation of \"what would happen\", so the preview cannot disagree\nwith the commit about which rows are refused and why.\n\nIDEMPOTENT BY ID. A row whose id the tenant already has is skipped, not\nduplicated and not updated: re-importing a corrected file adds the new\nlines and leaves the recorded ones alone, because changing the text under\na take that was already read aloud is how audio starts claiming to be a\nreading of something else.",
+        "operationId": "import_csv_corpus_eval_import_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReportDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Csv",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/imports": {
+      "get": {
+        "description": "Every import, previews included (\u00a76: \"\u0437\u0432\u0456\u0442 \u043f\u0440\u043e \u043a\u043e\u0436\u0435\u043d \u0456\u043c\u043f\u043e\u0440\u0442\").",
+        "operationId": "list_imports_corpus_eval_imports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJournalDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Imports",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/publish": {
+      "post": {
+        "description": "Freeze every current take as an immutable, numbered snapshot.\n\nThe sweep runs over the WHOLE set, not just the lines added since the\nlast publication: patterns get added, and a snapshot's claim is that\nTHIS set is clean by today's rules. A finding refuses the publication\noutright \u2014 there is no override, because the next step feeds these files\nto a git repository and a nightly gate that will refuse them anyway,\nlouder and later.",
+        "operationId": "publish_snapshot_corpus_eval_publish_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Snapshot",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/retakes": {
+      "get": {
+        "description": "Everything that needs re-recording, with the reason \u2014 Epic E.\n\nEntirely derived except the manual mark (see ``retake_candidates``), so\na re-recorded line leaves this list on the next read with nothing to\nclear. That is the acceptance criterion: uk-general-a001 appears here\nwhile its take is silent, and is gone once it is read again.",
+        "operationId": "retake_queue_corpus_eval_retakes_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetakeQueueDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retake Queue",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/runs": {
+      "get": {
+        "description": "The run table \u00a77 asks for. Filterable by set, because a table that\nsorts dev and test runs together by WER invites reading the best row as\nthe result.",
+        "operationId": "list_runs_corpus_eval_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dataset",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "dev",
+                    "test"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dataset"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "corpus"
+        ]
+      },
+      "post": {
+        "description": "Open a scoring run over ONE SET of a published snapshot.\n\nEvery utterance is listed up front, so progress is a count against a\nknown total from the first tick. Nothing is transcribed here \u2014 the run\nis created empty-handed and moves only when ``/advance`` is called.\n\nThe run records the conditions it will be measured under before it\nmeasures anything (\u00a71.3.5): which set, which normalisation rules, which\ncorpus digest, which bootstrap seed. The engine half is filled in from\nwhat asr-service reports, because that is the half nobody here gets to\nassert.",
+        "operationId": "start_run_corpus_eval_runs_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetailDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Run",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/runs/{run_id}": {
+      "get": {
+        "operationId": "run_detail_corpus_eval_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetailDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Detail",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/runs/{run_id}/advance": {
+      "post": {
+        "description": "One step of the run: collect what finished, submit what fits.\n\nIdempotent and safe to call at any cadence \u2014 calling it twice a second\ndoes the same thing as calling it once, because progress lives in the\nrows, not in the request.\n\nNO DATABASE TRANSACTION IS HELD ACROSS AN HTTP CALL. Each phase is a\nshort transaction with the network work in between, so a slow or dead\nasr-service parks a pooled connection for exactly as long as it takes\nto write a row.",
+        "operationId": "advance_run_corpus_eval_runs__run_id__advance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetailDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advance Run",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/script": {
+      "get": {
+        "description": "The recording script: the vendored lines plus the tenant's own\n(0091). The server copy is the source of truth \u2014 the upload route\nvalidates against this same merged view, so a recorder rendering this\nresponse can never produce a refused take.",
+        "operationId": "eval_script_view_corpus_eval_script_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalScriptDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Eval Script View",
+        "tags": [
+          "corpus"
+        ]
+      },
+      "post": {
+        "description": "Add a line to the recording script.\n\nThe corpus grew by editing a Python module before this; that made\n\"record the cases our clinicians actually struggle with\" a developer\ntask, which is the reason the corpus stayed at 34 lines. The line lands\nin the tenant's own half of the script \u2014 the vendored spine is shared\nand stays untouched \u2014 and is recordable immediately.",
+        "operationId": "create_line_corpus_eval_script_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Line",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/script/{script_id}": {
+      "delete": {
+        "description": "Remove an authored line AND its take \u2014 a line with no text is not a\nrecordable task, and leaving orphan audio behind would leave a take the\nrecorder cannot show, delete or explain.\n\nPublished snapshots are unaffected: they hold their own copy of the\ntext, and the audio they reference is exactly what the export refuses to\nsubstitute when it goes missing (409 ``take_missing``). Deleting a line\ncan therefore make an old snapshot unexportable \u2014 it can never make one\nquietly wrong.",
+        "operationId": "delete_line_corpus_eval_script__script_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Line",
+        "tags": [
+          "corpus"
+        ]
+      },
+      "get": {
+        "description": "One replica with its recording instructions already assembled.\n\nThe instruction is built here rather than shipped as a template because\nthe recording protocol IS a measurement condition: a second copy in the\nSPA would drift, and the drifting copy is the one the recordist reads.",
+        "operationId": "replica_detail_corpus_eval_script__script_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang_ui",
+            "required": false,
+            "schema": {
+              "default": "uk",
+              "maxLength": 5,
+              "title": "Lang Ui",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicaDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replica Detail",
+        "tags": [
+          "corpus"
+        ]
+      },
+      "patch": {
+        "description": "Edit an authored line. Vendored lines are refused (409): they are the\nshared spine, and a take recorded against one in any tenant was recorded\nagainst THAT text.\n\nEditing a line whose take already exists does not touch the take. The\ntake carries its own snapshot of the words that were actually read\n(migration 0089), so the audio never starts claiming to be a reading of\nsomething else \u2014 but the two now disagree, and re-recording is the only\nway to make the line true again. The console says so at the point of\nedit; nothing here can enforce it.",
+        "operationId": "update_line_corpus_eval_script__script_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Line",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/snapshots": {
+      "get": {
+        "operationId": "list_snapshots_corpus_eval_snapshots_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Snapshots",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "snapshot_detail_corpus_eval_snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotDetailDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Snapshot Detail",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/takes": {
+      "get": {
+        "description": "Every persisted take in the tenant \u2014 the whole team's progress, which\nis what lets colleagues split the labelling job across sittings.",
+        "operationId": "list_takes_corpus_eval_takes_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalTakeListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Takes",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/takes/{script_id}": {
+      "delete": {
+        "description": "Remove one recording, or every recording of the line when no\ncondition is named.",
+        "operationId": "delete_take_corpus_eval_takes__script_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "condition",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Condition"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Take",
+        "tags": [
+          "corpus"
+        ]
+      },
+      "put": {
+        "description": "Upload (or replace) the take for one script line. The audio must be\n16 kHz mono PCM16 WAV \u2014 the corpus format is an invariant, so the bytes\nare re-checked here rather than trusted from the encoder.",
+        "operationId": "save_take_corpus_eval_takes__script_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTakeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalTakeDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Take",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/takes/{script_id}/audio": {
+      "get": {
+        "description": "The stored WAV, so the recorder plays back the exact bytes on file\nrather than a checkmark's word for them.\n\n``condition`` picks between a paired replica's two recordings; omitting\nit yields the most recent, which is the only sensible answer for a line\nthat has one.",
+        "operationId": "take_audio_corpus_eval_takes__script_id__audio_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "condition",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Condition"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Audio",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/takes/{script_id}/discard": {
+      "post": {
+        "description": "Log a recording the operator threw away before uploading it.\n\nThe recorder lets you listen back and re-record; before 0092 those\nattempts left no trace, so \"this line took six tries and still sounds\nwrong\" was knowledge that lived in one person's memory. No audio is\nsent \u2014 the bytes of a discarded take are not evidence of anything, and\nuploading them would be storing failed recordings for no reader.",
+        "operationId": "discard_take_corpus_eval_takes__script_id__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscardTakeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Take",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/eval/takes/{script_id}/flag": {
+      "post": {
+        "description": "Mark a take as unusable \u2014 Epic E's \"\u0440\u0443\u0447\u043d\u0430 \u043f\u043e\u0437\u043d\u0430\u0447\u043a\u0430 \u00ab\u0431\u0440\u0430\u043a\u00bb\".\n\nThe only retake signal that is STORED. Silence, hallucination and\ncondition mismatch are all derivable from evidence with a timestamp, so\nthey clear themselves when the line is re-recorded; \"I listened to this\nand it is unusable\" is not derivable from anything, so it is written\ndown \u2014 and cleared by the next upload, which is the same rule expressed\nthe only way it can be for a fact that lives in a person's head.",
+        "operationId": "flag_take_corpus_eval_takes__script_id__flag_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "script_id",
+            "required": true,
+            "schema": {
+              "title": "Script Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagTakeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalTakeDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Flag Take",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/gaps": {
+      "get": {
+        "description": "The demand half of \"what should be authored\": prefixes users typed for\nwhich autocomplete produced zero accepted suggestions, ranked by volume \u2014\nthe same rows `corpus-forge gaps` prints (migration 0090 pins the shared\nquery). Platform-wide by design; prefixes were PII-scrubbed at ingest and\nredaction-marked rows are excluded.",
+        "operationId": "corpus_gaps_corpus_gaps_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GapListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Gaps",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/promote": {
+      "post": {
+        "description": "Accepted global candidates \u2192 serving corpus (system-scope phrases,\nlive immediately). Idempotent; never un-retires. Release manifests stay\na corpus-forge operator action.",
+        "operationId": "promote_candidates_corpus_promote_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Candidates",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/releases": {
+      "get": {
+        "operationId": "corpus_releases_corpus_releases_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseListDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Releases",
+        "tags": [
+          "corpus"
+        ]
+      }
+    },
+    "/corpus/stats": {
+      "get": {
+        "operationId": "corpus_stats_corpus_stats_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Stats",
+        "tags": [
+          "corpus"
         ]
       }
     },

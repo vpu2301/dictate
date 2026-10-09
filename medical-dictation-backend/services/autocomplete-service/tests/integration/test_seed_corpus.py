@@ -67,8 +67,14 @@ async def test_seed_matches_corpus_idempotent_and_scoped_down():
     n_phrases, n_snippets, phrases = _committed_counts()
     su = await asyncpg.connect(SU_DSN)
     try:
+        # Exclude corpus-promoted provenance: since sprint 21 the promote job
+        # legitimately adds system-scope rows (mined/terminology/generated,
+        # ADR-0043). 0026 rows are 'seed' after the 0081 backfill but come
+        # back as the column default 'authored' when this test re-applies the
+        # (immutable, checksummed) seed SQL — count both.
         counts = """
-            SELECT (SELECT count(*) FROM autocomplete_phrases  WHERE source='system'),
+            SELECT (SELECT count(*) FROM autocomplete_phrases
+                    WHERE source='system' AND source_kind IN ('seed', 'authored')),
                    (SELECT count(*) FROM autocomplete_snippets WHERE source='system')
         """
         p0, s0 = await su.fetchrow(counts)
@@ -94,7 +100,8 @@ async def test_seed_matches_corpus_idempotent_and_scoped_down():
                 "the 1 non-starter row"
             )
             survivor = await su.fetchval(
-                "SELECT phrase FROM autocomplete_phrases WHERE source='system'"
+                "SELECT phrase FROM autocomplete_phrases "
+                "WHERE source='system' AND source_kind IN ('seed', 'authored')"
             )
             assert survivor == EXTRA_PHRASE
         finally:

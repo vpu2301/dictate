@@ -1,0 +1,729 @@
+# Normalisation rules for WER scoring — corpus-v3 Epic A.
+#
+# DATA, NOT CODE. Adding a unit alias or a numeral case form must not require a
+# release, and the diff of a rules change has to be readable by the linguist who
+# asked for it. That is why this is YAML in the repository rather than a table
+# in the database: versioned by git, reviewed like code, and hashed.
+#
+# THE VERSION IS LOAD-BEARING. `version` travels onto every eval run row and
+# /corpus/eval/compare refuses two runs that disagree about it — a rules change
+# silently makes new numbers incomparable with old ones. Change the rules,
+# change the version; RULES_SHA256 is the proof behind that promise.
+#
+# WHAT v2 ADDS OVER v1 — the defects the v2 measurement surfaced:
+#   · rate denominators. "68/хв" and "68 за хвилину" now land on the same
+#     tokens. v1 dropped the slash but kept the preposition, which is why
+#     uk-cardiology-a001 scored 50% WER on a pulse the model heard correctly.
+#   · micro-sign and percent-case aliases (µg/μg, відсотках/відсотку).
+#   · the `spoken` tables — the REVERSE direction (digits → words) the gold
+#     linter uses to propose "пульс шістдесят вісім за хвилину" for a gold
+#     written "пульс 68/хв".
+#
+# The forward direction stays deliberately conservative: no stemming, no
+# lemmatisation, no case-ending stripping. "інфаркту" vs "інфаркт" is a real
+# recognition error and must keep counting as one.
+
+version: v2
+description: 'WER normalisation rules, corpus-v3 Epic A. Data, not code: adding a unit alias or a numeral
+  case form must not require a release. The version string is stored on every run; a rules change makes
+  new numbers incomparable with old ones, and that has to be visible. v2 adds inverse text normalisation
+  for mixed formats: rate denominators, micro-sign aliases, more percent cases, and the `spoken` tables
+  that drive the reverse direction used by the gold-transcript linter.'
+fold:
+  apostrophes:
+    - ’
+    - ‘
+    - ʼ
+    - '`'
+    - ´
+  to_space:
+    - /
+    - ×
+    - '*'
+    - –
+    - —
+    - −
+    - '-'
+    - …
+    -  
+  percent_token: pct
+connectors:
+  uk:
+    - на
+  en:
+    - over
+    - by
+number_glue:
+  uk: []
+  en:
+    - and
+phrases:
+  uk:
+    - - - міліметрів
+        - ртутного
+        - стовпа
+      - mmhg
+    - - - міліметрів
+        - ртутного
+        - стовпчика
+      - mmhg
+    - - - мм
+        - рт
+        - ст
+      - mmhg
+    - - - мілімоль
+        - на
+        - літр
+      - mmol_l
+    - - - мілімолів
+        - на
+        - літр
+      - mmol_l
+    - - - ммоль
+        - л
+      - mmol_l
+    - - - мікромоль
+        - на
+        - літр
+      - umol_l
+    - - - мікромолів
+        - на
+        - літр
+      - umol_l
+    - - - мкмоль
+        - л
+      - umol_l
+    - - - літри
+        - за
+        - хвилину
+      - l_min
+    - - - літрів
+        - за
+        - хвилину
+      - l_min
+    - - - літра
+        - за
+        - хвилину
+      - l_min
+    - - - л
+        - хв
+      - l_min
+    - - - крапель
+        - за
+        - хвилину
+      - drops_min
+    - - - ударів
+        - за
+        - хвилину
+      - bpm
+    - - - скорочень
+        - за
+        - хвилину
+      - bpm
+    # The written abbreviation for the same measurement: "ЧСС 68 уд/хв".
+    - - - уд
+        - хв
+      - bpm
+  en:
+    - - - millimoles
+        - per
+        - liter
+      - mmol_l
+    - - - millimoles
+        - per
+        - litre
+      - mmol_l
+    - - - millimole
+        - per
+        - liter
+      - mmol_l
+    - - - mmol
+        - l
+      - mmol_l
+    - - - micromoles
+        - per
+        - liter
+      - umol_l
+    - - - micromoles
+        - per
+        - litre
+      - umol_l
+    - - - umol
+        - l
+      - umol_l
+    - - - beats
+        - per
+        - minute
+      - bpm
+    - - - millimeters
+        - of
+        - mercury
+      - mmhg
+    - - - millimetres
+        - of
+        - mercury
+      - mmhg
+    - - - mm
+        - hg
+      - mmhg
+    - - - liters
+        - per
+        - minute
+      - l_min
+    - - - litres
+        - per
+        - minute
+      - l_min
+    - - - drops
+        - per
+        - minute
+      - drops_min
+units:
+  uk:
+    мг: mg
+    міліграм: mg
+    міліграма: mg
+    міліграми: mg
+    міліграмів: mg
+    г: g
+    грам: g
+    грама: g
+    грами: g
+    грамів: g
+    мкг: mcg
+    мікрограм: mcg
+    мікрограмів: mcg
+    мл: ml
+    мілілітр: ml
+    мілілітра: ml
+    мілілітри: ml
+    мілілітрів: ml
+    л: l
+    літр: l
+    літра: l
+    літри: l
+    літрів: l
+    кг: kg
+    кілограм: kg
+    кілограма: kg
+    кілограми: kg
+    кілограмів: kg
+    мм: mm
+    міліметр: mm
+    міліметра: mm
+    міліметри: mm
+    міліметрів: mm
+    см: cm
+    сантиметр: cm
+    сантиметра: cm
+    сантиметри: cm
+    сантиметрів: cm
+    ммоль: mmol
+    мілімолі: mmol
+    мілімоля: mmol
+    мкмоль: umol
+    мікромолі: umol
+    мікромоля: umol
+    pct: pct
+    відсоток: pct
+    відсотка: pct
+    відсотки: pct
+    відсотків: pct
+    од: units
+    одиниця: units
+    одиниці: units
+    одиниць: units
+    хв: min
+    хвилина: min
+    хвилини: min
+    хвилину: min
+    хвилин: min
+    год: h
+    година: h
+    години: h
+    годину: h
+    годин: h
+    крапля: drops
+    краплі: drops
+    крапель: drops
+    µg: mcg
+    μg: mcg
+    мікрограма: mcg
+    мікрограми: mcg
+    відсотках: pct
+    відсотку: pct
+    відсоткам: pct
+    мілімоль: mmol
+    мілімолів: mmol
+    мікромоль: umol
+    мікромолів: umol
+    одиницю: units
+    секунда: s
+    секунди: s
+    секунду: s
+    секунд: s
+    сек: s
+  en:
+    mg: mg
+    milligram: mg
+    milligrams: mg
+    g: g
+    gram: g
+    grams: g
+    mcg: mcg
+    microgram: mcg
+    micrograms: mcg
+    ml: ml
+    milliliter: ml
+    milliliters: ml
+    millilitre: ml
+    millilitres: ml
+    l: l
+    liter: l
+    liters: l
+    litre: l
+    litres: l
+    kg: kg
+    kilogram: kg
+    kilograms: kg
+    mm: mm
+    millimeter: mm
+    millimeters: mm
+    cm: cm
+    centimeter: cm
+    centimeters: cm
+    mmol: mmol
+    millimole: mmol
+    millimoles: mmol
+    umol: umol
+    micromole: umol
+    micromoles: umol
+    pct: pct
+    percent: pct
+    percentage: pct
+    unit: units
+    units: units
+    min: min
+    minute: min
+    minutes: min
+    hour: h
+    hours: h
+    bpm: bpm
+    drop: drops
+    drops: drops
+    µg: mcg
+    μg: mcg
+    second: s
+    seconds: s
+    sec: s
+cardinals:
+  uk:
+    нуль: 0
+    нуля: 0
+    один: 1
+    одна: 1
+    одне: 1
+    одного: 1
+    одну: 1
+    два: 2
+    дві: 2
+    двох: 2
+    три: 3
+    трьох: 3
+    чотири: 4
+    чотирьох: 4
+    п'ять: 5
+    п'яти: 5
+    п'ятьох: 5
+    шість: 6
+    шести: 6
+    шістьох: 6
+    сім: 7
+    семи: 7
+    сімох: 7
+    вісім: 8
+    восьми: 8
+    вісьмох: 8
+    дев'ять: 9
+    дев'яти: 9
+    дев'ятьох: 9
+    десять: 10
+    десяти: 10
+    одинадцять: 11
+    одинадцяти: 11
+    дванадцять: 12
+    дванадцяти: 12
+    тринадцять: 13
+    тринадцяти: 13
+    чотирнадцять: 14
+    чотирнадцяти: 14
+    п'ятнадцять: 15
+    п'ятнадцяти: 15
+    шістнадцять: 16
+    шістнадцяти: 16
+    сімнадцять: 17
+    сімнадцяти: 17
+    вісімнадцять: 18
+    вісімнадцяти: 18
+    дев'ятнадцять: 19
+    дев'ятнадцяти: 19
+    двадцять: 20
+    двадцяти: 20
+    тридцять: 30
+    тридцяти: 30
+    сорок: 40
+    сорока: 40
+    п'ятдесят: 50
+    п'ятдесяти: 50
+    шістдесят: 60
+    шістдесяти: 60
+    сімдесят: 70
+    сімдесяти: 70
+    вісімдесят: 80
+    вісімдесяти: 80
+    дев'яносто: 90
+    дев'яноста: 90
+    сто: 100
+    двісті: 200
+    двохсот: 200
+    триста: 300
+    трьохсот: 300
+    чотириста: 400
+    чотирьохсот: 400
+    п'ятсот: 500
+    п'ятисот: 500
+    шістсот: 600
+    шестисот: 600
+    сімсот: 700
+    семисот: 700
+    вісімсот: 800
+    восьмисот: 800
+    дев'ятсот: 900
+    дев'ятисот: 900
+  en:
+    zero: 0
+    one: 1
+    two: 2
+    three: 3
+    four: 4
+    five: 5
+    six: 6
+    seven: 7
+    eight: 8
+    nine: 9
+    ten: 10
+    eleven: 11
+    twelve: 12
+    thirteen: 13
+    fourteen: 14
+    fifteen: 15
+    sixteen: 16
+    seventeen: 17
+    eighteen: 18
+    nineteen: 19
+    twenty: 20
+    thirty: 30
+    forty: 40
+    fourty: 40
+    fifty: 50
+    sixty: 60
+    seventy: 70
+    eighty: 80
+    ninety: 90
+multipliers:
+  uk: {}
+  en:
+    hundred: 100
+scales:
+  uk:
+    тисяча: 1000
+    тисячу: 1000
+    тисячі: 1000
+    тисяч: 1000
+    мільйон: 1000000
+    мільйонів: 1000000
+  en:
+    thousand: 1000
+    million: 1000000
+ordinals:
+  uk:
+    перший: 1
+    перша: 1
+    першого: 1
+    першої: 1
+    другий: 2
+    друга: 2
+    другого: 2
+    другої: 2
+    третій: 3
+    третя: 3
+    третього: 3
+    третьої: 3
+    четвертий: 4
+    четверта: 4
+    четвертого: 4
+    четвертої: 4
+    п'ятий: 5
+    п'ята: 5
+    п'ятого: 5
+    п'ятої: 5
+    шостий: 6
+    шоста: 6
+    шостого: 6
+    шостої: 6
+    сьомий: 7
+    сьома: 7
+    сьомого: 7
+    сьомої: 7
+    восьмий: 8
+    восьма: 8
+    восьмого: 8
+    восьмої: 8
+    дев'ятий: 9
+    дев'ята: 9
+    дев'ятого: 9
+    дев'ятої: 9
+    десятий: 10
+    десята: 10
+    десятого: 10
+    десятої: 10
+  en:
+    first: 1
+    second: 2
+    third: 3
+    fourth: 4
+    fifth: 5
+    sixth: 6
+    seventh: 7
+    eighth: 8
+    ninth: 9
+    tenth: 10
+decimals:
+  uk:
+    whole_markers:
+      - цілих
+      - ціла
+      - цілі
+      - ціле
+    fraction_markers:
+      десятих: 1
+      сотих: 2
+      тисячних: 3
+    conjunctions:
+      - і
+      - й
+    half_words:
+      - - з
+        - половиною
+      - - з
+        - половинкою
+  en:
+    point_words:
+      - point
+    half_words:
+      - - and
+        - a
+        - half
+      - - a
+        - half
+hallucination_stoplist:
+  - дякую за перегляд
+  - дякую за увагу
+  - підписуйтесь на канал
+  - субтитри створені
+  - редактор субтитрів
+  - thanks for watching
+  - thank you for watching
+  - please subscribe
+  - subscribe to my channel
+  - subtitles by
+  - amara.org
+rate_denominators:
+  uk:
+    - хв
+    - хвилина
+    - хвилини
+    - хвилину
+    - хвилин
+    - год
+    - година
+    - години
+    - годину
+    - годин
+    - доба
+    - доби
+    - добу
+    - день
+    - дня
+    - днів
+    - тиждень
+    - тижня
+    - місяць
+    - місяця
+    - л
+    - літр
+    - літра
+    - кг
+    - кілограм
+    - м2
+    - сек
+    - секунда
+    - секунди
+    - секунду
+    - min
+    - h
+    - s
+    - l
+    - kg
+  en:
+    - minute
+    - minutes
+    - min
+    - hour
+    - hours
+    - h
+    - day
+    - days
+    - week
+    - weeks
+    - month
+    - months
+    - liter
+    - liters
+    - litre
+    - litres
+    - l
+    - kg
+    - kilogram
+    - second
+    - seconds
+    - s
+    - m2
+unit_prepositions:
+  uk:
+    - за
+    - на
+    - в
+    - у
+    - по
+  en:
+    - per
+    - a
+    - each
+
+# ── reverse direction: digits → spoken form ───────────────────────────────
+#
+# Drives the gold-transcript linter (Epic B), which proposes the spoken
+# rewrite of a gold written in digits. It is a SUGGESTION a human accepts or
+# edits: Ukrainian numeral–noun agreement has more cases than a table can
+# settle, so these encode the four forms that cover clinical dictation and
+# stop there.
+#
+# one/few/many follow the Slavic plural rule on the trailing digits — 1 but
+# not 11 → one, 2–4 but not 12–14 → few, otherwise many. `frac` is the form
+# after a decimal ("сім цілих дві десятих ВІДСОТКА"). `rate` is the form
+# after a slash denominator ("68/хв" → "68 ЗА ХВИЛИНУ").
+spoken:
+  uk:
+    connector: "на"
+    zero: "нуль"
+    ones:
+      m: ["", "один", "два", "три", "чотири", "п'ять", "шість", "сім", "вісім", "дев'ять"]
+      f: ["", "одна", "дві", "три", "чотири", "п'ять", "шість", "сім", "вісім", "дев'ять"]
+    teens: ["десять", "одинадцять", "дванадцять", "тринадцять", "чотирнадцять",
+            "п'ятнадцять", "шістнадцять", "сімнадцять", "вісімнадцять", "дев'ятнадцять"]
+    tens: ["", "", "двадцять", "тридцять", "сорок", "п'ятдесят", "шістдесят",
+           "сімдесят", "вісімдесят", "дев'яносто"]
+    hundreds: ["", "сто", "двісті", "триста", "чотириста", "п'ятсот", "шістсот",
+               "сімсот", "вісімсот", "дев'ятсот"]
+    thousands: {gender: "f", one: "тисяча", few: "тисячі", many: "тисяч"}
+    whole: {one: "ціла", few: "цілих", many: "цілих"}
+    fraction:
+      1: {one: "десята", few: "десятих", many: "десятих"}
+      2: {one: "сота", few: "сотих", many: "сотих"}
+      3: {one: "тисячна", few: "тисячних", many: "тисячних"}
+    units:
+      mg:   {gender: "m", one: "міліграм", few: "міліграми", many: "міліграмів", frac: "міліграма"}
+      g:    {gender: "m", one: "грам", few: "грами", many: "грамів", frac: "грама"}
+      mcg:  {gender: "m", one: "мікрограм", few: "мікрограми", many: "мікрограмів", frac: "мікрограма"}
+      kg:   {gender: "m", one: "кілограм", few: "кілограми", many: "кілограмів", frac: "кілограма"}
+      ml:   {gender: "m", one: "мілілітр", few: "мілілітри", many: "мілілітрів", frac: "мілілітра"}
+      l:    {gender: "m", one: "літр", few: "літри", many: "літрів", frac: "літра"}
+      mm:   {gender: "m", one: "міліметр", few: "міліметри", many: "міліметрів", frac: "міліметра"}
+      cm:   {gender: "m", one: "сантиметр", few: "сантиметри", many: "сантиметрів", frac: "сантиметра"}
+      pct:  {gender: "m", one: "відсоток", few: "відсотки", many: "відсотків", frac: "відсотка"}
+      units: {gender: "f", one: "одиниця", few: "одиниці", many: "одиниць", frac: "одиниці"}
+      mmol: {gender: "f", one: "мілімоль", few: "мілімолі", many: "мілімоль", frac: "мілімоля"}
+      umol: {gender: "f", one: "мікромоль", few: "мікромолі", many: "мікромоль", frac: "мікромоля"}
+      min:  {gender: "f", one: "хвилина", few: "хвилини", many: "хвилин", frac: "хвилини", rate: "за хвилину"}
+      h:    {gender: "f", one: "година", few: "години", many: "годин", frac: "години", rate: "за годину"}
+      s:    {gender: "f", one: "секунда", few: "секунди", many: "секунд", frac: "секунди", rate: "за секунду"}
+      drops: {gender: "f", one: "крапля", few: "краплі", many: "крапель", frac: "краплі"}
+      mmhg:   {phrase: "міліметрів ртутного стовпа"}
+      mmol_l: {phrase: "мілімоль на літр"}
+      umol_l: {phrase: "мікромоль на літр"}
+      bpm:    {phrase: "ударів за хвилину"}
+      l_min:  {phrase: "літрів за хвилину"}
+      drops_min: {phrase: "крапель за хвилину"}
+    # Denominator nouns as they are SPOKEN after a slash. "мг/добу" is read
+    # "міліграмів на добу", not "міліграмів добу".
+    rate_phrases:
+      "хв": "за хвилину"
+      "хвилину": "за хвилину"
+      "год": "за годину"
+      "годину": "за годину"
+      "добу": "на добу"
+      "доба": "на добу"
+      "день": "на день"
+      "тиждень": "на тиждень"
+      "кг": "на кілограм"
+      "л": "на літр"
+      "м2": "на метр квадратний"
+  en:
+    connector: "over"
+    zero: "zero"
+    ones:
+      m: ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+      f: ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+    teens: ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+            "sixteen", "seventeen", "eighteen", "nineteen"]
+    tens: ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy",
+           "eighty", "ninety"]
+    hundreds: ["", "one hundred", "two hundred", "three hundred", "four hundred",
+               "five hundred", "six hundred", "seven hundred", "eight hundred",
+               "nine hundred"]
+    thousands: {gender: "m", one: "thousand", few: "thousand", many: "thousand"}
+    whole: {one: "point", few: "point", many: "point"}
+    fraction: {}
+    units:
+      mg:   {gender: "m", one: "milligram", few: "milligrams", many: "milligrams", frac: "milligrams"}
+      g:    {gender: "m", one: "gram", few: "grams", many: "grams", frac: "grams"}
+      mcg:  {gender: "m", one: "microgram", few: "micrograms", many: "micrograms", frac: "micrograms"}
+      kg:   {gender: "m", one: "kilogram", few: "kilograms", many: "kilograms", frac: "kilograms"}
+      ml:   {gender: "m", one: "milliliter", few: "milliliters", many: "milliliters", frac: "milliliters"}
+      l:    {gender: "m", one: "liter", few: "liters", many: "liters", frac: "liters"}
+      mm:   {gender: "m", one: "millimeter", few: "millimeters", many: "millimeters", frac: "millimeters"}
+      cm:   {gender: "m", one: "centimeter", few: "centimeters", many: "centimeters", frac: "centimeters"}
+      pct:  {gender: "m", one: "percent", few: "percent", many: "percent", frac: "percent"}
+      units: {gender: "m", one: "unit", few: "units", many: "units", frac: "units"}
+      mmol: {gender: "m", one: "millimole", few: "millimoles", many: "millimoles", frac: "millimoles"}
+      umol: {gender: "m", one: "micromole", few: "micromoles", many: "micromoles", frac: "micromoles"}
+      min:  {gender: "m", one: "minute", few: "minutes", many: "minutes", frac: "minutes", rate: "per minute"}
+      h:    {gender: "m", one: "hour", few: "hours", many: "hours", frac: "hours", rate: "per hour"}
+      s:    {gender: "m", one: "second", few: "seconds", many: "seconds", frac: "seconds", rate: "per second"}
+      drops: {gender: "m", one: "drop", few: "drops", many: "drops", frac: "drops"}
+      mmhg:   {phrase: "millimeters of mercury"}
+      mmol_l: {phrase: "millimoles per liter"}
+      umol_l: {phrase: "micromoles per liter"}
+      bpm:    {phrase: "beats per minute"}
+      l_min:  {phrase: "liters per minute"}
+      drops_min: {phrase: "drops per minute"}
+    rate_phrases:
+      "min": "per minute"
+      "minute": "per minute"
+      "h": "per hour"
+      "hour": "per hour"
+      "day": "per day"
+      "week": "per week"
+      "kg": "per kilogram"
+      "l": "per liter"

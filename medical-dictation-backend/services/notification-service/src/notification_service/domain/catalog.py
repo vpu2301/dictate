@@ -205,6 +205,32 @@ _SPECS: Final[tuple[CategorySpec, ...]] = (
         # break-glass.
     ),
     CategorySpec(
+        category=Category.SECURITY_MFA_REMINDER,
+        # Exactly the user who was asked, named by auth-service. This is
+        # never a broadcast: telling a clinic that a colleague has no
+        # second factor is publishing a weakness, not fixing one.
+        recipient_rule=RecipientRule.EXPLICIT_HINTS,
+        default_in_app=True,
+        # WARNING: an account without a second factor is one stolen
+        # password away from being someone else's, and the feed should
+        # not present that with the same weight as "your report saved".
+        severity=Severity.WARNING,
+        # The one category that emails BECAUSE the recipient may not be
+        # in the app — a user who has not enrolled is often a user who
+        # signs in rarely, which is exactly who the in-app banner never
+        # reaches.
+        default_email_mode=EmailMode.IMMEDIATE,
+        # A security ask does not wait for tomorrow's summary, and the
+        # standing banner already covers the "later" case.
+        digest_eligible=False,
+        # The actor is the reviewer, the audience is the subject. They
+        # cannot be the same person (the endpoint refuses self-reminders),
+        # so the default exclusion would never fire — spelled out rather
+        # than left to be re-derived.
+        exclude_actor=False,
+        email_template="security_mfa_reminder",
+    ),
+    CategorySpec(
         category=Category.SYSTEM_DIGEST,
         # The digest job addresses one user directly; it never fans out.
         recipient_rule=RecipientRule.EXPLICIT_HINTS,

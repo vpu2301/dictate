@@ -48,7 +48,8 @@ dictate/
     │   ├── nlp-service/          # 6-stage transcript post-processing pipeline
     │   ├── report-service/       # templates + reports (versioning/diff/search)
     │   ├── signing-service/      # КЕП/KEP signing + public /verify
-    │   └── autocomplete-service/ # clinical phrase autocomplete (trie + Redis)
+    │   ├── autocomplete-service/ # clinical phrase autocomplete (trie + Redis)
+    │   └── corpus-forge/         # corpus pipeline CLI (mine/import/generate/review/release)
     ├── libs/                     # internal shared packages (workspace members)
     │   ├── secret/               # Secret[T] typed wrapper (leak-proof)
     │   ├── observability/        # logging + OTel traces/metrics + PII filter
@@ -104,7 +105,9 @@ make smoke         # verify the stack is healthy
 ```
 
 Prerequisites: Docker + Compose plugin (25.0 / 2.20+), Python 3.12, uv 0.4+,
-make, git. On Windows use WSL2. `make doctor` validates all of this.
+make, git, git-lfs (`git lfs install` once per clone — eval-corpus audio is
+LFS-tracked as of sprint 21). On Windows use WSL2. `make doctor` validates
+all of this.
 
 ### Laptop / GPU variants
 
@@ -250,6 +253,7 @@ in `docs/adr/`, not a quiet edit.
 | **report-service** (S06, S08) | Section-aware templates (16 system templates) + reports (versioning, diff, FTS) | Cosmetic-vs-structural edit rule; append-only `report_versions`; linear amendment chain |
 | **signing-service** (S09) | КЕП/KEP signing (Дія + ІІТ + mock) + public `/verify` | PAdES-LTV with embedded canonical JSON (JCS); IP-HMAC audit + rate limiter on /verify |
 | **autocomplete-service** (S10) | Clinical phrase autocomplete | Trie + Redis cache (per-key lock, version_tag); Bayesian ranking; p95 ≤ 80 ms; PII scrubber |
+| **corpus-forge** (S21, CLI not a service) | Clinical corpus pipeline: mine reports (k-anonymity ≥5 authors/≥2 tenants), import ДРЛЗ/НК025, LLM-generate, jury/human review, promote, immutable releases | Provenance on every phrase (ADR-0043); PHI-derived candidates judged in-perimeter only, enforced by a raise (ADR-0044); serving gated on `review_state='accepted'` |
 
 Detailed per-sprint context lives in the project memory index
 (`~/.claude/projects/.../memory/MEMORY.md`) and in `docs/adr/` (ADRs 0001–0025).

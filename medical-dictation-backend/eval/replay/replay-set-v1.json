@@ -1,0 +1,461 @@
+{
+  "schema_version": 1,
+  "note": "synthetic prefixes measure trie/ranking self-consistency, NOT clinical coverage; telemetry prefixes measure the real gap",
+  "prefixes": [
+    {
+      "language": "en",
+      "prefix": "ale",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "alert",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "alert an",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "blo",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "blood",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "blood pr",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "che",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "chest",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "chest pa",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "con",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "conti",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "continue",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "fol",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "follo",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "follow u",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "hea",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "heart",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "heart ra",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "his",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "histo",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "history",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "no ac",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "no acute",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "reg",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "regul",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "regular",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "sho",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "short",
+      "origin": "synthetic"
+    },
+    {
+      "language": "en",
+      "prefix": "shortnes",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "HbA",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "HbA1c",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "HbA1c ко",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "АТ 12",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "АТ 120/8",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "Гіп",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "Гіпер",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "Гіпертон",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "ЧСС",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "ЧСС 7",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "ЧСС 72 з",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "без",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "без в",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "без вогн",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "біл",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "біль",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "біль за",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "глі",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "гліке",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "глікемія",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "діа",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "діагн",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "діагноз",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "заг",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "загал",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "загальни",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "зад",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "задиш",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "задишка",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "лег",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "леген",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "легеневі",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "пов",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "повто",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "повторна",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "про",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "продо",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "продовжи",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "рит",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "ритм",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "ритм син",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "сві",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "свідо",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "свідоміс",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "ска",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "скарг",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "скарг на",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "тем",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "темпе",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "температ",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "тон",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "тони",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "тони сер",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "цук",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "цукро",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "цукровий",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "шкі",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "шкіра",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "шкіра зв",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "інф",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "інфар",
+      "origin": "synthetic"
+    },
+    {
+      "language": "uk",
+      "prefix": "інфаркт",
+      "origin": "synthetic"
+    }
+  ]
+}

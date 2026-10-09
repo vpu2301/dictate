@@ -92,6 +92,11 @@ def _phrase_row(**over) -> dict:
         "last_accepted_at": NOW,
         "enabled": True,
         "created_at": NOW,
+        # sprint-21 provenance columns (ADR-0043)
+        "review_state": "accepted",
+        "tier": None,
+        "source_kind": "authored",
+        "corpus_release": None,
     }
     row.update(over)
     return row

@@ -203,8 +203,10 @@ async def test_retention_drops_only_expired_partitions():
         app_pool = await create_pool(APP_DSN, application_name="retention-itest",
                                      min_size=1, max_size=1)
         try:
-            dropped1 = await enforce_retention(app_pool)
-            dropped2 = await enforce_retention(app_pool)  # idempotent
+            # S16 changed the return shape to (dropped, archived); archiving
+            # is flag-gated off in this test, so archived stays empty.
+            dropped1, _archived1 = await enforce_retention(app_pool)
+            dropped2, _archived2 = await enforce_retention(app_pool)  # idempotent
         finally:
             await app_pool.close()
 

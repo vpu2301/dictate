@@ -1,0 +1,7 @@
+language: en
+section: diagnosis
+templates:
+  - "{term}"
+  - "diagnosis of {term}"
+  - "consistent with {term}"
+  - "rule out {term}"

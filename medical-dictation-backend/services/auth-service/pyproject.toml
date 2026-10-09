@@ -28,6 +28,9 @@ dependencies = [
     "db",
     "secret",
     "crypto",
+    # S21 MFA reminders: auth-service is the only service that knows a user
+    # has no second factor, so it is the producer for security.mfa_reminder.
+    "notification_events",
 ]
 
 [tool.uv.sources]
@@ -37,6 +40,7 @@ audit = { workspace = true }
 db = { workspace = true }
 secret = { workspace = true }
 crypto = { workspace = true }
+notification_events = { workspace = true }
 
 [project.optional-dependencies]
 dev = [

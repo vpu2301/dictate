@@ -11,7 +11,12 @@ dependencies = [
     "asyncpg>=0.29.0",
     "redis>=5.0",
     "marisa-trie>=1.1.0",
+    # Eval scoring calls asr-service over HTTP (migration 0091).
+    "httpx>=0.27.0",
     "rapidfuzz>=3.6",
+    # Corpus-v3 Epic A: the normalisation rules are a versioned YAML file
+    # in the repo (data/eval_normalization_v2.yaml), reviewed like code.
+    "pyyaml>=6.0",
     "opentelemetry-sdk>=1.24.0",
     "opentelemetry-instrumentation-fastapi>=0.45b0",
     "python-json-logger>=2.0.7",
@@ -23,6 +28,11 @@ dependencies = [
     # Sprint 16: telemetry cold-archive writes through EncryptedObjectStore.
     "crypto",
     "storage",
+    # Authored candidates submitted from the console are risk-flagged and
+    # tier-routed with the SAME code corpus-forge runs on mined/generated
+    # ones — a second implementation would mean a dose phrase reaching a
+    # different tier depending on which door it came through.
+    "corpus-risk",
 ]
 
 [tool.uv.sources]
@@ -33,8 +43,16 @@ db = { workspace = true }
 secret = { workspace = true }
 crypto = { workspace = true }
 storage = { workspace = true }
+corpus-risk = { workspace = true }
 
 [project.optional-dependencies]
+# Corpus-v3 Epic F: the data register's PDF export. Same shape as
+# medical_kep[pdf] — weasyprint needs pango/cairo at runtime, so it is an
+# extra and the import is lazy. Without it /compliance/data-register/
+# export.pdf answers 503 and points at the HTML export, which always works.
+pdf = [
+    "weasyprint>=62.0",
+]
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",

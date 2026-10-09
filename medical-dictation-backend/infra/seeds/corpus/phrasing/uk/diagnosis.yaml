@@ -1,0 +1,11 @@
+# Phrase-ification templates: diagnosis section, Ukrainian (plan §3).
+# A term maps to the 2-5 ways a clinician actually dictates it. Reviewed
+# once, applied to thousands of terms — review the template, not the output.
+language: uk
+section: diagnosis
+templates:
+  - "{term}"
+  - "діагноз {term}"
+  - "встановлено діагноз {term}"
+  - "клінічний діагноз {term}"
+  - "{term} під питанням"
