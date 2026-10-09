@@ -8,6 +8,7 @@ app_role deliberately cannot UPDATE global rows.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
@@ -68,13 +69,22 @@ async def submit_candidate(
     capture: str,
     submitted_by: UUID,
     tenant_id: UUID,
+    tier: int,
+    risk_flags: Sequence[str],
 ) -> tuple[UUID, str]:
     """One authored (typed/dictated) phrase → a global candidate row, via the
-    corpus_submit_candidate SECURITY DEFINER fn (migration 0088) — app_role
-    cannot INSERT global rows directly. Returns (id, status) where status is
-    'created' | 'duplicate_candidate' | 'already_in_corpus'."""
+    corpus_submit_candidate SECURITY DEFINER fn (migrations 0088, 0098) —
+    app_role cannot INSERT global rows directly. Returns (id, status) where
+    status is 'created' | 'duplicate_candidate' | 'already_in_corpus'.
+
+    `tier` and `risk_flags` come from the shared corpus_risk router in the
+    route handler, not from this layer and not from the client: 0088 filed
+    every authored phrase as tier 2 with no flags, which kept dose and drug
+    phrases out of the tier-3 human queue entirely. The function re-checks the
+    pair and refuses the write if the two disagree."""
     row = await conn.fetchrow(
-        "SELECT out_id, out_status FROM corpus_submit_candidate($1, $2, $3, $4, $5, $6, $7)",
+        "SELECT out_id, out_status"
+        " FROM corpus_submit_candidate($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         phrase,
         language,
         specialty,
@@ -82,6 +92,8 @@ async def submit_candidate(
         capture,
         submitted_by,
         tenant_id,
+        tier,
+        list(risk_flags),
     )
     assert row is not None  # OUT-param fn always returns one row
     return row["out_id"], row["out_status"]
@@ -190,6 +202,22 @@ async def stats(conn: asyncpg.Connection) -> dict[str, Any]:
             for r in quota_rows
         ],
     }
+
+
+async def telemetry_gaps(
+    conn: asyncpg.Connection, *, limit: int
+) -> list[asyncpg.Record]:
+    """The corpus-forge `gaps` work queue over HTTP: zero-accept scrubbed
+    prefixes ranked by volume, via corpus_telemetry_gaps (migration 0090 —
+    a deliberate platform-wide aggregate; the fn pins the query to the CLI's
+    exact shape and caps the limit)."""
+    return list(
+        await conn.fetch(
+            "SELECT prefix, impressions, accepts, all_timeouts"
+            " FROM corpus_telemetry_gaps($1)",
+            limit,
+        )
+    )
 
 
 async def list_releases(conn: asyncpg.Connection) -> list[asyncpg.Record]:

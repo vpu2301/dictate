@@ -8,6 +8,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
+        `# weasyprint (autocomplete-service[pdf]) native deps — the Epic F` \
+        `# data-register PDF export. Same set report-service installs.` \
+        libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+        libffi8 shared-mime-info fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 65532 nonroot \
     && useradd --uid 65532 --gid 65532 --shell /sbin/nologin --no-create-home nonroot
@@ -21,12 +25,13 @@ COPY services/autocomplete-service/ /build/services/autocomplete-service/
 
 RUN uv pip install --system --no-cache \
     --target /deps \
-    /build/services/autocomplete-service \
+    "/build/services/autocomplete-service[pdf]" \
     /build/libs/observability \
     /build/libs/auth \
     /build/libs/audit \
     /build/libs/db \
-    /build/libs/secret
+    /build/libs/secret \
+    /build/libs/corpus_risk
 
 RUN printf 'import site\nsite.addsitedir("/deps")\n' > /deps/sitecustomize.py
 

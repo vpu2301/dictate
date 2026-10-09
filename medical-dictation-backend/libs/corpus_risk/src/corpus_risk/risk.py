@@ -9,10 +9,21 @@ Flags: 'dose', 'drug', 'laterality', 'negation', 'icd', 'abbrev'.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Final
 
-from corpus_forge.domain.normalize import tokenize
+from corpus_risk.normalize import tokenize
+
+#: The closed vocabulary, in the order `flags()` emits it. Mirrored by the
+#: migration-0082 CHECK and by src/api/corpus.js RISK_FLAGS in the console.
+RISK_FLAGS: Final = ("dose", "drug", "laterality", "negation", "icd", "abbrev")
+
+#: The reviewed wordlists travel WITH this package rather than sitting in
+#: infra/seeds, because both ingest paths need them at runtime and only one of
+#: them (the CLI) runs from a repo checkout. Editing them is still a clinical
+#: review under ADR-0043 — see the header of each file.
+_DATA_DIR: Final = Path(__file__).parent / "data"
 
 # Any digit is dose-adjacent in clinical text (BP, doses, frequencies) —
 # deliberately broad. Unit words catch spelled-out quantities.
@@ -81,3 +92,21 @@ class RiskFlagger:
         ):
             found.append("abbrev")
         return found
+
+
+@lru_cache(maxsize=1)
+def default_flagger() -> RiskFlagger:
+    """The flagger every ingest path must use.
+
+    Cached because the wordlists are read-only files and the HTTP path calls
+    this once per submitted phrase. A caller that wants a different lexicon
+    (a test, an import that just grew the drug list) constructs RiskFlagger
+    directly — but nothing in production should, or the tier a phrase gets
+    would depend on which door it came through.
+    """
+    drugs = _DATA_DIR / "drug_stems.txt"
+    abbrevs = _DATA_DIR / "abbrev_allowlist.txt"
+    return RiskFlagger(
+        drug_lexicon=load_wordlist(drugs) if drugs.exists() else frozenset(),
+        abbrev_allowlist=load_wordlist(abbrevs) if abbrevs.exists() else frozenset(),
+    )

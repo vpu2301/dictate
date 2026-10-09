@@ -2,6 +2,20 @@
 
 Sprint-07's reference set for the standing WER measurement (ADR-0019).
 
+> **v1 IS FROZEN (corpus-v2 §1.2).** As of migration 0092 this set is the
+> **holdout**: it is what release numbers are measured on, and it does not
+> grow. New replicas go to the **dev** set (`eval/corpus/v2/`), where
+> dictionaries, prompts and post-processing may be tuned. Measure test only
+> for release snapshots — tuning against the set you report on is how a
+> corpus stops measuring anything.
+>
+> The scoring protocol every number here obeys — raw AND normalised WER,
+> dose accuracy, CER, hallucination flags, bootstrap confidence intervals,
+> and the per-run record of measurement conditions — is
+> **`docs/eval/wer-methodology.md` §The corpus-v2 scoring protocol**. Two
+> numbers taken under different `normalizer_version`s or different corpus
+> digests are not comparable, and the tooling refuses to compare them.
+
 ## Inventory
 
 - **60 UK utterances** distributed: 20 cardiology, 10 endocrinology,
@@ -17,7 +31,7 @@ Each utterance lives in its own directory under
 ```
 <utterance_id>/
     audio.wav         # 16 kHz mono PCM, 16-bit
-    transcript.txt    # gold (post-NLP-expected) transcript
+    transcript.txt    # gold transcript, in SPOKEN form (../README.md)
     metadata.json     # see schema below
 ```
 

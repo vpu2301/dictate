@@ -117,6 +117,20 @@ class UtteranceScore:
     number_norm_by_category: dict[str, float]
     reference: str
     hypothesis: str
+    # ── corpus-v2 §1.3.1: the same audio, scored a second way ──────────
+    # Raw WER counts "сорок міліграмів" against a gold "40 мг" as two
+    # errors. Reporting both is what separates a recognition failure from a
+    # transcription-convention disagreement. The nightly THRESHOLDS still
+    # gate on raw WER — changing what the gate measures is a separate,
+    # deliberate decision (corpus-v2 §4 P2-11), not a side effect of adding
+    # a column.
+    wer_norm: float = 0.0
+    n_ref_words_norm: int = 0
+    cer_norm: float = 0.0
+    reference_norm: str = ""
+    # Non-empty means the utterance is quarantined out of the v2 aggregates
+    # (Whisper-on-silence artefacts; corpus-v2 §4 P0-3).
+    flags: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -147,6 +161,46 @@ class RunResult:
 
     def wer_overall(self, lang: str) -> float | None:
         return self._word_weighted_wer(lang)
+
+    def _counted(self, lang: str) -> list[UtteranceScore]:
+        """Utterances allowed into a v2 aggregate: this language, unflagged.
+
+        A quarantined utterance keeps its stored score and loses its vote —
+        the same rule the service applies, for the same reason (corpus-v2
+        §4 P0-3).
+        """
+        return [u for u in self.utterances if u.language == lang and not u.flags]
+
+    def wer_norm_overall(self, lang: str) -> float | None:
+        rows = self._counted(lang)
+        denom = sum(u.n_ref_words_norm for u in rows)
+        if denom == 0:
+            return None
+        return sum(u.wer_norm * u.n_ref_words_norm for u in rows) / denom
+
+    def wer_norm_ci(self, lang: str) -> tuple[float, float] | None:
+        """95% CI of the normalised WER, resampling utterances (§4 P0-2)."""
+        return wer_lib.bootstrap_ci(
+            [
+                {"wer_norm": u.wer_norm, "ref_words_norm": u.n_ref_words_norm}
+                for u in self._counted(lang)
+            ],
+            metric="wer_norm",
+            weight="ref_words_norm",
+        )
+
+    def wer_ci(self, lang: str) -> tuple[float, float] | None:
+        return wer_lib.bootstrap_ci(
+            [
+                {"wer": u.wer, "ref_words": u.n_ref_words}
+                for u in self._counted(lang)
+            ],
+            metric="wer",
+            weight="ref_words",
+        )
+
+    def flagged(self) -> list[UtteranceScore]:
+        return [u for u in self.utterances if u.flags]
 
     def cer_overall(self, lang: str) -> float | None:
         return self._char_weighted_cer(lang)
@@ -220,6 +274,10 @@ def _transcribe_corpus(corpus_dir: Path, manifest: dict) -> RunResult:
 
         wer_val, n_ref = wer_lib.wer(reference, hypothesis)
         cer_val, _ = wer_lib.cer(reference, hypothesis)
+        ref_norm = wer_lib.normalize_text(reference, entry["language"])
+        hyp_norm = wer_lib.normalize_text(hypothesis, entry["language"])
+        wer_norm_val, n_ref_norm = wer_lib.wer(ref_norm, hyp_norm)
+        cer_norm_val, _ = wer_lib.cer(ref_norm, hyp_norm)
         run.utterances.append(
             UtteranceScore(
                 utterance_id=entry["utterance_id"],
@@ -230,6 +288,11 @@ def _transcribe_corpus(corpus_dir: Path, manifest: dict) -> RunResult:
                 n_ref_words=n_ref,
                 cer=cer_val,
                 rtf=duration_s / wall,
+                wer_norm=wer_norm_val,
+                n_ref_words_norm=n_ref_norm,
+                cer_norm=cer_norm_val,
+                reference_norm=ref_norm,
+                flags=wer_lib.quality_flags(wer=wer_val, hypothesis=hypothesis),
                 number_norm_score=wer_lib.number_norm_overall(reference, hypothesis),
                 number_norm_by_category=wer_lib.number_norm_by_category(
                     reference, hypothesis
@@ -279,6 +342,10 @@ def _report_dict(run: RunResult) -> dict:
                 },
                 "reference": u.reference,
                 "hypothesis": u.hypothesis,
+                "wer_norm": round(u.wer_norm, 4),
+                "cer_norm": round(u.cer_norm, 4),
+                "reference_norm": u.reference_norm,
+                "flags": u.flags,
             }
             for u in run.utterances
         ],
@@ -292,6 +359,20 @@ def _report_dict(run: RunResult) -> dict:
             "number_norm_by_category": {
                 k: round(v, 4) for k, v in run.number_norm_by_category().items()
             },
+            # ── corpus-v2 §1.3: reported alongside, gating nothing yet ──
+            "normalizer_version": wer_lib.NORMALIZER_VERSION,
+            "wer_norm_overall_uk": run.wer_norm_overall("uk"),
+            "wer_norm_overall_en": run.wer_norm_overall("en"),
+            "wer_ci_uk": run.wer_ci("uk"),
+            "wer_ci_en": run.wer_ci("en"),
+            "wer_norm_ci_uk": run.wer_norm_ci("uk"),
+            "wer_norm_ci_en": run.wer_norm_ci("en"),
+            # Quarantined utterances, named. A silent exclusion would be a
+            # worse failure than the hallucination it removes.
+            "flagged": [
+                {"utterance_id": u.utterance_id, "flags": u.flags, "wer": round(u.wer, 4)}
+                for u in run.flagged()
+            ],
         },
     }
 

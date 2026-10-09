@@ -23,7 +23,7 @@
 #   generation-service    :8009   (S15 Layer C inline completion)
 #   marketing-service     :8012   (public demo booking funnel — no auth;
 #                                  8010/8011/8013-8015 belong to evidence-backend)
-#   llama-server          :8089   (S15 inference backend — mounts the
+#   llama-server          :8090   (S15 inference backend — mounts the
 #                                  host's `ollama pull gemma3:1b` blob)
 #   asr-worker            (no port — Redis-stream consumer)
 #
@@ -520,6 +520,12 @@ services:
     environment:
       <<: [*common-env, *auth-env, *postgres-dsns, *cors-env]
       REDIS_URL: redis://redis:6379/0
+      # WER eval scoring transcribes through the ordinary batch path
+      # (migration 0091) with the caller's own bearer forwarded — no
+      # service credential. Without asr-service reachable, recording,
+      # authoring and publishing still work; only scoring reports
+      # 'asr_unreachable'.
+      ASR_SERVICE_BASE_URL: http://asr-service:8000
     ports:
       - "127.0.0.1:8007:8000"
     healthcheck: *svc-healthcheck
@@ -557,7 +563,7 @@ services:
     volumes:
       - ~/.ollama/models/blobs/sha256-7cd4618c1faf8b7233c6c906dac1694b6a47684b37b8895d470ac688520b9c01:/models/gemma3-1b.gguf:ro
     ports:
-      - "127.0.0.1:8089:8080"
+      - "127.0.0.1:8090:8080"
 
   # ── generation-service — Layer C inline completion (S15) ──────────
   generation-service:

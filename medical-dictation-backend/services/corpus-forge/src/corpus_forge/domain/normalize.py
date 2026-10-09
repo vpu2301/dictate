@@ -1,36 +1,19 @@
-"""Text normalization shared by every pipeline stage.
+"""Text normalization — re-exported from the shared corpus_risk lib.
 
-`dedupe_key` is THE identity of a candidate: lowercased, whitespace-collapsed,
-apostrophe-normalised. Two spellings that normalise equal are one candidate.
+The implementation moved to `corpus_risk.normalize` when the HTTP ingest path
+(POST /corpus/candidates, autocomplete-service) had to compute the same
+`dedupe_key` and run the same tokenizer as the CLI. Two copies of a dedupe key
+means two candidate identities for one phrase, so there is one copy and this
+module points at it.
 """
 
 from __future__ import annotations
 
-import re
-from typing import Final
+from corpus_risk.normalize import (
+    collapse_whitespace,
+    dedupe_key,
+    normalize_apostrophe,
+    tokenize,
+)
 
-# Ukrainian text uses the modifier apostrophe ’ (U+2019); imports and LLM
-# output frequently carry ASCII ' or U+02BC. Normalise to ’ — the same
-# convention the corpus validator enforces on seed files.
-_APOSTROPHES: Final = re.compile(r"['ʼ‘‛`]")
-_WHITESPACE: Final = re.compile(r"\s+")
-
-# Tokens: letters/digits plus in-word apostrophe and hyphen
-# (сім’я, ліво-правий). Everything else separates.
-_TOKEN: Final = re.compile(r"[^\W_]+(?:[’'-][^\W_]+)*", re.UNICODE)
-
-
-def normalize_apostrophe(text: str) -> str:
-    return _APOSTROPHES.sub("’", text)
-
-
-def collapse_whitespace(text: str) -> str:
-    return _WHITESPACE.sub(" ", text).strip()
-
-
-def dedupe_key(phrase: str) -> str:
-    return collapse_whitespace(normalize_apostrophe(phrase).lower())
-
-
-def tokenize(text: str) -> list[str]:
-    return _TOKEN.findall(normalize_apostrophe(text))
+__all__ = ["collapse_whitespace", "dedupe_key", "normalize_apostrophe", "tokenize"]

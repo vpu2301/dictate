@@ -20,6 +20,7 @@ members = [
     "clinical-access",
     "core-service",
     "corpus-forge",
+    "corpus-risk",
     "crypto",
     "db",
     "demo",
@@ -44,6 +45,7 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "faster-whisper", marker = "sys_platform == 'darwin'", specifier = ">=1.0.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "silero-vad", marker = "sys_platform == 'darwin'", specifier = ">=6.0.0" },
     { name = "speechbrain", marker = "sys_platform == 'darwin'", specifier = ">=1.0.0" },
 ]
@@ -674,9 +676,11 @@ dependencies = [
     { name = "asyncpg" },
     { name = "audit" },
     { name = "auth" },
+    { name = "corpus-risk" },
     { name = "crypto" },
     { name = "db" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "marisa-trie" },
     { name = "observability" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -684,6 +688,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-json-logger" },
+    { name = "pyyaml" },
     { name = "rapidfuzz" },
     { name = "redis" },
     { name = "secret" },
@@ -701,16 +706,21 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
+pdf = [
+    { name = "weasyprint" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "audit", editable = "libs/audit" },
     { name = "auth", editable = "libs/auth" },
+    { name = "corpus-risk", editable = "libs/corpus_risk" },
     { name = "crypto", editable = "libs/crypto" },
     { name = "db", editable = "libs/db" },
     { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.23" },
     { name = "fastapi", specifier = ">=0.111.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.103" },
     { name = "marisa-trie", specifier = ">=1.1.0" },
@@ -723,14 +733,16 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
     { name = "python-json-logger", specifier = ">=2.0.7" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "rapidfuzz", specifier = ">=3.6" },
     { name = "redis", specifier = ">=5.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "secret", editable = "libs/secret" },
     { name = "storage", editable = "libs/storage" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29.0" },
+    { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=62.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["pdf", "dev"]
 
 [[package]]
 name = "av"
@@ -1107,6 +1119,7 @@ source = { editable = "services/corpus-forge" }
 dependencies = [
     { name = "asyncpg" },
     { name = "audit" },
+    { name = "corpus-risk" },
     { name = "db" },
     { name = "httpx" },
     { name = "pydantic" },
@@ -1129,6 +1142,7 @@ dev = [
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "audit", editable = "libs/audit" },
+    { name = "corpus-risk", editable = "libs/corpus_risk" },
     { name = "db", editable = "libs/db" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
@@ -1141,6 +1155,26 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "secret", editable = "libs/secret" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "corpus-risk"
+version = "0.1.0"
+source = { editable = "libs/corpus_risk" }
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
 ]
 provides-extras = ["dev"]
 

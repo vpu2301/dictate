@@ -18,6 +18,11 @@ dev = [
     # Linux/CI resolution and the production images are unchanged.
     "silero-vad>=6.0.0 ; sys_platform == 'darwin'",
     "speechbrain>=1.0.0 ; sys_platform == 'darwin'",
+    # scripts/eval/wer_lib.py imports autocomplete_service.eval_normalize
+    # directly rather than keeping a second copy of the rules to drift
+    # against, and those rules are YAML (corpus-v3 Epic A). Declared here so
+    # `make wer-eval-corpus` does not depend on a transitive pyyaml.
+    "pyyaml>=6.0",
 ]
 
 
@@ -69,6 +74,7 @@ known-first-party = [
     "template_models",
     "report_models",
     "notification_events",
+    "corpus_risk",
 ]
 
 [tool.mypy]
@@ -297,6 +303,7 @@ forbidden_modules = [
     "observability", "secret", "auth", "db", "audit", "messaging",
     "crypto", "storage", "asr_models", "template_models", "report_models",
     "notification_events",
+    "corpus_risk",
 ]
 
 [[tool.importlinter.contracts]]

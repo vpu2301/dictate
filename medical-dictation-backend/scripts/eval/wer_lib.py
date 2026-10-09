@@ -174,22 +174,26 @@ def build_manifest(corpus_dir: Path) -> dict:
         existing = json.loads(manifest_path.read_text("utf-8"))
 
     utterances: list[dict] = []
-    for sub in sorted(p for p in corpus_dir.iterdir() if p.is_dir()):
-        meta_path = sub / "metadata.json"
-        if not meta_path.exists():
-            continue
+    # Recursive: sprint-21's adversarial subsets live at
+    # subsets/<subset>/<utterance_id>/, and the console recorder's export
+    # writes them there. A top-level-only scan silently left every subset
+    # utterance out of the manifest — which meant out of the integrity
+    # check and out of the WER gate, with nothing saying so.
+    for meta_path in sorted(corpus_dir.rglob("metadata.json")):
+        sub = meta_path.parent
         meta = json.loads(meta_path.read_text("utf-8"))
-        utterances.append(
-            {
-                "utterance_id": meta["utterance_id"],
-                "language": meta["language"],
-                "specialty": meta["specialty"],
-                "duration_s": meta["duration_s"],
-                "dictation_source": meta.get("dictation_source", "unknown"),
-                "path": sub.name,
-                "sha256": {f: sha256_file(sub / f) for f in _MANIFEST_FILES},
-            }
-        )
+        entry = {
+            "utterance_id": meta["utterance_id"],
+            "language": meta["language"],
+            "specialty": meta["specialty"],
+            "duration_s": meta["duration_s"],
+            "dictation_source": meta.get("dictation_source", "unknown"),
+            "path": sub.relative_to(corpus_dir).as_posix(),
+            "sha256": {f: sha256_file(sub / f) for f in _MANIFEST_FILES},
+        }
+        if meta.get("subset"):
+            entry["subset"] = meta["subset"]
+        utterances.append(entry)
 
     return {
         "corpus_version": existing.get("corpus_version", corpus_dir.name),
@@ -224,3 +228,50 @@ def verify_manifest(corpus_dir: Path, manifest: dict | None = None) -> list[str]
                     f"(manifest {expected[:12]}… ≠ actual {actual[:12]}…)"
                 )
     return problems
+
+
+# ══════════════════════════════════════════════════════════════════════
+# corpus-v2: normalised scoring, intervals, hallucination flags
+# ══════════════════════════════════════════════════════════════════════
+#
+# These three delegate to the service modules rather than reimplementing
+# them. `eval_wer` and this module duplicate the Levenshtein arithmetic on
+# purpose — that split predates the service and is guarded by a parity test
+# — but repeating it a second time for the v2 metrics would mean two number
+# normalisers, two stoplists and two bootstrap implementations, drifting
+# apart with nothing to catch it.
+#
+# The imported modules are stdlib-only and import nothing from the service
+# (no FastAPI, no asyncpg, no database), so this module keeps the property
+# that matters: it runs on a laptop with no stack up.
+
+from autocomplete_service import eval_normalize as _norm  # noqa: E402
+from autocomplete_service.eval_flags import detect as _detect_flags  # noqa: E402
+from autocomplete_service.eval_stats import bootstrap_ci as _bootstrap_ci  # noqa: E402
+
+#: Stamped into every report so a number can be traced to the rules that
+#: produced it.
+NORMALIZER_VERSION = _norm.VERSION
+
+
+def normalize_text(text: str, language: str) -> str:
+    """Canonical form for the normalised WER (corpus-v2 §1.3.1)."""
+    return _norm.normalize(text, language)
+
+
+def quality_flags(*, wer: float, hypothesis: str) -> list[str]:
+    """Hallucination flags computable without the engine's VAD.
+
+    The CLI gate reads a corpus directory, not an ASR job, so
+    `vad_seconds_speech` is not available here and the two VAD-based flags
+    cannot fire. They are absent rather than assumed clean — the same
+    distinction the service makes.
+    """
+    return _detect_flags(wer=wer, hypothesis=hypothesis)
+
+
+def bootstrap_ci(
+    items: list[dict], *, metric: str, weight: str
+) -> tuple[float, float] | None:
+    """95% CI of a weighted error rate, resampling utterances (§4 P0-2)."""
+    return _bootstrap_ci(items, metric=metric, weight=weight)

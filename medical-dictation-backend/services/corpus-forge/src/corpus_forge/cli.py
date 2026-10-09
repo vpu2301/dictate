@@ -49,9 +49,8 @@ from corpus_forge.domain.phrasing import load_template_set, phrasify
 from corpus_forge.domain.pii import contains_pii
 from corpus_forge.domain.quota import check_quota, load_quota
 from corpus_forge.domain.release import ReleaseRow, build_manifest
-from corpus_forge.domain.risk import RiskFlagger, load_wordlist
-from corpus_forge.domain.tiers import route_tier
 from corpus_forge.domain.validate import validate_release_csv
+from corpus_risk import RiskFlagger, default_flagger, load_wordlist, route_tier
 from db import create_pool
 
 logger = logging.getLogger("corpus_forge")
@@ -91,13 +90,10 @@ def _local_client(settings: Settings) -> LocalLlamaClient | LocalOllamaClient:
 
 
 def _build_flagger() -> RiskFlagger:
-    risk_dir = SEEDS_ROOT / "risk"
-    drugs = risk_dir / "drug_stems.txt"
-    abbrevs = risk_dir / "abbrev_allowlist.txt"
-    return RiskFlagger(
-        drug_lexicon=load_wordlist(drugs) if drugs.exists() else frozenset(),
-        abbrev_allowlist=load_wordlist(abbrevs) if abbrevs.exists() else frozenset(),
-    )
+    """The lexicons now travel with corpus_risk, so the CLI and the console's
+    POST /corpus/candidates flag identically — and neither depends on being
+    run from a repo checkout."""
+    return default_flagger()
 
 
 def _draft_from_phrase(

@@ -14,6 +14,7 @@ from autocomplete_service.routers.corpus import (
     PromoteRequest,
     ReviewRequest,
     SubmitCandidateRequest,
+    corpus_gaps,
     corpus_releases,
     corpus_stats,
     list_candidates,
@@ -203,6 +204,50 @@ async def test_submit_creates_candidate_and_audits():
     assert "phrase" not in event["payload"]
     assert event["payload"]["capture"] == "dictated"
     assert event["payload"]["text_length"] == len("огляд без особливостей")
+
+
+# ── tier routing (migration 0098) ──────────────────────────────────────
+#
+# Before 0098 this route wrote `tier = 2, risk_flags = '{}'` for every phrase
+# it was handed. The review queue serves tier 3, so nothing authored in the
+# console could ever reach a reviewer — and a phrase carrying a dose was one
+# jury majority away from a clinician's cursor with no human having read it.
+# These assert the routing is the shared corpus_risk one, on both sides of it:
+# what goes to the database, and what comes back to the author.
+
+
+async def test_submit_routes_risk_flagged_phrase_to_the_human_queue():
+    conn = _FakeConn(row={"out_id": uuid4(), "out_status": "created"})
+    state = _State(conn)
+    install_state(state)
+
+    # "без" is a negation; the dose regex catches the digits and the unit.
+    out = await submit_candidate(
+        SubmitCandidateRequest(phrase="бісопролол 5 мг без пауз", language="uk"),
+        _claims(),
+    )
+
+    assert out.tier == 3
+    assert "dose" in out.risk_flags and "negation" in out.risk_flags
+    _, args = conn.fetches[0]
+    assert args[7] == 3                       # p_tier
+    assert set(args[8]) == set(out.risk_flags)  # p_risk_flags
+    # The audit trail records the routing decision, not just the arrival.
+    assert state.audit_writer.events[0]["payload"]["tier"] == 3
+
+
+async def test_submit_routes_clean_phrase_to_tier_2():
+    conn = _FakeConn(row={"out_id": uuid4(), "out_status": "created"})
+    install_state(_State(conn))
+
+    out = await submit_candidate(
+        SubmitCandidateRequest(phrase="загальний стан задовільний", language="uk"),
+        _claims(),
+    )
+
+    assert out.tier == 2 and out.risk_flags == []
+    _, args = conn.fetches[0]
+    assert args[7] == 2 and args[8] == []
 
 
 @pytest.mark.parametrize(
@@ -399,3 +444,34 @@ async def test_releases_lists_register():
     out = await corpus_releases(_claims())
     assert out.items[0].version == "v0.0.1"
     assert out.items[0].phrase_count == 32
+
+
+async def test_gaps_maps_rows_and_passes_limit():
+    conn = _FakeConn(
+        rows=[
+            {"prefix": "скарги на біль у", "impressions": 41, "accepts": 0,
+             "all_timeouts": False},
+            {"prefix": "діагноз гіпертонічна", "impressions": 12, "accepts": 0,
+             "all_timeouts": True},
+        ]
+    )
+    install_state(_State(conn))
+
+    out = await corpus_gaps(_claims(), limit=25)
+
+    assert [g.prefix for g in out.items] == [
+        "скарги на біль у", "діагноз гіпертонічна",
+    ]
+    assert out.items[0].impressions == 41
+    assert out.items[1].all_timeouts is True
+    sql, args = conn.fetches[0]
+    assert "corpus_telemetry_gaps" in sql
+    assert args == (25,)
+
+
+async def test_gaps_empty_is_an_empty_list():
+    conn = _FakeConn(rows=[])
+    install_state(_State(conn))
+
+    out = await corpus_gaps(_claims())
+    assert out.items == []

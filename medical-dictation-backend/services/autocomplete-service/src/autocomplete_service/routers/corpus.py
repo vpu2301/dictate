@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from auth import Claims
+from corpus_risk import default_flagger, route_tier
 from db import tenant_connection
 
 from .. import audit_kinds
@@ -110,6 +111,19 @@ class ReleaseListDTO(BaseModel):
     items: list[ReleaseDTO]
 
 
+class GapDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    prefix: str  # PII-scrubbed before it was ever stored (sprint 10)
+    impressions: int
+    accepts: int  # always 0 by construction — kept explicit, not implied
+    all_timeouts: bool
+
+
+class GapListDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[GapDTO]
+
+
 class SubmitCandidateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     phrase: str = Field(min_length=1, max_length=80)
@@ -123,6 +137,13 @@ class SubmitCandidateResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: UUID
     review_state: Literal["candidate"]
+    # Where the router actually put it (migration 0098). The author asked
+    # "where did my phrase go?" and the answer used to be unanswerable from
+    # this response: tier 3 means a human reads it next, tier 2 means the jury
+    # does. Returned so the worksheet can say which, with the flags that
+    # decided it.
+    tier: int
+    risk_flags: list[str]
 
 
 class PromoteRequest(BaseModel):
@@ -204,12 +225,29 @@ async def submit_candidate(
     """Authored ingest: a phrase typed or dictated in the console fill
     worksheet becomes a GLOBAL candidate awaiting review — never anything
     pre-accepted. PII is rejected here (422) before any row exists; the
-    phrase-write rate limit is shared with the library POST."""
+    phrase-write rate limit is shared with the library POST.
+
+    TIER ROUTING (migration 0098). The phrase is risk-flagged and routed with
+    corpus_risk — the module corpus-forge runs on mined, generated and
+    imported candidates — so a dose, a drug, a laterality, a negation, an ICD
+    code or an unknown abbreviation lands in tier 3 and reaches the human
+    review queue. Until 0098 this route wrote tier 2 with no flags for
+    everything it was given, which meant nothing submitted from the console
+    could appear in that queue at all, and a phrase carrying a dose was one
+    jury majority from a clinician's cursor unread."""
     state = get_state()
     await _check_rate_limit(state, claims)
     await _reject_pii(
         state, claims, field="phrase", text=body.phrase,
         target_kind="corpus_candidates",
+    )
+
+    risk_flags = default_flagger().flags(body.phrase)
+    # validators_passed is True because the schema's own constraints (length,
+    # language, the PII gate above) are the validators this path has; it only
+    # ever moves tier 1 vs 2 for MINED candidates, and nothing here is mined.
+    tier = route_tier(
+        source_kind="authored", risk_flags=risk_flags, validators_passed=True
     )
 
     async with tenant_connection(state.app_pool, claims.tid) as conn:
@@ -223,6 +261,8 @@ async def submit_candidate(
                 capture=body.capture,
                 submitted_by=claims.sub,
                 tenant_id=claims.tid,
+                tier=tier,
+                risk_flags=risk_flags,
             )
         except asyncpg.UniqueViolationError:
             # Lost a same-identity race after the in-fn duplicate check.
@@ -258,9 +298,20 @@ async def submit_candidate(
             "language": body.language,
             "capture": body.capture,
             "text_length": len(body.phrase),
+            # Which queue this phrase entered, and why. Flag NAMES are not
+            # phrase text — they are the routing decision, and an audit that
+            # cannot show why a dose phrase skipped human review is not an
+            # audit of this pipeline.
+            "tier": tier,
+            "risk_flags": risk_flags,
         },
     )
-    return SubmitCandidateResponse(id=candidate_id, review_state="candidate")
+    return SubmitCandidateResponse(
+        id=candidate_id,
+        review_state="candidate",
+        tier=tier,
+        risk_flags=risk_flags,
+    )
 
 
 @router.post("/promote", response_model=PromoteResponse)
@@ -345,6 +396,32 @@ async def review_candidate(
         },
     )
     return ReviewResponse(id=candidate_id, review_state=new_state)
+
+
+@router.get("/gaps", response_model=GapListDTO)
+async def corpus_gaps(
+    claims: Annotated[Claims, Depends(requires("corpus.review", "phrase"))],
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+) -> GapListDTO:
+    """The demand half of "what should be authored": prefixes users typed for
+    which autocomplete produced zero accepted suggestions, ranked by volume —
+    the same rows `corpus-forge gaps` prints (migration 0090 pins the shared
+    query). Platform-wide by design; prefixes were PII-scrubbed at ingest and
+    redaction-marked rows are excluded."""
+    state = get_state()
+    async with tenant_connection(state.app_pool, claims.tid) as conn:
+        rows = await corpus_repo.telemetry_gaps(conn, limit=limit)
+    return GapListDTO(
+        items=[
+            GapDTO(
+                prefix=r["prefix"],
+                impressions=int(r["impressions"]),
+                accepts=int(r["accepts"]),
+                all_timeouts=bool(r["all_timeouts"]),
+            )
+            for r in rows
+        ]
+    )
 
 
 @router.get("/stats", response_model=StatsDTO)

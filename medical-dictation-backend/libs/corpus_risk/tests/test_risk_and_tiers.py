@@ -1,8 +1,9 @@
 """Risk-flag lexicon (over-flag bias) + exhaustive tier routing table."""
 
 import pytest
-from corpus_forge.domain.risk import RiskFlagger
-from corpus_forge.domain.tiers import SOURCE_KINDS, route_tier
+
+from corpus_risk.risk import RISK_FLAGS, RiskFlagger, default_flagger
+from corpus_risk.tiers import SOURCE_KINDS, route_tier
 
 FLAGGER = RiskFlagger(
     drug_lexicon=frozenset({"бісопролол", "bisoprolol"}),
@@ -63,3 +64,32 @@ class TestTierRouting:
     def test_unknown_source_kind_raises(self) -> None:
         with pytest.raises(ValueError):
             route_tier(source_kind="scraped", risk_flags=[], validators_passed=True)
+
+
+class TestDefaultFlagger:
+    """The flagger both ingest paths get when they ask for "the" flagger.
+
+    These are the wordlists that ship with the package, so a phrase that
+    reaches tier 3 through the CLI reaches tier 3 through the HTTP route too.
+    That equivalence is the whole reason this lib exists — before it, the
+    console's POST /corpus/candidates filed everything as tier 2.
+    """
+
+    def test_packaged_lexicons_are_loaded(self) -> None:
+        # A drug with no digits: only the packaged lexicon can catch this one.
+        assert "drug" in default_flagger().flags("аторвастатин увечері")
+
+    def test_allowlisted_abbreviation_is_not_flagged(self) -> None:
+        assert default_flagger().flags("ЕКГ у межах норми") == []
+
+    def test_authored_dose_phrase_routes_to_the_human_queue(self) -> None:
+        flags = default_flagger().flags("бісопролол 5 мг двічі на добу")
+        assert route_tier(source_kind="authored", risk_flags=flags, validators_passed=True) == 3
+
+    def test_clean_authored_phrase_stays_tier_2(self) -> None:
+        flags = default_flagger().flags("загальний стан задовільний")
+        assert route_tier(source_kind="authored", risk_flags=flags, validators_passed=True) == 2
+
+    def test_flags_are_drawn_from_the_closed_vocabulary(self) -> None:
+        flags = default_flagger().flags("не приймає аспірин 75 мг праворуч, I25.1, ЕКГ")
+        assert set(flags) <= set(RISK_FLAGS)

@@ -1,0 +1,28 @@
+[project]
+name = "corpus-risk"
+version = "0.1.0"
+description = "The corpus risk flagger and tier router — ONE implementation, shared by corpus-forge (CLI ingest) and autocomplete-service (HTTP ingest)"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/corpus_risk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.mypy]
+strict = true
+python_version = "3.12"

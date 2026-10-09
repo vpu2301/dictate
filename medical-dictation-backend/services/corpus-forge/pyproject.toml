@@ -13,12 +13,16 @@ dependencies = [
     "db",
     "audit",
     "secret",
+    # The risk flagger + tier router: shared with autocomplete-service so the
+    # CLI and the console's POST /corpus/candidates route phrases identically.
+    "corpus-risk",
 ]
 
 [tool.uv.sources]
 db = { workspace = true }
 audit = { workspace = true }
 secret = { workspace = true }
+corpus-risk = { workspace = true }
 
 [project.scripts]
 corpus-forge = "corpus_forge.cli:main"
